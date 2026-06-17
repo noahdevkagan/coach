@@ -1,0 +1,24 @@
+# Sample meeting transcript (synthetic) — exercises several rubric signals.
+# Format: [mm:ss] SPEAKER: text   ("You" = the user being coached.)
+
+[00:00] You: Okay, three things today — the launch date, the pricing change, and the churn spike. Let's start with launch.
+[00:14] Dana: Engineering says the build is stable. I'd feel good shipping it.
+[00:29] Priya: Marketing's assets are ready too. I think we're aligned on shipping.
+[00:41] Dana: Yeah, I'm on board. Same page here.
+[01:05] You: Great. So on launch — what else do we need to cover before we move on?
+[01:22] Priya: Well, one open thing, should we soft-launch to 10% first?
+[01:38] You: Hm. Let's keep talking through the rollout mechanics.
+[02:10] Dana: We could do a staged rollout over a few weeks, roughly.
+[02:31] You: Roughly when, though? I want this concrete.
+[02:44] Dana: I should be able to get it out sometime next month, ballpark.
+[03:20] Priya: Switching to pricing — I actually think the 20% increase is too aggressive.
+[03:36] Marcus: I hear you, but it'll be fine, customers expect it.
+[03:50] Priya: I mean it's a real risk for the mid-market segment specifically.
+[04:02] Marcus: Sure, sure. Anyway, let's move to churn.
+[04:30] You: On churn — the number. We missed net retention by eight points last month.
+[04:48] Marcus: Right. So for the launch, can we circle back to the soft-launch idea?
+[05:10] Dana: As we discussed earlier, staged rollout — I think that's settled though.
+[05:30] You: We keep reframing the rollout. First staged, then soft-launch, now back to staged.
+[05:52] Priya: So who owns the final rollout call, and by when?
+[06:08] Marcus: We haven't decided that yet.
+[06:35] You: Let's wrap. Anything we left hanging?

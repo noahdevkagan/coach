@@ -1,0 +1,23 @@
+# Ground-truth post-meeting notes for sample_meeting.txt.
+# What the user flagged AFTER the meeting. The backtest asks: did the coach
+# surface these live, and how much earlier than the user caught them?
+
+- signal_id: alignment_reached_still_talking
+  t: "01:05"
+  text: "Team had already agreed to ship the launch by 00:41, but we kept talking."
+
+- signal_id: hedge_not_pinned
+  t: "02:44"
+  text: "Dana committed to 'sometime next month, ballpark' — never pinned to a date."
+
+- signal_id: buried_signal_ignored
+  t: "04:30"
+  text: "Missed net retention by 8 points — stated and then we moved past it."
+
+- signal_id: reopening_closed_thread
+  t: "04:48"
+  text: "Marcus reopened the soft-launch question after rollout was settled."
+
+- signal_id: no_decision_owner_date
+  t: "06:08"
+  text: "Final rollout call had no owner and no date by the end."
