@@ -1,0 +1,74 @@
+# Meeting Coach — personal rubric (v1, example config)
+# Swappable at startup. Swapping this file swaps the coach's judgment with no code change.
+# Derived from real post-meeting evaluations. Ships as the example.
+
+version: 1
+name: personal
+
+# Cadence (tunable). Heartbeat plus event-driven extra checks.
+cadence:
+  heartbeat_seconds: 45
+  extra_check_on_long_pause_seconds: 8     # silence longer than this triggers a check
+  extra_check_on_speaker_handoff: true     # a channel/speaker switch triggers a check
+
+# Rolling window the model sees each trigger.
+window:
+  transcript_seconds: 240        # ~4 min of recent transcript
+  keep_running_summary: true     # plus a running summary of everything before the window
+
+# Per-trigger output budget.
+output:
+  max_calls_per_trigger: 3
+  min_confidence_to_show: 0.55   # global floor; per-signal floors below can be stricter
+
+# Confidence thresholds by risk tier.
+# Tier A (low false-positive, structural/explicit): ship hot.
+# Tier B (tone/intent, diarization-dependent): hold behind a higher bar until the backtest earns them in.
+tiers:
+  A: { min_confidence: 0.55 }
+  B: { min_confidence: 0.80 }
+
+signals:
+  - id: no_decision_owner_date
+    tier: A
+    description: A clear question has been open N minutes with no decision, owner, and date stated.
+    params: { open_minutes_threshold: 10 }
+    nudge: "12 min on this, nothing named. Decide it or park it."
+
+  - id: alignment_reached_still_talking
+    tier: A
+    description: Two or more people state compatible positions on the open question.
+    nudge: "They just converged. Close it before it reopens."
+
+  - id: reopening_closed_thread
+    tier: A
+    description: A resolved topic gets relitigated.
+    nudge: "This was settled. Reopening on purpose, or drift?"
+
+  - id: buried_signal_ignored
+    tier: A
+    description: A high-stakes statement (a number miss, churn, a named risk) that the conversation moves past.
+    nudge: "That was the headline and we moved on."
+
+  - id: smoothing_real_disagreement
+    tier: B
+    needs_diarization: true
+    description: Someone draws a distinction and gets a smoothing or null response.
+    nudge: "That was a distinction, not agreement. Name it."
+
+  - id: lens_thrashing
+    tier: B
+    description: Repeated reframes of the same artifact with no decision between them.
+    nudge: "Third reframe, still no ranking. Force the top 3."
+
+  - id: hedge_not_pinned
+    tier: B
+    description: A commitment stated as a range or soft language.
+    nudge: "That was a range, not a date. Pin it."
+
+# Fire when the meeting winds down, not as live nags.
+end_of_meeting:
+  - id: decision_playback
+    description: A playback of every decision with its owner and date.
+  - id: closer_prompt
+    prompt: "What is the one thing you said today you don't think I heard?"

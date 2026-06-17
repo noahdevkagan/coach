@@ -1,0 +1,55 @@
+# Meeting Coach — default rubric (generic, for other users)
+# Personal and company specifics stripped. A neutral starting point users edit.
+
+version: 1
+name: default
+
+cadence:
+  heartbeat_seconds: 45
+  extra_check_on_long_pause_seconds: 8
+  extra_check_on_speaker_handoff: true
+
+window:
+  transcript_seconds: 240
+  keep_running_summary: true
+
+output:
+  max_calls_per_trigger: 3
+  min_confidence_to_show: 0.6
+
+tiers:
+  A: { min_confidence: 0.6 }
+  B: { min_confidence: 0.8 }
+
+signals:
+  - id: no_decision_owner_date
+    tier: A
+    description: A clear question has been open too long with no decision, owner, and date stated.
+    params: { open_minutes_threshold: 10 }
+    nudge: "This has been open a while with nothing named. Decide it or park it."
+
+  - id: alignment_reached_still_talking
+    tier: A
+    description: Two or more people state compatible positions on the open question.
+    nudge: "Sounds like agreement. Consider closing this out."
+
+  - id: reopening_closed_thread
+    tier: A
+    description: A previously resolved topic gets relitigated.
+    nudge: "This seemed settled earlier. Intentional, or drift?"
+
+  - id: buried_signal_ignored
+    tier: A
+    description: A high-stakes statement (a metric, a risk, a concern) the conversation moves past.
+    nudge: "That sounded important and the conversation moved on."
+
+  - id: hedge_not_pinned
+    tier: B
+    description: A commitment stated as a range or soft language.
+    nudge: "That was a range, not a firm commitment. Worth pinning down."
+
+end_of_meeting:
+  - id: decision_playback
+    description: A playback of every decision with its owner and date.
+  - id: closer_prompt
+    prompt: "Anything important that you don't think was fully heard today?"
