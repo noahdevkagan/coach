@@ -141,6 +141,7 @@ actor OllamaClient {
                 "num_predict": 512,
             ],
             "stream": false,
+            "think": false,
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
@@ -159,10 +160,16 @@ actor OllamaClient {
             throw OllamaError.serverError(errorMsg)
         }
 
-        guard let message = json["message"] as? [String: Any],
-              let content = message["content"] as? String else {
-            mclog("[Ollama] ERROR: missing message.content in response keys=\(json.keys)")
+        guard let message = json["message"] as? [String: Any] else {
+            mclog("[Ollama] ERROR: missing message in response keys=\(json.keys)")
             return "[]"
+        }
+        var content = message["content"] as? String ?? ""
+        // Fallback: if content is empty but thinking has content (thinking models),
+        // try to extract JSON from the thinking field
+        if content.isEmpty, let thinking = message["thinking"] as? String, !thinking.isEmpty {
+            mclog("[Ollama] Content empty, checking thinking field (\(thinking.count) chars)")
+            content = thinking
         }
         mclog("[Ollama] Got \(content.count) chars from model")
         return content
