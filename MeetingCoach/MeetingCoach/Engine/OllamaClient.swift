@@ -137,7 +137,7 @@ actor OllamaClient {
             ],
             "options": [
                 "temperature": 0.3,
-                "num_ctx": 4096,
+                "num_ctx": 8192,
                 "num_predict": 512,
             ],
             "stream": false,
