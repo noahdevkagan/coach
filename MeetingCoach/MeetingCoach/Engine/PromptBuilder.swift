@@ -37,28 +37,38 @@ enum PromptBuilder {
         // Inject training examples as few-shot calibration
         let examples = trainingExamples.isEmpty ? TrainingStore.load() : trainingExamples
         if !examples.isEmpty {
-            lines += ["", "CALIBRATION — real examples from past meetings the coach flagged correctly:"]
+            lines += ["", "CALIBRATION — real coaching feedback from past meetings:"]
             // Use the most recent examples (up to 3 to stay within context)
             for example in examples.suffix(3) {
-                let signals = example.signals
-                if signals.isEmpty { continue }
                 lines.append("")
                 lines.append("  Example transcript excerpt:")
-                // Include first few lines of transcript
                 let excerptLines = example.transcriptExcerpt.components(separatedBy: CharacterSet.newlines).prefix(6)
                 for l in excerptLines {
                     lines.append("    \(l)")
                 }
-                lines.append("  Correct signals:")
-                for sig in signals {
-                    var parts = "    - \(sig.signalId)"
-                    if !sig.evidence.isEmpty { parts += " | evidence: \"\(sig.evidence.prefix(100))\"" }
-                    if !sig.nudge.isEmpty { parts += " | nudge: \"\(sig.nudge.prefix(60))\"" }
-                    lines.append(parts)
+
+                if !example.signals.isEmpty {
+                    // Structured signals available
+                    lines.append("  Correct signals:")
+                    for sig in example.signals {
+                        var parts = "    - \(sig.signalId)"
+                        if !sig.evidence.isEmpty { parts += " | evidence: \"\(sig.evidence.prefix(100))\"" }
+                        if !sig.nudge.isEmpty { parts += " | nudge: \"\(sig.nudge.prefix(60))\"" }
+                        lines.append(parts)
+                    }
+                } else if !example.feedback.isEmpty {
+                    // Freeform coaching notes — include directly as context
+                    lines.append("  Coach's post-meeting feedback:")
+                    // Trim to ~800 chars to stay within context budget
+                    let trimmed = String(example.feedback.prefix(800))
+                    for l in trimmed.components(separatedBy: CharacterSet.newlines) {
+                        let t = l.trimmingCharacters(in: .whitespaces)
+                        if !t.isEmpty { lines.append("    \(t)") }
+                    }
                 }
             }
             lines.append("")
-            lines.append("Use the above examples to calibrate your detection sensitivity. These are the kinds of patterns to catch.")
+            lines.append("Use the above feedback to calibrate your detection. These are the patterns and mistakes the speaker actually makes. Flag similar patterns aggressively.")
         }
 
         lines += [
