@@ -1,72 +1,101 @@
-# Meeting Coach — personal rubric (v1, example config)
-# Swappable at startup. Swapping this file swaps the coach's judgment with no code change.
-# Derived from real post-meeting evaluations. Ships as the example.
+# Meeting Coach — Noah's personal rubric (v2)
+# Trained from real meeting analysis. 9 triggers derived from observed patterns.
+# The meta-lesson: you default to Socratic when you already know the answer.
+# Your fastest unlock is "state the end state in sentence one."
 
-version: 1
+version: 2
 name: personal
 
-# Cadence (tunable). Heartbeat plus event-driven extra checks.
 cadence:
-  heartbeat_seconds: 45
-  extra_check_on_long_pause_seconds: 8     # silence longer than this triggers a check
-  extra_check_on_speaker_handoff: true     # a channel/speaker switch triggers a check
+  heartbeat_seconds: 15
+  extra_check_on_long_pause_seconds: 8
+  extra_check_on_speaker_handoff: true
 
-# Rolling window the model sees each trigger.
 window:
-  transcript_seconds: 240        # ~4 min of recent transcript
-  keep_running_summary: true     # plus a running summary of everything before the window
+  transcript_seconds: 300        # 5 min rolling window
+  keep_running_summary: true
 
-# Per-trigger output budget.
 output:
   max_calls_per_trigger: 3
-  min_confidence_to_show: 0.55   # global floor; per-signal floors below can be stricter
+  min_confidence_to_show: 0.45   # lower floor — better to over-flag than miss
 
-# Confidence thresholds by risk tier.
-# Tier A (low false-positive, structural/explicit): ship hot.
-# Tier B (tone/intent, diarization-dependent): hold behind a higher bar until the backtest earns them in.
 tiers:
-  A: { min_confidence: 0.55 }
-  B: { min_confidence: 0.80 }
+  A: { min_confidence: 0.45 }    # ship these hot
+  B: { min_confidence: 0.60 }    # moderate bar
 
 signals:
-  - id: no_decision_owner_date
-    tier: A
-    description: A clear question has been open N minutes with no decision, owner, and date stated.
-    params: { open_minutes_threshold: 10 }
-    nudge: "12 min on this, nothing named. Decide it or park it."
+  # --- TIER A: Ship first. These three alone cut the training meeting in half. ---
 
-  - id: alignment_reached_still_talking
+  - id: repetition_loop
     tier: A
-    description: Two or more people state compatible positions on the open question.
-    nudge: "They just converged. Close it before it reopens."
+    description: >
+      You asked the same question or made the same point 2+ times in different words,
+      and the room gave the same answer each time. You're not after an answer — you're
+      after a document or commitment. Name it.
+    nudge: "You've asked this twice. They answered. Name the deliverable you actually want."
 
-  - id: reopening_closed_thread
+  - id: escalation_rising
     tier: A
-    description: A resolved topic gets relitigated.
-    nudge: "This was settled. Reopening on purpose, or drift?"
+    description: >
+      The other person's replies are getting shorter, more defensive, or include phrases
+      like "I disagree", "that's actually what we do", "you already have an end goal",
+      "fair", "sure" (resignation tokens). Temperature is rising.
+    nudge: "Switch from advocacy to inquiry. Ask what THEY would build."
 
-  - id: buried_signal_ignored
+  - id: resolution_capture
     tier: A
-    description: A high-stakes statement (a number miss, churn, a named risk) that the conversation moves past.
-    nudge: "That was the headline and we moved on."
+    description: >
+      A deliverable, owner, or next step was just stated clearly. Lock it with a name
+      and date before the conversation drifts past it or you reopen it.
+    nudge: "That's the deliverable. Lock owner and date, confirm, and stop."
 
-  - id: smoothing_real_disagreement
+  # --- TIER A: High-value structural catches ---
+
+  - id: unaddressed_objection
+    tier: A
+    description: >
+      Someone stated a counterpoint, concern, or framing ("it's an art and a science",
+      "depends on the product", "that's not how it works") and you talked past it
+      without acknowledging it. Fires when their objection appears 2+ times unaddressed.
+    nudge: "They just gave you the central objection. Acknowledge it before pushing again."
+
+  - id: stacked_asks
+    tier: A
+    description: >
+      You bundled 3+ asks, questions, or topics into one turn without labeling them.
+      The listener can only track one at a time.
+    nudge: "You're stacking asks. Label them 1, 2, 3 and take one at a time."
+
+  - id: global_negative
+    tier: A
+    description: >
+      You said "we don't", "we never", "nobody does", "I don't think we do that" —
+      a sweeping negative that makes the other person defend instead of inform.
+    nudge: "Don't say 'we don't do X.' Say 'walk me through how we do X today.'"
+
+  # --- TIER B: Tone and pattern detection ---
+
+  - id: talk_time_imbalance
     tier: B
-    needs_diarization: true
-    description: Someone draws a distinction and gets a smoothing or null response.
-    nudge: "That was a distinction, not agreement. Name it."
+    description: >
+      You've been talking significantly more than everyone else in the recent window.
+      Over ~65% of the words are yours. Time to listen.
+    nudge: "You're over 65% talk time. Ask one open question and go quiet."
 
-  - id: lens_thrashing
+  - id: promise_vs_clock
     tier: B
-    description: Repeated reframes of the same artifact with no decision between them.
-    nudge: "Third reframe, still no ranking. Force the top 3."
+    description: >
+      You said "keep this short", "quick", "tight", "just two questions" but the
+      meeting has continued well past that on the same topic.
+    nudge: "You promised short. You're still on one topic. Park it or close it."
 
-  - id: hedge_not_pinned
-    tier: B
-    description: A commitment stated as a range or soft language.
-    nudge: "That was a range, not a date. Pin it."
+  - id: positive_reinforcement
+    tier: A
+    description: >
+      Something good just happened — a clean specific ask, a direct action-item with
+      owner and date, a good close, someone naming what they need clearly. Reinforce it.
+    nudge: "Good. That was clean and specific. More of that."
 
-# Fire when the meeting winds down, not as live nags.
 end_of_meeting:
   - id: decision_playback
     description: A playback of every decision with its owner and date.
