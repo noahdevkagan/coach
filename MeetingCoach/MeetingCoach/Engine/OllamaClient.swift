@@ -89,6 +89,9 @@ let modelCatalog: [CatalogModel] = [
     CatalogModel(name: "deepseek-r1", tag: "7b",
                  description: "DeepSeek R1, reasoning-focused",
                  parameterSize: "7B", diskSize: "~4.7 GB"),
+    CatalogModel(name: "glm4", tag: "9b",
+                 description: "THUDM GLM-4 — strong bilingual, good structured output",
+                 parameterSize: "9B", diskSize: "~5.5 GB"),
 ]
 
 enum OllamaError: Error, LocalizedError {
