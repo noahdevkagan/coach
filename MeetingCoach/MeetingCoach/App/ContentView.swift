@@ -309,7 +309,7 @@ struct SidebarView: View {
                     Divider()
                     TranscriptSection(simulation: simulation, isDragOverEntireView: isDragOver)
                     Divider()
-                    FeedbackSection(simulation: simulation)
+                    FeedbackSection(simulation: simulation, liveSession: liveSession)
                     Divider()
                     ModelSection(settings: settings)
                     Divider()
@@ -954,6 +954,25 @@ struct LiveSection: View {
 
 struct FeedbackSection: View {
     @Bindable var simulation: SimulationViewModel
+    @Bindable var liveSession: LiveSessionViewModel
+
+    /// Use live session utterances if available, otherwise simulation transcript
+    private var activeUtterances: [Utterance] {
+        if liveSession.hasSession {
+            return liveSession.utterances
+        }
+        return simulation.utterances
+    }
+
+    private var sourceLabel: String {
+        if liveSession.hasSession {
+            return "live session"
+        }
+        if let name = simulation.transcriptFileName {
+            return name
+        }
+        return "transcript"
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -962,6 +981,11 @@ struct FeedbackSection: View {
 
             Text("Paste coaching feedback to improve future detection")
                 .font(.caption).foregroundStyle(.secondary)
+
+            if !activeUtterances.isEmpty {
+                Text("Will pair with: \(sourceLabel)")
+                    .font(.caption2).foregroundStyle(.tertiary)
+            }
 
             TextEditor(text: $simulation.feedbackText)
                 .font(.system(.caption, design: .monospaced))
@@ -976,12 +1000,13 @@ struct FeedbackSection: View {
 
             HStack {
                 Button {
-                    simulation.saveTrainingFeedback()
+                    saveTraining()
                 } label: {
                     Label("Save as Training", systemImage: "tray.and.arrow.down")
                 }
                 .buttonStyle(.bordered)
-                .disabled(simulation.feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(simulation.feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                          || activeUtterances.isEmpty)
 
                 if simulation.feedbackSaved {
                     Label("Saved", systemImage: "checkmark.circle.fill")
@@ -998,6 +1023,28 @@ struct FeedbackSection: View {
                 }
             }
         }
+    }
+
+    private func saveTraining() {
+        let text = simulation.feedbackText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, !activeUtterances.isEmpty else { return }
+
+        let excerpt = activeUtterances.prefix(80)
+            .map { "[\($0.formattedTime)] \($0.speaker): \($0.text)" }
+            .joined(separator: "\n")
+
+        let signals = TrainingStore.parseFeedback(text)
+
+        let example = TrainingExample(
+            date: Date(),
+            transcriptExcerpt: String(excerpt.prefix(3000)),
+            feedback: text,
+            signals: signals
+        )
+
+        TrainingStore.append(example)
+        simulation.feedbackSaved = true
+        mclog("[Training] Saved example with \(signals.count) parsed signals, source=\(sourceLabel)")
     }
 }
 

@@ -90,7 +90,7 @@ struct SimulationTimelineView: View {
         }
     }
 
-    // MARK: - Analysis panel (what the model is looking at)
+    // MARK: - Analysis panel (full transcript, highlights current window)
 
     private var analysisPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -99,10 +99,15 @@ struct SimulationTimelineView: View {
                 if simulation.isAnalyzing {
                     ProgressView().controlSize(.mini)
                 }
-                Text(simulation.isAnalyzing ? "Analyzing Window" : "Transcript Window")
+                Text("Transcript")
                     .font(.caption.bold())
                     .foregroundStyle(.secondary)
                 Spacer()
+                if !simulation.utterances.isEmpty {
+                    Text("\(simulation.utterances.count) utterances")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
                 Text(formatTime(simulation.currentTime))
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(.tertiary)
@@ -112,51 +117,49 @@ struct SimulationTimelineView: View {
 
             Divider()
 
-            if simulation.currentWindow.isEmpty {
-                VStack(spacing: 8) {
-                    Image(systemName: "text.magnifyingglass")
-                        .font(.title2)
-                        .foregroundStyle(.tertiary)
-                    Text("The transcript window being\nanalyzed will appear here")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if simulation.utterances.isEmpty {
+                transcriptEmptyState
             } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 4) {
-                            ForEach(simulation.currentWindow) { utt in
-                                HStack(alignment: .top, spacing: 6) {
-                                    Text(utt.formattedTime)
-                                        .font(.system(.caption2, design: .monospaced))
-                                        .foregroundStyle(.tertiary)
-                                        .frame(width: 36, alignment: .trailing)
-                                    Text(utt.speaker)
-                                        .font(.caption2.bold())
-                                        .foregroundStyle(utt.isYou ? .blue : .orange)
-                                        .frame(width: 50, alignment: .leading)
-                                        .lineLimit(1)
-                                    Text(utt.text)
-                                        .font(.caption)
-                                        .foregroundStyle(.primary)
-                                }
-                                .id(utt.id)
-                            }
-                        }
-                        .padding(10)
-                    }
-                    .onChange(of: simulation.currentWindow.count) { _, _ in
-                        if let last = simulation.currentWindow.last {
-                            proxy.scrollTo(last.id, anchor: .bottom)
-                        }
-                    }
-                }
-                .background(simulation.isAnalyzing ? Color.blue.opacity(0.02) : .clear)
+                transcriptScrollView
             }
         }
         .background(Color(.controlBackgroundColor).opacity(0.5))
+    }
+
+    private var transcriptEmptyState: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "text.magnifyingglass")
+                .font(.title2)
+                .foregroundStyle(.tertiary)
+            Text("The full transcript will\nappear here")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var transcriptScrollView: some View {
+        let windowIds = Set(simulation.currentWindow.map { $0.id })
+        return ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 4) {
+                    ForEach(simulation.utterances) { utt in
+                        TranscriptRow(utterance: utt, highlighted: windowIds.contains(utt.id))
+                            .id(utt.id)
+                    }
+                }
+                .padding(10)
+            }
+            .onChange(of: simulation.currentTime) { _, _ in
+                let win = simulation.currentWindow
+                if let mid = win.dropFirst(win.count / 2).first {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        proxy.scrollTo(mid.id, anchor: .center)
+                    }
+                }
+            }
+        }
     }
 
     private func formatTime(_ t: TimeInterval) -> String {
@@ -232,5 +235,33 @@ struct CallCardView: View {
         let tierA = ["no_decision_owner_date", "alignment_reached_still_talking",
                      "reopening_closed_thread", "buried_signal_ignored"]
         return tierA.contains(call.signalId) ? .blue : .orange
+    }
+}
+
+// MARK: - Transcript Row
+
+struct TranscriptRow: View {
+    let utterance: Utterance
+    let highlighted: Bool
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 6) {
+            Text(utterance.formattedTime)
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(highlighted ? .secondary : .tertiary)
+                .frame(width: 36, alignment: .trailing)
+            Text(utterance.speaker)
+                .font(.caption2.bold())
+                .foregroundStyle(utterance.isYou ? .blue : .orange)
+                .frame(width: 50, alignment: .leading)
+                .lineLimit(1)
+            Text(utterance.text)
+                .font(.caption)
+                .foregroundStyle(highlighted ? .primary : .secondary)
+        }
+        .padding(.vertical, 1)
+        .padding(.horizontal, 4)
+        .background(highlighted ? Color.blue.opacity(0.08) : .clear)
+        .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 }
