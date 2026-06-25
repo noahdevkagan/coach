@@ -855,6 +855,30 @@ struct LiveSection: View {
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
 
+                if liveSession.showSilenceWarning {
+                    HStack(spacing: 6) {
+                        Image(systemName: "speaker.slash.fill")
+                            .foregroundStyle(.orange)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Meeting ended?")
+                                .font(.caption.bold())
+                            Text("No speech detected for 3+ minutes")
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button {
+                            liveSession.dismissSilenceWarning()
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.caption2)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(8)
+                    .background(Color.orange.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+
                 HStack {
                     Button {
                         liveSession.stopLive()

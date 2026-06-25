@@ -23,6 +23,11 @@ final class LiveSessionViewModel {
     var savedPath: String?
     var showPostSession = false
 
+    /// Silence detection — nudge user to stop if meeting seems over
+    var showSilenceWarning = false
+    private var silenceCheckTask: Task<Void, Never>?
+    private let silenceThreshold: TimeInterval = 180  // 3 minutes
+
     private var captureManager: AudioCaptureManager?
     private var heartbeatTask: Task<Void, Never>?
     private var timerTask: Task<Void, Never>?
@@ -114,6 +119,7 @@ final class LiveSessionViewModel {
             }
             startHeartbeat()
             startTimer(from: sessionStart)
+            startSilenceCheck()
         }
     }
 
@@ -125,6 +131,9 @@ final class LiveSessionViewModel {
         heartbeatTask = nil
         timerTask?.cancel()
         timerTask = nil
+        silenceCheckTask?.cancel()
+        silenceCheckTask = nil
+        showSilenceWarning = false
         status = "Stopped"
 
         saveSession()
@@ -241,6 +250,33 @@ final class LiveSessionViewModel {
                 try? await Task.sleep(for: .seconds(1))
             }
         }
+    }
+
+    private func startSilenceCheck() {
+        silenceCheckTask = Task { @MainActor [weak self] in
+            // Don't check in the first minute
+            try? await Task.sleep(for: .seconds(60))
+
+            while !Task.isCancelled, let self, self.isLive {
+                let lastUtteranceTime = self.utterances.last?.t ?? 0
+                let silenceDuration = self.elapsedTime - lastUtteranceTime
+
+                if silenceDuration >= self.silenceThreshold && !self.showSilenceWarning {
+                    self.showSilenceWarning = true
+                    mclog("[Silence] No speech for \(Int(silenceDuration))s — showing warning")
+                } else if silenceDuration < self.silenceThreshold && self.showSilenceWarning {
+                    // Speech resumed — dismiss warning
+                    self.showSilenceWarning = false
+                    mclog("[Silence] Speech resumed — dismissed warning")
+                }
+
+                try? await Task.sleep(for: .seconds(15))
+            }
+        }
+    }
+
+    func dismissSilenceWarning() {
+        showSilenceWarning = false
     }
 
     private func fireTrigger() async {

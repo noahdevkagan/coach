@@ -32,7 +32,11 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     // Speaker detection via audio energy
     private var micEnergy: Float = 0
     private var sysEnergy: Float = 0
-    private let energyDecay: Float = 0.85
+    private let energyDecay: Float = 0.7          // faster decay to track changes quickly
+    private let micSilenceFloor: Float = 0.005    // below this, mic is silent (not you)
+    private let sysSilenceFloor: Float = 0.002    // below this, system audio is silent
+    private var micSpeakingFrames: Int = 0        // consecutive frames where mic is "hot"
+    private var sysSpeakingFrames: Int = 0        // consecutive frames where system is "hot"
 
     override init() {
         speechRecognizer = SFSpeechRecognizer(locale: .init(identifier: "en-US"))
@@ -116,6 +120,11 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             // Track mic energy for speaker detection
             let energy = self.rmsEnergy(buffer)
             self.micEnergy = max(energy, self.micEnergy * self.energyDecay)
+            if energy > self.micSilenceFloor {
+                self.micSpeakingFrames += 1
+            } else {
+                self.micSpeakingFrames = max(0, self.micSpeakingFrames - 2)
+            }
         }
 
         try audioEngine.start()
@@ -218,15 +227,18 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         let stableCount = result.isFinal ? allWords.count : max(0, allWords.count - 1)
         let available = stableCount - emittedWordCount
 
-        // Emit aggressively: 2+ new words, or 1+ if final, or any if 1.5s since last emit
+        // Emit in larger chunks for better speaker detection.
+        // More words per utterance = more stable energy measurement = better You/Them labeling.
         let timeSinceLastEmit = Date().timeIntervalSince(lastEmitTime)
         let minWords: Int
         if result.isFinal {
             minWords = 1
-        } else if timeSinceLastEmit > 1.5 {
-            minWords = 1  // flush stale words
+        } else if timeSinceLastEmit > 4.0 {
+            minWords = 3  // flush after long silence, but still need a few words
+        } else if timeSinceLastEmit > 2.5 {
+            minWords = 5  // moderate pause — flush with decent chunk
         } else {
-            minWords = 2  // normal: emit every 2 words
+            minWords = 8  // normal: accumulate ~8 words for reliable speaker detection
         }
         guard available >= minWords else {
             // Schedule a flush timer to catch stragglers
@@ -241,17 +253,33 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
         mclog("[Speech] Emitting \(available) words (timeSince=\(String(format: "%.1f", timeSinceLastEmit))s): \(chunk.prefix(80))")
 
-        // Determine speaker based on which audio source is louder
+        // Determine speaker: mic silent = definitely not you,
+        // mic hot + system quiet = definitely you,
+        // both active = use energy ratio with frame-count tiebreaker
         let speaker: String
         if !hasSystemAudio {
             speaker = "Meeting"
-        } else if micEnergy > sysEnergy * 1.5 {
+        } else if micEnergy < micSilenceFloor {
+            // Mic is silent — you're not talking
+            speaker = "Them"
+        } else if sysEnergy < sysSilenceFloor {
+            // System is silent — only your mic is active
             speaker = "You"
-        } else if sysEnergy > micEnergy * 1.5 {
+        } else if micEnergy > sysEnergy * 1.2 && micSpeakingFrames > sysSpeakingFrames {
+            speaker = "You"
+        } else if sysEnergy > micEnergy * 0.8 && sysSpeakingFrames > micSpeakingFrames {
+            speaker = "Them"
+        } else if micSpeakingFrames > sysSpeakingFrames * 2 {
+            speaker = "You"
+        } else if sysSpeakingFrames > micSpeakingFrames * 2 {
             speaker = "Them"
         } else {
             speaker = "Meeting"
         }
+
+        // Reset frame counters after attribution
+        micSpeakingFrames = 0
+        sysSpeakingFrames = 0
 
         let u = Utterance(t: t, speaker: speaker, text: chunk)
         Task { @MainActor [onUtterance] in
@@ -345,6 +373,11 @@ extension AudioCaptureManager: SCStreamOutput {
         // zero results. Just track energy for speaker detection.
         let energy = rmsEnergyPCM(pcmBuffer)
         sysEnergy = max(energy, sysEnergy * energyDecay)
+        if energy > sysSilenceFloor {
+            sysSpeakingFrames += 1
+        } else {
+            sysSpeakingFrames = max(0, sysSpeakingFrames - 2)
+        }
     }
 }
 
