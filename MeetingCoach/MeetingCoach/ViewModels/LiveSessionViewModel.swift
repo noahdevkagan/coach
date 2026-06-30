@@ -121,10 +121,6 @@ final class LiveSessionViewModel {
 
         saveSession()
         showPostSession = true
-
-        if !utterances.isEmpty {
-            generateReview()
-        }
     }
 
     func deleteSession() {
@@ -162,7 +158,7 @@ final class LiveSessionViewModel {
 
     // MARK: - Post-call review
 
-    func generateReview() {
+    func generateReview(ollamaManager: OllamaManager, settings: SettingsViewModel) {
         guard !utterances.isEmpty else { return }
         isGeneratingSummary = true
         meetingSummary = nil
@@ -175,11 +171,28 @@ final class LiveSessionViewModel {
             durationMinutes: durationMin
         )
 
-        // Lazy-start Ollama client for post-call review
-        let settings = SettingsViewModel()
-        let client = OllamaClient(model: settings.selectedModel)
+        let model = settings.selectedModel
+        if ollamaManager.status == .stopped {
+            ollamaManager.start()
+        }
 
         Task {
+            // Wait for Ollama to be ready before sending the request
+            if ollamaManager.status != .running {
+                for _ in 1...30 {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    if ollamaManager.status == .running { break }
+                    if case .error = ollamaManager.status { break }
+                }
+            }
+
+            guard ollamaManager.status == .running else {
+                meetingSummary = "Could not generate review: Ollama is not running"
+                isGeneratingSummary = false
+                return
+            }
+
+            let client = OllamaClient(model: model)
             do {
                 let result = try await client.complete(system: system, user: user)
                 meetingSummary = result

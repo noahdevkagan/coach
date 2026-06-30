@@ -364,6 +364,7 @@ struct SidebarView: View {
 
                     // Live coaching — the main feature
                     LiveSection(liveSession: liveSession,
+                                settings: settings,
                                 onToggleOverlay: onToggleOverlay,
                                 ollamaManager: ollamaManager)
 
@@ -852,6 +853,7 @@ struct CatalogModelRow: View {
 
 struct LiveSection: View {
     @Bindable var liveSession: LiveSessionViewModel
+    @Bindable var settings: SettingsViewModel
     var onToggleOverlay: () -> Void
     @Bindable var ollamaManager: OllamaManager
 
@@ -1014,11 +1016,7 @@ struct LiveSection: View {
                     }
                 } else if !liveSession.showPostSession {
                     Button {
-                        // Lazy-start Ollama for post-call review
-                        if ollamaManager.status == .stopped {
-                            ollamaManager.start()
-                        }
-                        liveSession.generateReview()
+                        liveSession.generateReview(ollamaManager: ollamaManager, settings: settings)
                     } label: {
                         Label("Generate Review", systemImage: "doc.text.magnifyingglass")
                             .frame(maxWidth: .infinity)
