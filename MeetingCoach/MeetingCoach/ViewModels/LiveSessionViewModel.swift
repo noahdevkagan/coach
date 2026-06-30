@@ -1,21 +1,17 @@
 import Foundation
 import SwiftUI
 
-/// Manages a live coaching session: audio capture → transcription → triggers → coaching calls.
+/// Manages a live coaching session: audio capture → transcription → deterministic signals → nudges.
 @MainActor @Observable
 final class LiveSessionViewModel {
     var isLive = false
     var utterances: [Utterance] = []
-    var calls: [CoachingCall] = []
+    var nudges: [Nudge] = []
+    var activeNudge: Nudge?
     var error: String?
     var status: String = ""
-    var triggerCount = 0
     var elapsedTime: TimeInterval = 0
-
-    /// Signal feed — shows every evaluation + signals so the panel feels alive
-    var signalFeed: [SignalFeedItem] = []
-    var isAnalyzing = false
-    var analyzeWordCount = 0
+    var preCallContext = PreCallContext()
 
     /// End-of-meeting summary
     var meetingSummary: String?
@@ -23,18 +19,19 @@ final class LiveSessionViewModel {
     var savedPath: String?
     var showPostSession = false
 
+    /// Pre-call form
+    var showPreCallForm = false
+
     /// Silence detection — nudge user to stop if meeting seems over
     var showSilenceWarning = false
     private var silenceCheckTask: Task<Void, Never>?
     private let silenceThreshold: TimeInterval = 180  // 3 minutes
 
     private var captureManager: AudioCaptureManager?
-    private var heartbeatTask: Task<Void, Never>?
+    private var signalTickTask: Task<Void, Never>?
     private var timerTask: Task<Void, Never>?
-    private var client: OllamaClient?
-    private var coach: CoachEngine?
-    private var rubric: Rubric?
-    private let minInterval: TimeInterval = 15
+    private var signalEngine: SignalEngine?
+    private var dismissTask: Task<Void, Never>?
 
     var elapsedFormatted: String {
         let mm = Int(elapsedTime) / 60
@@ -43,7 +40,7 @@ final class LiveSessionViewModel {
     }
 
     var hasSession: Bool {
-        !calls.isEmpty || !utterances.isEmpty
+        !nudges.isEmpty || !utterances.isEmpty
     }
 
     /// Most recent text heard (for status display)
@@ -58,53 +55,37 @@ final class LiveSessionViewModel {
         utterances.map(\.text).joined(separator: " ")
     }
 
-    func startLive(settings: SettingsViewModel) {
+    // MARK: - Start / Stop
+
+    func startLive(context: PreCallContext) {
         guard !isLive else { return }
 
-        let r: Rubric
-        do {
-            r = try settings.loadRubricOrDefault()
-        } catch {
-            self.error = "Could not load rubric: \(error.localizedDescription)"
-            return
-        }
-        rubric = r
-
-        print("[Session] Rubric '\(r.name)' loaded with \(r.signals.count) signals: \(r.signals.map(\.id))")
-
-        if r.signals.isEmpty {
-            self.error = "Rubric has 0 signals — check \(settings.rubricPath)"
-            return
-        }
-
-        let c = OllamaClient(model: settings.selectedModel)
-        client = c
-        coach = CoachEngine(rubric: r, client: c, useMock: settings.useMock)
+        preCallContext = context
+        signalEngine = SignalEngine(context: context)
 
         utterances = []
-        calls = []
-        signalFeed = []
-        isAnalyzing = false
+        nudges = []
+        activeNudge = nil
         error = nil
-        status = "Starting — \(r.signals.count) signals loaded"
-        triggerCount = 0
+        status = "Starting — 3 deterministic signals loaded"
         elapsedTime = 0
         meetingSummary = nil
         isLive = true
 
         let manager = AudioCaptureManager()
         captureManager = manager
-        let sessionStart = Date() // same time base as AudioCaptureManager.startTime
+        let sessionStart = Date()
 
         manager.onUtterance = { [weak self] utterance in
             guard let self else { return }
             self.utterances.append(utterance)
             mclog("[VM] utterance #\(self.utterances.count): \(utterance.text.prefix(60))")
+            // Evaluate on each new utterance for immediate talk-time detection
+            self.runSignalEvaluation()
         }
 
         manager.onStatus = { [weak self] msg in
-            // Only show audio status before first trigger fires
-            guard let self, self.triggerCount == 0 else { return }
+            guard let self, self.nudges.isEmpty else { return }
             self.status = msg
         }
 
@@ -117,7 +98,7 @@ final class LiveSessionViewModel {
                 self.isLive = false
                 return
             }
-            startHeartbeat()
+            startSignalTick()
             startTimer(from: sessionStart)
             startSilenceCheck()
         }
@@ -127,12 +108,14 @@ final class LiveSessionViewModel {
         isLive = false
         captureManager?.stop()
         captureManager = nil
-        heartbeatTask?.cancel()
-        heartbeatTask = nil
+        signalTickTask?.cancel()
+        signalTickTask = nil
         timerTask?.cancel()
         timerTask = nil
         silenceCheckTask?.cancel()
         silenceCheckTask = nil
+        dismissTask?.cancel()
+        dismissTask = nil
         showSilenceWarning = false
         status = "Stopped"
 
@@ -140,20 +123,18 @@ final class LiveSessionViewModel {
         showPostSession = true
 
         if !utterances.isEmpty {
-            generateSummary()
+            generateReview()
         }
     }
 
     func deleteSession() {
-        // Remove saved file
         if let path = savedPath {
             try? FileManager.default.removeItem(atPath: path)
             savedPath = nil
         }
-        // Clear all session data
         utterances = []
-        calls = []
-        signalFeed = []
+        nudges = []
+        activeNudge = nil
         meetingSummary = nil
         showPostSession = false
         status = ""
@@ -163,23 +144,140 @@ final class LiveSessionViewModel {
         showPostSession = false
     }
 
-    func generateSummary() {
-        guard let client, !utterances.isEmpty else { return }
+    // MARK: - Feedback
+
+    func recordFeedback(nudgeId: UUID, feedback: NudgeFeedback) {
+        if let i = nudges.firstIndex(where: { $0.id == nudgeId }) {
+            nudges[i].feedback = feedback
+        }
+        if activeNudge?.id == nudgeId {
+            dismissActiveNudge()
+        }
+        // Also update in engine's allNudges
+        if var engine = signalEngine {
+            engine.recordFeedback(nudgeId: nudgeId, feedback: feedback)
+            signalEngine = engine
+        }
+    }
+
+    // MARK: - Post-call review
+
+    func generateReview() {
+        guard !utterances.isEmpty else { return }
         isGeneratingSummary = true
         meetingSummary = nil
 
         let durationMin = max(1, Int(elapsedTime) / 60)
-        let (system, user) = PromptBuilder.buildSummaryPrompt(calls: calls, transcript: fullTranscript, durationMinutes: durationMin)
+        let (system, user) = PromptBuilder.buildPostCallReviewPrompt(
+            nudges: nudges,
+            transcript: fullTranscript,
+            context: preCallContext,
+            durationMinutes: durationMin
+        )
+
+        // Lazy-start Ollama client for post-call review
+        let settings = SettingsViewModel()
+        let client = OllamaClient(model: settings.selectedModel)
 
         Task {
             do {
                 let result = try await client.complete(system: system, user: user)
                 meetingSummary = result
             } catch {
-                meetingSummary = "Could not generate summary: \(error.localizedDescription)"
+                meetingSummary = "Could not generate review: \(error.localizedDescription)"
             }
             isGeneratingSummary = false
         }
+    }
+
+    // MARK: - Signal tick
+
+    private func startSignalTick() {
+        signalTickTask = Task { @MainActor [weak self] in
+            // Wait for some transcript to accumulate
+            try? await Task.sleep(for: .seconds(5))
+
+            while !Task.isCancelled, let self, self.isLive {
+                self.runSignalEvaluation()
+                try? await Task.sleep(for: .seconds(5))
+            }
+        }
+    }
+
+    private func runSignalEvaluation() {
+        guard var engine = signalEngine, !utterances.isEmpty else { return }
+
+        let newNudges = engine.evaluate(
+            utterances: utterances,
+            elapsed: elapsedTime,
+            context: preCallContext
+        )
+        signalEngine = engine
+
+        for nudge in newNudges {
+            nudges.append(nudge)
+            setActiveNudge(nudge)
+            mclog("[Signal] \(nudge.type.rawValue): \(nudge.text)")
+        }
+
+        if newNudges.isEmpty && activeNudge == nil {
+            status = "Listening — \(utterances.count) utterances"
+        }
+    }
+
+    private func setActiveNudge(_ nudge: Nudge) {
+        activeNudge = nudge
+        // Auto-dismiss after 6 seconds
+        dismissTask?.cancel()
+        dismissTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(6))
+            guard let self, self.activeNudge?.id == nudge.id else { return }
+            self.dismissActiveNudge()
+        }
+    }
+
+    private func dismissActiveNudge() {
+        withAnimation(.easeOut(duration: 0.3)) {
+            activeNudge = nil
+        }
+        dismissTask?.cancel()
+        dismissTask = nil
+    }
+
+    // MARK: - Timer & silence
+
+    private func startTimer(from start: Date) {
+        timerTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled, let self, self.isLive {
+                self.elapsedTime = Date().timeIntervalSince(start)
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
+    }
+
+    private func startSilenceCheck() {
+        silenceCheckTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(60))
+
+            while !Task.isCancelled, let self, self.isLive {
+                let lastUtteranceTime = self.utterances.last?.t ?? 0
+                let silenceDuration = self.elapsedTime - lastUtteranceTime
+
+                if silenceDuration >= self.silenceThreshold && !self.showSilenceWarning {
+                    self.showSilenceWarning = true
+                    mclog("[Silence] No speech for \(Int(silenceDuration))s — showing warning")
+                } else if silenceDuration < self.silenceThreshold && self.showSilenceWarning {
+                    self.showSilenceWarning = false
+                    mclog("[Silence] Speech resumed — dismissed warning")
+                }
+
+                try? await Task.sleep(for: .seconds(15))
+            }
+        }
+    }
+
+    func dismissSilenceWarning() {
+        showSilenceWarning = false
     }
 
     // MARK: - Save session
@@ -200,8 +298,22 @@ final class LiveSessionViewModel {
         lines.append("# Meeting Coach Session — \(formatter.string(from: Date()))")
         lines.append("**Duration:** \(elapsedFormatted)")
         lines.append("**Utterances:** \(utterances.count)")
-        lines.append("**Coaching Calls:** \(calls.count)")
+        lines.append("**Nudges:** \(nudges.count)")
         lines.append("")
+
+        // Pre-call context
+        if !preCallContext.meetingGoal.isEmpty {
+            lines.append("## Pre-Call Context")
+            lines.append("**Goal:** \(preCallContext.meetingGoal)")
+            lines.append("**Scheduled Duration:** \(preCallContext.scheduledDurationMinutes) min")
+            if !preCallContext.participants.isEmpty {
+                lines.append("**Participants:** \(preCallContext.participants.map { "\($0.name) (\($0.role))" }.joined(separator: ", "))")
+            }
+            if !preCallContext.myKnownTendencies.isEmpty {
+                lines.append("**Known Tendencies:** \(preCallContext.myKnownTendencies.joined(separator: ", "))")
+            }
+            lines.append("")
+        }
 
         // Transcript
         lines.append("## Transcript")
@@ -212,119 +324,19 @@ final class LiveSessionViewModel {
         }
         lines.append("")
 
-        // Coaching calls
-        if !calls.isEmpty {
-            lines.append("## Coaching Signals")
-            for c in calls {
-                lines.append("### [\(c.formattedTime)] \(c.signalId)")
-                lines.append("**Evidence:** \(c.evidence)")
-                lines.append("**Nudge:** \(c.nudge)")
-                lines.append("")
+        // Nudges
+        if !nudges.isEmpty {
+            lines.append("## Nudges")
+            for n in nudges {
+                let feedbackStr = n.feedback.map { " | feedback: \($0.rawValue)" } ?? ""
+                lines.append("- [\(n.formattedTime)] **\(n.type.rawValue)** (\(n.urgency.rawValue)): \(n.text)\(feedbackStr)")
             }
+            lines.append("")
         }
 
         let content = lines.joined(separator: "\n")
         try? content.write(to: file, atomically: true, encoding: .utf8)
         savedPath = file.path
         status = "Session saved to ~/Documents/MeetingCoach/"
-    }
-
-    // MARK: - Heartbeat trigger
-
-    private func startHeartbeat() {
-        heartbeatTask = Task { @MainActor [weak self] in
-            // Wait for some transcript to accumulate
-            try? await Task.sleep(for: .seconds(8))
-
-            while !Task.isCancelled, let self, self.isLive {
-                await self.fireTrigger()
-                try? await Task.sleep(for: .seconds(self.minInterval))
-            }
-        }
-    }
-
-    private func startTimer(from start: Date) {
-        timerTask = Task { @MainActor [weak self] in
-            while !Task.isCancelled, let self, self.isLive {
-                self.elapsedTime = Date().timeIntervalSince(start)
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
-    }
-
-    private func startSilenceCheck() {
-        silenceCheckTask = Task { @MainActor [weak self] in
-            // Don't check in the first minute
-            try? await Task.sleep(for: .seconds(60))
-
-            while !Task.isCancelled, let self, self.isLive {
-                let lastUtteranceTime = self.utterances.last?.t ?? 0
-                let silenceDuration = self.elapsedTime - lastUtteranceTime
-
-                if silenceDuration >= self.silenceThreshold && !self.showSilenceWarning {
-                    self.showSilenceWarning = true
-                    mclog("[Silence] No speech for \(Int(silenceDuration))s — showing warning")
-                } else if silenceDuration < self.silenceThreshold && self.showSilenceWarning {
-                    // Speech resumed — dismiss warning
-                    self.showSilenceWarning = false
-                    mclog("[Silence] Speech resumed — dismissed warning")
-                }
-
-                try? await Task.sleep(for: .seconds(15))
-            }
-        }
-    }
-
-    func dismissSilenceWarning() {
-        showSilenceWarning = false
-    }
-
-    private func fireTrigger() async {
-        guard let rubric, let coach, !utterances.isEmpty else {
-            mclog("[Trigger] Skipped: rubric=\(rubric != nil) coach=\(coach != nil) utterances=\(utterances.count)")
-            return
-        }
-
-        let now = elapsedTime
-        let winSecs = Double(rubric.window.transcriptSeconds)
-
-        let windowAll = utterances.filter { now - winSecs <= $0.t && $0.t <= now }
-        let window = Array(windowAll.suffix(50))
-        guard !window.isEmpty else { return }
-
-        let older = utterances.filter { $0.t < now - winSecs }
-        let summary = older.isEmpty ? "(meeting just started)" :
-            older.suffix(4).map { "- [\($0.formattedTime)] \($0.speaker): \($0.text)" }
-                .joined(separator: "\n")
-
-        let trigger = Trigger(reason: .heartbeat, now: now, window: window, summary: summary)
-        triggerCount += 1
-        let wordCount = window.reduce(0) { $0 + $1.text.split(separator: " ").count }
-
-        isAnalyzing = true
-        analyzeWordCount = wordCount
-        status = "Analyzing \(wordCount) words..."
-        NSLog("[Trigger] #%d: %d utterances, %d in window, %d words", triggerCount, utterances.count, window.count, wordCount)
-
-        do {
-            let newCalls = try await coach.onTrigger(trigger)
-            isAnalyzing = false
-            calls.append(contentsOf: newCalls)
-
-            if newCalls.isEmpty {
-                signalFeed.append(SignalFeedItem(t: now, message: "No patterns in \(wordCount) words"))
-                status = "Scan \(triggerCount) done — no signals"
-            } else {
-                for call in newCalls {
-                    signalFeed.append(SignalFeedItem(t: now, message: call.signalId, call: call))
-                }
-                status = "Scan \(triggerCount) — \(newCalls.count) signal(s)!"
-            }
-        } catch {
-            isAnalyzing = false
-            signalFeed.append(SignalFeedItem(t: now, message: "Error: \(error.localizedDescription)"))
-            status = "Scan \(triggerCount) — error"
-            self.error = "LLM: \(error.localizedDescription)"
-        }
     }
 }

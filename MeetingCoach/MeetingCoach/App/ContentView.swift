@@ -28,13 +28,11 @@ struct ContentView: View {
             }
         }
         .task {
-            while ollamaManager.status != .running {
-                try? await Task.sleep(for: .milliseconds(500))
-                if case .error = ollamaManager.status { break }
-            }
+            // No longer wait for Ollama before allowing app use.
+            // Refresh models in background for when post-call review is needed.
             await settings.refreshModels()
         }
-        .onChange(of: liveSession.calls.count) { _, _ in
+        .onChange(of: liveSession.activeNudge?.id) { _, _ in
             updateOverlay()
         }
         .onChange(of: liveSession.isLive) { _, isLive in
@@ -65,8 +63,11 @@ struct ContentView: View {
     private func updateOverlay() {
         guard let panel = overlayPanel, panel.isVisible else { return }
         let view = CoachingOverlayView(
-            calls: liveSession.calls,
-            isLive: liveSession.isLive
+            activeNudge: liveSession.activeNudge,
+            isLive: liveSession.isLive,
+            onFeedback: { [weak liveSession] id, feedback in
+                liveSession?.recordFeedback(nudgeId: id, feedback: feedback)
+            }
         ) { [weak panel = overlayPanel] in
             panel?.orderOut(nil)
         }
@@ -81,8 +82,8 @@ struct LiveTimelineView: View {
 
     var body: some View {
         HSplitView {
-            // Left: signals feed
-            signalsPanel
+            // Left: nudges feed
+            nudgesPanel
                 .frame(minWidth: 280)
 
             // Right: live transcript
@@ -93,14 +94,14 @@ struct LiveTimelineView: View {
         .background(Color(.textBackgroundColor))
     }
 
-    private var signalsPanel: some View {
+    private var nudgesPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("Signals")
+                Text("Nudges")
                     .font(.caption.bold()).foregroundStyle(.secondary)
                 Spacer()
-                if !liveSession.calls.isEmpty {
-                    Text("\(liveSession.calls.count)")
+                if !liveSession.nudges.isEmpty {
+                    Text("\(liveSession.nudges.count)")
                         .font(.caption2.monospacedDigit())
                         .padding(.horizontal, 6).padding(.vertical, 1)
                         .background(.blue.opacity(0.1)).foregroundStyle(.blue)
@@ -120,20 +121,20 @@ struct LiveTimelineView: View {
                         } else if liveSession.isGeneratingSummary {
                             HStack(spacing: 8) {
                                 ProgressView().controlSize(.small)
-                                Text("Generating debrief...").font(.caption).foregroundStyle(.secondary)
+                                Text("Generating review...").font(.caption).foregroundStyle(.secondary)
                             }
                             .padding(.bottom, 4).id("summary-loading")
                         }
 
-                        // Signal feed — evaluations + signals
-                        if liveSession.signalFeed.isEmpty && !liveSession.isAnalyzing {
+                        // Nudge feed
+                        if liveSession.nudges.isEmpty {
                             VStack(spacing: 8) {
                                 if liveSession.isLive {
                                     Image(systemName: "waveform.badge.mic")
                                         .font(.system(size: 28))
                                         .foregroundStyle(.green.opacity(0.4))
                                         .symbolEffect(.pulse)
-                                    Text("First scan in a few seconds...")
+                                    Text("Listening for patterns...")
                                         .font(.caption).foregroundStyle(.tertiary)
                                 } else if liveSession.hasSession {
                                     Text("Session ended").font(.caption).foregroundStyle(.tertiary)
@@ -146,53 +147,20 @@ struct LiveTimelineView: View {
                             .padding(.vertical, 24)
                         }
 
-                        ForEach(liveSession.signalFeed) { item in
-                            if let call = item.call {
-                                // Actual signal — show as card
-                                CallCardView(call: call).id(item.id)
-                            } else {
-                                // Status entry — scan result
-                                HStack(spacing: 6) {
-                                    Text(item.formattedTime)
-                                        .font(.system(.caption2, design: .monospaced))
-                                        .foregroundStyle(.tertiary)
-                                    Image(systemName: item.message.hasPrefix("Error") ? "xmark.circle" : "checkmark.circle")
-                                        .font(.caption2)
-                                        .foregroundStyle(item.message.hasPrefix("Error") ? .red.opacity(0.6) : .green.opacity(0.5))
-                                    Text(item.message)
-                                        .font(.caption2).foregroundStyle(.tertiary)
-                                }
-                                .id(item.id)
+                        ForEach(liveSession.nudges) { nudge in
+                            NudgeCardView(nudge: nudge) { feedback in
+                                liveSession.recordFeedback(nudgeId: nudge.id, feedback: feedback)
                             }
-                        }
-
-                        // Live analyzing spinner
-                        if liveSession.isAnalyzing {
-                            HStack(spacing: 6) {
-                                Text(liveSession.elapsedFormatted)
-                                    .font(.system(.caption2, design: .monospaced))
-                                    .foregroundStyle(.tertiary)
-                                ProgressView().controlSize(.mini)
-                                Text("Scanning \(liveSession.analyzeWordCount) words...")
-                                    .font(.caption2).foregroundStyle(.secondary)
-                            }
-                            .id("analyzing")
+                            .id(nudge.id)
                         }
 
                         Color.clear.frame(height: 1).id("feed-bottom")
                     }
                     .padding()
                 }
-                .onChange(of: liveSession.signalFeed.count) { _, _ in
+                .onChange(of: liveSession.nudges.count) { _, _ in
                     withAnimation(.easeOut(duration: 0.15)) {
                         proxy.scrollTo("feed-bottom")
-                    }
-                }
-                .onChange(of: liveSession.isAnalyzing) { _, active in
-                    if active {
-                        withAnimation(.easeOut(duration: 0.15)) {
-                            proxy.scrollTo("analyzing")
-                        }
                     }
                 }
             }
@@ -265,12 +233,104 @@ struct LiveTimelineView: View {
     }
 }
 
+// MARK: - Nudge Card View
+
+struct NudgeCardView: View {
+    let nudge: Nudge
+    let onFeedback: (NudgeFeedback) -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            // Timestamp
+            Text(nudge.formattedTime)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .frame(width: 44, alignment: .trailing)
+
+            // Urgency indicator
+            Circle()
+                .fill(urgencyColor)
+                .frame(width: 8, height: 8)
+                .padding(.top, 5)
+
+            // Content
+            VStack(alignment: .leading, spacing: 4) {
+                Text(nudge.text)
+                    .font(.system(.body, weight: .semibold))
+
+                HStack(spacing: 8) {
+                    // Type badge
+                    Text(nudge.type.rawValue)
+                        .font(.caption2)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(urgencyColor.opacity(0.15))
+                        .foregroundStyle(urgencyColor)
+                        .clipShape(Capsule())
+
+                    // Urgency label
+                    Text(nudge.urgency.rawValue)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    // Feedback state or buttons
+                    if let feedback = nudge.feedback {
+                        Text(feedbackLabel(feedback))
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    } else {
+                        HStack(spacing: 2) {
+                            feedbackButton(.useful, icon: "hand.thumbsup", color: .green)
+                            feedbackButton(.annoying, icon: "minus.circle", color: .gray)
+                            feedbackButton(.wrong, icon: "xmark.circle", color: .red)
+                        }
+                    }
+                }
+            }
+
+            Spacer()
+        }
+        .padding(10)
+        .background(Color(.controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func feedbackButton(_ feedback: NudgeFeedback, icon: String, color: Color) -> some View {
+        Button {
+            onFeedback(feedback)
+        } label: {
+            Image(systemName: icon)
+                .font(.caption2)
+                .foregroundStyle(color.opacity(0.6))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func feedbackLabel(_ feedback: NudgeFeedback) -> String {
+        switch feedback {
+        case .useful: return "useful"
+        case .annoying: return "meh"
+        case .wrong: return "wrong"
+        }
+    }
+
+    private var urgencyColor: Color {
+        switch nudge.urgency {
+        case .low: return .gray
+        case .med: return .blue
+        case .high: return .orange
+        }
+    }
+}
+
 struct MeetingSummaryCard: View {
     let summary: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Meeting Debrief", systemImage: "doc.text.magnifyingglass")
+            Label("Meeting Review", systemImage: "doc.text.magnifyingglass")
                 .font(.headline)
 
             Text(summary)
@@ -303,8 +363,9 @@ struct SidebarView: View {
                     OllamaStatusBar(manager: ollamaManager)
 
                     // Live coaching — the main feature
-                    LiveSection(liveSession: liveSession, settings: settings,
-                                onToggleOverlay: onToggleOverlay)
+                    LiveSection(liveSession: liveSession,
+                                onToggleOverlay: onToggleOverlay,
+                                ollamaManager: ollamaManager)
 
                     Divider()
                     TranscriptSection(simulation: simulation, isDragOverEntireView: isDragOver)
@@ -324,7 +385,7 @@ struct SidebarView: View {
             }
 
             Divider()
-            Text("v1.0")
+            Text("v2.0")
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(.quaternary)
                 .frame(maxWidth: .infinity)
@@ -334,7 +395,6 @@ struct SidebarView: View {
 
     private func handleDrop(_ providers: [NSItemProvider], simulation: SimulationViewModel) -> Bool {
         guard let provider = providers.first else { return false }
-        // Try loading as file URL via item identifier
         provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { data, _ in
             guard let data = data as? Data,
                   let path = String(data: data, encoding: .utf8),
@@ -516,13 +576,11 @@ struct ModelSection: View {
             } else if settings.downloadingModel != nil {
                 // Downloading state (shown below)
             } else if !settings.hasCheckedModels {
-                // Still loading — show spinner instead of download prompt
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
                     Text("Checking models...").font(.caption).foregroundStyle(.secondary)
                 }
             } else {
-                // No models — big obvious prompt
                 VStack(spacing: 10) {
                     VStack(spacing: 4) {
                         Image(systemName: "arrow.down.circle")
@@ -538,7 +596,6 @@ struct ModelSection: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
 
-                    // Recommended model — one-click download
                     if let recommended = modelCatalog.first {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 4) {
@@ -633,7 +690,6 @@ struct ModelCatalogView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             HStack {
                 VStack(alignment: .leading) {
                     Text("Download Models").font(.title2.bold())
@@ -648,7 +704,6 @@ struct ModelCatalogView: View {
 
             Divider()
 
-            // Installed models
             if !settings.availableModels.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Installed").font(.caption.bold()).foregroundStyle(.secondary)
@@ -663,7 +718,6 @@ struct ModelCatalogView: View {
 
             Divider().padding(.vertical, 4)
 
-            // Catalog
             ScrollView {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Available to Download").font(.caption.bold()).foregroundStyle(.secondary)
@@ -676,7 +730,6 @@ struct ModelCatalogView: View {
                 .padding(.bottom)
             }
 
-            // Download progress bar at bottom
             if let downloading = settings.downloadingModel {
                 Divider()
                 HStack(spacing: 8) {
@@ -799,8 +852,8 @@ struct CatalogModelRow: View {
 
 struct LiveSection: View {
     @Bindable var liveSession: LiveSessionViewModel
-    @Bindable var settings: SettingsViewModel
     var onToggleOverlay: () -> Void
+    @Bindable var ollamaManager: OllamaManager
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -837,7 +890,7 @@ struct LiveSection: View {
 
                     HStack {
                         Image(systemName: "exclamationmark.bubble").font(.caption2)
-                        Text("\(liveSession.calls.count) coaching calls")
+                        Text("\(liveSession.nudges.count) nudges")
                         Spacer()
                     }
                     .font(.caption).foregroundStyle(.secondary)
@@ -899,21 +952,26 @@ struct LiveSection: View {
                 }
             } else {
                 // Start button
-                Text("Listens to your meeting audio and coaches you in real time. Requires System Audio Recording Only permission.")
+                Text("Listens to your meeting audio and coaches you in real time. No model needed — deterministic signals only.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
                 Button {
-                    liveSession.startLive(settings: settings)
+                    liveSession.showPreCallForm = true
                 } label: {
                     Label("Go Live", systemImage: "antenna.radiowaves.left.and.right")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.green)
+                .sheet(isPresented: $liveSession.showPreCallForm) {
+                    PreCallFormView(context: $liveSession.preCallContext) {
+                        liveSession.startLive(context: liveSession.preCallContext)
+                    }
+                }
             }
 
-            // Post-session: save/delete + summary
+            // Post-session: save/delete + review
             if !liveSession.isLive && liveSession.hasSession {
                 Divider()
 
@@ -952,13 +1010,17 @@ struct LiveSection: View {
                 if liveSession.isGeneratingSummary {
                     HStack(spacing: 6) {
                         ProgressView().controlSize(.mini)
-                        Text("Generating summary...").font(.caption).foregroundStyle(.secondary)
+                        Text("Generating review...").font(.caption).foregroundStyle(.secondary)
                     }
                 } else if !liveSession.showPostSession {
                     Button {
-                        liveSession.generateSummary()
+                        // Lazy-start Ollama for post-call review
+                        if ollamaManager.status == .stopped {
+                            ollamaManager.start()
+                        }
+                        liveSession.generateReview()
                     } label: {
-                        Label("Generate Debrief", systemImage: "doc.text.magnifyingglass")
+                        Label("Generate Review", systemImage: "doc.text.magnifyingglass")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
@@ -980,7 +1042,6 @@ struct FeedbackSection: View {
     @Bindable var simulation: SimulationViewModel
     @Bindable var liveSession: LiveSessionViewModel
 
-    /// Use live session utterances if available, otherwise simulation transcript
     private var activeUtterances: [Utterance] {
         if liveSession.hasSession {
             return liveSession.utterances
@@ -1104,18 +1165,33 @@ struct RunSection: View {
                 .buttonStyle(.bordered)
                 .tint(.red)
             } else {
+                // V2 deterministic simulation
                 Button {
-                    simulation.run(settings: settings)
+                    simulation.runV2(context: PreCallContext())
                 } label: {
-                    Label("Run Training", systemImage: "play.fill")
+                    Label("Run Signals (v2)", systemImage: "bolt.fill")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+                .disabled(simulation.utterances.isEmpty)
+
+                // Legacy LLM simulation
+                Button {
+                    simulation.run(settings: settings)
+                } label: {
+                    Label("Run LLM Training", systemImage: "play.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
                 .disabled(simulation.utterances.isEmpty)
             }
 
             if !simulation.calls.isEmpty {
                 Text("\(simulation.calls.count) coaching calls")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if !simulation.v2Nudges.isEmpty {
+                Text("\(simulation.v2Nudges.count) nudges (v2)")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }

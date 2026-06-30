@@ -21,6 +21,10 @@ final class SimulationViewModel {
     var feedbackText: String = ""
     var feedbackSaved = false
 
+    /// V2 deterministic nudges
+    var v2Nudges: [Nudge] = []
+    var isV2Mode = false
+
     private var simulationTask: Task<Void, Never>?
 
     var meetingDuration: String {
@@ -32,6 +36,9 @@ final class SimulationViewModel {
 
     var statusText: String {
         if !isRunning { return "" }
+        if isV2Mode {
+            return "V2 signals: \(v2Nudges.count) nudges"
+        }
         return "Analyzed \(triggerCount) moments (skipped \(triggersSkipped))"
     }
 
@@ -49,10 +56,64 @@ final class SimulationViewModel {
             triggersSkipped = 0
             feedbackText = ""
             feedbackSaved = false
+            v2Nudges = []
+            isV2Mode = false
         } catch {
             self.error = "Could not read file: \(error.localizedDescription)"
         }
     }
+
+    // MARK: - V2 Deterministic Simulation
+
+    func runV2(context: PreCallContext) {
+        guard !utterances.isEmpty else {
+            error = "No transcript loaded"
+            return
+        }
+
+        isRunning = true
+        isV2Mode = true
+        v2Nudges = []
+        calls = []
+        error = nil
+        progress = 0
+        triggerCount = 0
+
+        let totalDuration = (utterances.last?.t ?? 0) - (utterances.first?.t ?? 0)
+        let startTime = utterances.first?.t ?? 0
+
+        simulationTask = Task { @MainActor in
+            var engine = SignalEngine(context: context)
+
+            // Walk through utterances chronologically, evaluating at each one
+            for (i, utterance) in utterances.enumerated() {
+                guard !Task.isCancelled else { break }
+
+                let elapsed = utterance.t - startTime
+                currentTime = utterance.t
+                progress = totalDuration > 0 ? elapsed / totalDuration : 1
+                currentWindow = [utterance]
+
+                let upToNow = Array(utterances.prefix(i + 1))
+                let newNudges = engine.evaluate(
+                    utterances: upToNow,
+                    elapsed: elapsed,
+                    context: context
+                )
+
+                for nudge in newNudges {
+                    v2Nudges.append(nudge)
+                    triggerCount += 1
+                }
+            }
+
+            isRunning = false
+            isAnalyzing = false
+            progress = 1
+        }
+    }
+
+    // MARK: - Legacy LLM Simulation
 
     func run(settings: SettingsViewModel) {
         guard !utterances.isEmpty else {
@@ -69,6 +130,7 @@ final class SimulationViewModel {
         }
 
         isRunning = true
+        isV2Mode = false
         calls = []
         currentWindow = []
         error = nil
@@ -92,14 +154,12 @@ final class SimulationViewModel {
                 currentTime = trigger.now
                 progress = totalDuration > 0 ? trigger.now / totalDuration : 1
 
-                // Throttle: skip triggers too close to last processed one
                 let elapsed = trigger.now - lastProcessedTime
                 if elapsed < minInterval {
                     triggersSkipped += 1
                     continue
                 }
 
-                // Show what we're analyzing
                 currentWindow = trigger.window
                 isAnalyzing = true
                 triggerCount += 1

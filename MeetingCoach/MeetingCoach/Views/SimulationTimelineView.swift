@@ -5,13 +5,18 @@ struct SimulationTimelineView: View {
 
     var body: some View {
         Group {
-            if simulation.calls.isEmpty && !simulation.isRunning {
+            if simulation.calls.isEmpty && simulation.v2Nudges.isEmpty && !simulation.isRunning {
                 emptyState
             } else {
                 HSplitView {
-                    // Left: coaching calls
-                    callsPanel
-                        .frame(minWidth: 280)
+                    // Left: coaching calls or v2 nudges
+                    if simulation.isV2Mode {
+                        nudgesPanel
+                            .frame(minWidth: 280)
+                    } else {
+                        callsPanel
+                            .frame(minWidth: 280)
+                    }
 
                     // Right: what's being analyzed
                     analysisPanel
@@ -36,7 +41,60 @@ struct SimulationTimelineView: View {
         }
     }
 
-    // MARK: - Coaching calls panel
+    // MARK: - V2 Nudges panel
+
+    private var nudgesPanel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Nudges (v2)")
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if !simulation.v2Nudges.isEmpty {
+                    Text("\(simulation.v2Nudges.count)")
+                        .font(.caption2.monospacedDigit())
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(.blue.opacity(0.1))
+                        .foregroundStyle(.blue)
+                        .clipShape(Capsule())
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+
+            Divider()
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 8) {
+                        ForEach(simulation.v2Nudges) { nudge in
+                            SimNudgeCardView(nudge: nudge)
+                                .id(nudge.id)
+                        }
+                        if simulation.isRunning {
+                            HStack(spacing: 8) {
+                                ProgressView().controlSize(.small)
+                                Text("Scanning...").font(.caption).foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal)
+                            .id("loading")
+                        }
+                    }
+                    .padding()
+                }
+                .onChange(of: simulation.v2Nudges.count) { _, _ in
+                    if let last = simulation.v2Nudges.last {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            proxy.scrollTo(last.id, anchor: .bottom)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Coaching calls panel (legacy LLM)
 
     private var callsPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -169,7 +227,59 @@ struct SimulationTimelineView: View {
     }
 }
 
-// MARK: - Call Card
+// MARK: - Sim Nudge Card (v2)
+
+struct SimNudgeCardView: View {
+    let nudge: Nudge
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text(nudge.formattedTime)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .frame(width: 44, alignment: .trailing)
+
+            Circle()
+                .fill(urgencyColor)
+                .frame(width: 8, height: 8)
+                .padding(.top, 5)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(nudge.text)
+                    .font(.system(.body, weight: .semibold))
+
+                HStack(spacing: 8) {
+                    Text(nudge.type.rawValue)
+                        .font(.caption2)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(urgencyColor.opacity(0.15))
+                        .foregroundStyle(urgencyColor)
+                        .clipShape(Capsule())
+
+                    Text(nudge.urgency.rawValue)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+        }
+        .padding(10)
+        .background(Color(.controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var urgencyColor: Color {
+        switch nudge.urgency {
+        case .low: return .gray
+        case .med: return .blue
+        case .high: return .orange
+        }
+    }
+}
+
+// MARK: - Call Card (legacy)
 
 struct CallCardView: View {
     let call: CoachingCall
