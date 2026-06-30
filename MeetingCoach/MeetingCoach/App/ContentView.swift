@@ -408,7 +408,7 @@ struct SidebarView: View {
             }
 
             Divider()
-            Text("v2.1.1")
+            Text("v2.1.2")
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(.quaternary)
                 .frame(maxWidth: .infinity)

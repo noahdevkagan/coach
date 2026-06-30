@@ -45,7 +45,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     private var chunkSysSamples: [Float] = []
 
     // Echo/bleed compensation: estimate how much system audio bleeds into the mic
-    private var estimatedBleedRatio: Float = 0.3    // mic picks up ~30% of system audio level
+    private var estimatedBleedRatio: Float = 0.40   // mic picks up ~40% of system audio level
 
     override init() {
         speechRecognizer = SFSpeechRecognizer(locale: .init(identifier: "en-US"))
@@ -286,9 +286,9 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         // Reset chunk energy accumulators (but keep frame counters decaying gradually)
         chunkMicSamples.removeAll(keepingCapacity: true)
         chunkSysSamples.removeAll(keepingCapacity: true)
-        // Gradual decay of frame counters instead of hard reset
-        micSpeakingFrames = micSpeakingFrames / 3
-        sysSpeakingFrames = sysSpeakingFrames / 3
+        // Faster frame counter decay to reduce carryover bias at transitions
+        micSpeakingFrames = micSpeakingFrames / 4
+        sysSpeakingFrames = sysSpeakingFrames / 4
 
         let u = Utterance(t: t, speaker: speaker, text: chunk)
         Task { @MainActor [onUtterance] in
@@ -299,21 +299,34 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     // MARK: - Speaker detection
 
     /// Determine who was speaking during this chunk using accumulated energy samples
-    /// with echo compensation.
+    /// with echo compensation. Uses recency-weighted samples to reduce transition bleed.
     private func determineSpeaker() -> String {
         guard hasSystemAudio else { return "Meeting" }
 
-        // Compute average energy over the chunk window
+        // Use only the latter half of samples to reduce transition bleed.
+        // When speakers change mid-chunk, the first samples reflect the previous
+        // speaker and pollute the average. Trimming to recent samples improves
+        // accuracy at speaker transitions.
+        var micSamples = chunkMicSamples
+        var sysSamples = chunkSysSamples
+        if micSamples.count > 10 {
+            micSamples = Array(micSamples[(micSamples.count / 2)...])
+        }
+        if sysSamples.count > 10 {
+            sysSamples = Array(sysSamples[(sysSamples.count / 2)...])
+        }
+
+        // Compute average energy over the (recency-weighted) chunk window
         let avgMic: Float
         let avgSys: Float
-        if !chunkMicSamples.isEmpty {
-            avgMic = chunkMicSamples.reduce(0, +) / Float(chunkMicSamples.count)
+        if !micSamples.isEmpty {
+            avgMic = micSamples.reduce(0, +) / Float(micSamples.count)
         } else {
             // Fallback to instantaneous if no samples accumulated
             avgMic = max(0, micEnergy - sysEnergy * estimatedBleedRatio)
         }
-        if !chunkSysSamples.isEmpty {
-            avgSys = chunkSysSamples.reduce(0, +) / Float(chunkSysSamples.count)
+        if !sysSamples.isEmpty {
+            avgSys = sysSamples.reduce(0, +) / Float(sysSamples.count)
         } else {
             avgSys = sysEnergy
         }
@@ -331,19 +344,21 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
         // Both active — use energy ratio with frame count tiebreaker.
         // Require mic to clearly dominate (compensated for bleed) to label "You".
-        // This corrects the bias toward "You" when system audio bleeds into mic.
         if avgMic > avgSys * 1.5 && micSpeakingFrames > sysSpeakingFrames {
             return "You"
         }
-        if avgSys > avgMic * 0.5 && sysSpeakingFrames > micSpeakingFrames {
+        // Require system to actually exceed mic (not just 0.5x) to label "Them".
+        // Previous 0.5x threshold was too permissive and caused Noah's short
+        // interjections to be mislabeled as "Them" during speaker transitions.
+        if avgSys > avgMic * 1.0 && sysSpeakingFrames > micSpeakingFrames {
             return "Them"
         }
 
-        // Frame count tiebreaker with higher bar
+        // Frame count tiebreaker
         if micSpeakingFrames > sysSpeakingFrames * 3 {
             return "You"
         }
-        if sysSpeakingFrames > micSpeakingFrames {
+        if sysSpeakingFrames > micSpeakingFrames * 2 {
             return "Them"
         }
 

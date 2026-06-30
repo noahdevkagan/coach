@@ -10,9 +10,9 @@ struct GoingQuietSignal: SignalMonitor {
     /// Average word count below this triggers the nudge.
     var shortReplyThreshold: Int = 4
     /// Minimum seconds between fires.
-    var cooldown: TimeInterval = 90
+    var cooldown: TimeInterval = 180
     /// Minimum elapsed time before this can fire (let the meeting warm up).
-    var warmupSeconds: TimeInterval = 120
+    var warmupSeconds: TimeInterval = 180
 
     private var lastFired: TimeInterval = -.infinity
 
