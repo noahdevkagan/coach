@@ -194,29 +194,29 @@ struct LiveTimelineView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                let joined = joinConsecutive(liveSession.utterances)
+                let turns = joinConsecutive(liveSession.utterances)
                 ScrollViewReader { proxy in
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ForEach(Array(joined.enumerated()), id: \.offset) { _, utt in
-                                HStack(alignment: .top, spacing: 6) {
-                                    Text(utt.formattedTime)
-                                        .font(.system(.caption2, design: .monospaced))
-                                        .foregroundStyle(.tertiary)
-                                        .frame(width: 36, alignment: .trailing)
-                                    Text(utt.speaker)
-                                        .font(.caption2.bold())
-                                        .foregroundStyle(utt.isYou ? .blue : .orange)
-                                        .frame(width: 44, alignment: .leading)
-                                        .lineLimit(1)
-                                    Text(utt.text)
-                                        .font(.caption)
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(Array(turns.enumerated()), id: \.offset) { _, turn in
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack(spacing: 4) {
+                                        Text(turn.formattedTime)
+                                            .font(.system(.caption2, design: .monospaced))
+                                            .foregroundStyle(.tertiary)
+                                        Text(turn.speaker)
+                                            .font(.caption2.bold())
+                                            .foregroundStyle(speakerColor(turn.speaker))
+                                    }
+                                    Text(turn.text)
+                                        .font(.callout)
                                         .textSelection(.enabled)
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
                             }
                             Color.clear.frame(height: 1).id("transcript-bottom")
                         }
-                        .padding(10)
+                        .padding(12)
                     }
                     .onChange(of: liveSession.utterances.count) { _, _ in
                         proxy.scrollTo("transcript-bottom")
@@ -406,7 +406,7 @@ struct SidebarView: View {
             }
 
             Divider()
-            Text("v2.0.5")
+            Text("v2.0.6")
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(.quaternary)
                 .frame(maxWidth: .infinity)
@@ -1245,6 +1245,13 @@ private func joinConsecutive(_ utterances: [Utterance]) -> [Utterance] {
     }
     result.append(Utterance(t: currentTime, speaker: currentSpeaker, text: currentText))
     return result
+}
+
+private func speakerColor(_ speaker: String) -> Color {
+    let lower = speaker.trimmingCharacters(in: .whitespaces).lowercased()
+    if ["you", "me", "self", "noah kagan"].contains(lower) { return .blue }
+    if lower == "meeting" { return .secondary }
+    return .orange
 }
 
 private func splitWords(_ text: String, perChunk: Int = 8) -> [String] {
