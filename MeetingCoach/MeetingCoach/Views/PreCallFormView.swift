@@ -6,6 +6,8 @@ struct PreCallFormView: View {
     let onStart: () -> Void
     @Environment(\.dismiss) private var dismiss
 
+    private static let durationOptions = [15, 30, 60]
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -31,17 +33,19 @@ struct PreCallFormView: View {
                             .textFieldStyle(.roundedBorder)
                     }
 
-                    // Duration
+                    // Duration — dropdown
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Scheduled Duration").font(.caption.bold())
-                        HStack {
-                            Stepper("\(context.scheduledDurationMinutes) min",
-                                    value: $context.scheduledDurationMinutes,
-                                    in: 5...120, step: 5)
+                        Picker("", selection: $context.scheduledDurationMinutes) {
+                            ForEach(Self.durationOptions, id: \.self) { min in
+                                Text("\(min) min").tag(min)
+                            }
                         }
+                        .labelsHidden()
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    // Participants
+                    // Participants — always visible, persisted
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Text("Participants").font(.caption.bold())
@@ -53,6 +57,12 @@ struct PreCallFormView: View {
                             }
                             .buttonStyle(.plain)
                             .foregroundStyle(.blue)
+                        }
+
+                        if context.participants.isEmpty {
+                            Text("Add people you're meeting with — they'll be remembered next time")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
                         }
 
                         ForEach($context.participants) { $participant in
@@ -72,35 +82,6 @@ struct PreCallFormView: View {
                             }
                         }
                     }
-
-                    // Known tendencies
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("My Known Tendencies").font(.caption.bold())
-                            Spacer()
-                            Button {
-                                context.myKnownTendencies.append("")
-                            } label: {
-                                Image(systemName: "plus.circle")
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(.blue)
-                        }
-
-                        ForEach(Array(context.myKnownTendencies.enumerated()), id: \.offset) { i, _ in
-                            HStack {
-                                TextField("e.g. Talk too much, avoid pricing", text: $context.myKnownTendencies[i])
-                                    .textFieldStyle(.roundedBorder)
-                                Button {
-                                    context.myKnownTendencies.remove(at: i)
-                                } label: {
-                                    Image(systemName: "minus.circle")
-                                        .foregroundStyle(.red)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
                 }
                 .padding()
             }
@@ -111,6 +92,7 @@ struct PreCallFormView: View {
             HStack {
                 Spacer()
                 Button {
+                    ParticipantStore.save(context.participants)
                     dismiss()
                     onStart()
                 } label: {
@@ -122,6 +104,31 @@ struct PreCallFormView: View {
             }
             .padding()
         }
-        .frame(width: 480, height: 520)
+        .frame(width: 480, height: 440)
+        .onAppear {
+            // Load remembered participants if none set yet
+            if context.participants.isEmpty {
+                context.participants = ParticipantStore.load()
+            }
+        }
+    }
+}
+
+/// Persists participants across sessions.
+enum ParticipantStore {
+    private static let key = "savedParticipants"
+
+    static func save(_ participants: [PreCallContext.Participant]) {
+        // Only save non-empty entries
+        let valid = participants.filter { !$0.name.isEmpty }
+        guard let data = try? JSONEncoder().encode(valid) else { return }
+        UserDefaults.standard.set(data, forKey: key)
+    }
+
+    static func load() -> [PreCallContext.Participant] {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let participants = try? JSONDecoder().decode([PreCallContext.Participant].self, from: data)
+        else { return [] }
+        return participants
     }
 }
