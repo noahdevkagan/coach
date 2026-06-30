@@ -273,18 +273,25 @@ struct NudgeCardView: View {
 
                     Spacer()
 
-                    // Feedback state or buttons
-                    if let feedback = nudge.feedback {
+                }
+
+                // Feedback row — prominent buttons or result
+                if let feedback = nudge.feedback {
+                    HStack(spacing: 6) {
+                        Image(systemName: feedbackIcon(feedback))
+                            .font(.caption)
                         Text(feedbackLabel(feedback))
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    } else {
-                        HStack(spacing: 2) {
-                            feedbackButton(.useful, icon: "hand.thumbsup", color: .green)
-                            feedbackButton(.annoying, icon: "minus.circle", color: .gray)
-                            feedbackButton(.wrong, icon: "xmark.circle", color: .red)
-                        }
+                            .font(.caption)
                     }
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 2)
+                } else {
+                    HStack(spacing: 8) {
+                        feedbackButton(.useful, label: "Useful", icon: "hand.thumbsup.fill", color: .green)
+                        feedbackButton(.annoying, label: "Meh", icon: "minus.circle.fill", color: .gray)
+                        feedbackButton(.wrong, label: "Wrong", icon: "xmark.circle.fill", color: .red)
+                    }
+                    .padding(.top, 4)
                 }
             }
 
@@ -295,22 +302,37 @@ struct NudgeCardView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
-    private func feedbackButton(_ feedback: NudgeFeedback, icon: String, color: Color) -> some View {
+    private func feedbackButton(_ feedback: NudgeFeedback, label: String, icon: String, color: Color) -> some View {
         Button {
             onFeedback(feedback)
         } label: {
-            Image(systemName: icon)
-                .font(.caption2)
-                .foregroundStyle(color.opacity(0.6))
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                Text(label)
+            }
+            .font(.caption)
+            .foregroundStyle(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(color.opacity(0.1))
+            .clipShape(Capsule())
         }
         .buttonStyle(.plain)
     }
 
     private func feedbackLabel(_ feedback: NudgeFeedback) -> String {
         switch feedback {
-        case .useful: return "useful"
-        case .annoying: return "meh"
-        case .wrong: return "wrong"
+        case .useful: return "Useful"
+        case .annoying: return "Meh"
+        case .wrong: return "Wrong"
+        }
+    }
+
+    private func feedbackIcon(_ feedback: NudgeFeedback) -> String {
+        switch feedback {
+        case .useful: return "hand.thumbsup.fill"
+        case .annoying: return "minus.circle.fill"
+        case .wrong: return "xmark.circle.fill"
         }
     }
 
@@ -384,7 +406,7 @@ struct SidebarView: View {
             }
 
             Divider()
-            Text("v2.0.4")
+            Text("v2.0.5")
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(.quaternary)
                 .frame(maxWidth: .infinity)
