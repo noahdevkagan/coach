@@ -17,6 +17,7 @@ struct Nudge: Identifiable, Codable {
 
 enum NudgeType: String, Codable, CaseIterable {
     case talkTime, missingDiscovery, timeCheck,
+         repetitionLoop, stackedQuestions, nextSteps,
          commitmentGap, droppedThread, priceFlinch
 }
 

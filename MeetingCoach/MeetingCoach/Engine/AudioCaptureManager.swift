@@ -233,12 +233,12 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         let minWords: Int
         if result.isFinal {
             minWords = 1
-        } else if timeSinceLastEmit > 4.0 {
-            minWords = 3  // flush after long silence, but still need a few words
-        } else if timeSinceLastEmit > 2.5 {
-            minWords = 5  // moderate pause — flush with decent chunk
+        } else if timeSinceLastEmit > 5.0 {
+            minWords = 4  // flush after long pause
+        } else if timeSinceLastEmit > 3.5 {
+            minWords = 8  // moderate pause — flush with decent chunk
         } else {
-            minWords = 8  // normal: accumulate ~8 words for reliable speaker detection
+            minWords = 18  // normal: accumulate ~18 words for natural sentence-length utterances
         }
         guard available >= minWords else {
             // Schedule a flush timer to catch stragglers

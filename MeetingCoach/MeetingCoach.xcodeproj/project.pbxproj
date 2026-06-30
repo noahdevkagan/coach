@@ -37,6 +37,9 @@
 		5073E70680354488A807C61F /* SignalEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3E49DFE6D5045DCA799E1D8 /* SignalEngine.swift */; };
 		AF16720C0FF9440A91BBE1AE /* TalkTimeSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7F289E3E904814BB6FBC7E /* TalkTimeSignal.swift */; };
 		ED8E8BE7683343969D5436E3 /* TimeCheckSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = D83B3AC564404AEBAFE8B749 /* TimeCheckSignal.swift */; };
+		E2444F5818AC6C8A2195954B /* NextStepsSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4461803394B69BED5CCCDA36 /* NextStepsSignal.swift */; };
+		F7B42EEA125E7A7F9DCB41E1 /* RepetitionLoopSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA9B9EC3AC2701911F07C17 /* RepetitionLoopSignal.swift */; };
+		24182F1D3699E0020D1D58B5 /* StackedQuestionsSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB97F801A2B6BBDEA6061460 /* StackedQuestionsSignal.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -70,6 +73,9 @@
 		C3E49DFE6D5045DCA799E1D8 /* SignalEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignalEngine.swift; sourceTree = "<group>"; };
 		AC7F289E3E904814BB6FBC7E /* TalkTimeSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkTimeSignal.swift; sourceTree = "<group>"; };
 		D83B3AC564404AEBAFE8B749 /* TimeCheckSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeCheckSignal.swift; sourceTree = "<group>"; };
+		4461803394B69BED5CCCDA36 /* NextStepsSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NextStepsSignal.swift; sourceTree = "<group>"; };
+		DAA9B9EC3AC2701911F07C17 /* RepetitionLoopSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepetitionLoopSignal.swift; sourceTree = "<group>"; };
+		BB97F801A2B6BBDEA6061460 /* StackedQuestionsSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StackedQuestionsSignal.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -185,6 +191,9 @@
 			isa = PBXGroup;
 			children = (
 				D64DCC8C37404092A623285D /* MissingDiscoverySignal.swift */,
+				4461803394B69BED5CCCDA36 /* NextStepsSignal.swift */,
+				DAA9B9EC3AC2701911F07C17 /* RepetitionLoopSignal.swift */,
+				BB97F801A2B6BBDEA6061460 /* StackedQuestionsSignal.swift */,
 				AC7F289E3E904814BB6FBC7E /* TalkTimeSignal.swift */,
 				D83B3AC564404AEBAFE8B749 /* TimeCheckSignal.swift */,
 			);
@@ -298,6 +307,7 @@
 				B2AC75147E4394FD58C99445 /* LiveSessionViewModel.swift in Sources */,
 				1FD450DC57AD4C53698800D3 /* MeetingCoachApp.swift in Sources */,
 				54BAD08BD5E443B48CF48508 /* MissingDiscoverySignal.swift in Sources */,
+				E2444F5818AC6C8A2195954B /* NextStepsSignal.swift in Sources */,
 				02D4EBE8E3E2405C9DA983D8 /* Nudge.swift in Sources */,
 				FF20EDCA009AC9F00BC2968E /* OllamaClient.swift in Sources */,
 				29B5CC4536FD985F624286F8 /* OllamaManager.swift in Sources */,
@@ -305,11 +315,13 @@
 				8C19255AABCF4C51A9C781C3 /* PreCallContext.swift in Sources */,
 				1BB8A732A0934BF0849A3A80 /* PreCallFormView.swift in Sources */,
 				95BAA399EE14E37A99CF1834 /* Rubric.swift in Sources */,
+				F7B42EEA125E7A7F9DCB41E1 /* RepetitionLoopSignal.swift in Sources */,
 				C322C07D3607C86B929C4345 /* SettingsViewModel.swift in Sources */,
 				5073E70680354488A807C61F /* SignalEngine.swift in Sources */,
 				CAD8C8E966931110E2D6415E /* SimulationTimelineView.swift in Sources */,
 				251A55DA15B1192554DF63E1 /* SimulationViewModel.swift in Sources */,
 				E244EF555EFC6E26269EA063 /* Simulator.swift in Sources */,
+				24182F1D3699E0020D1D58B5 /* StackedQuestionsSignal.swift in Sources */,
 				AF16720C0FF9440A91BBE1AE /* TalkTimeSignal.swift in Sources */,
 				ED8E8BE7683343969D5436E3 /* TimeCheckSignal.swift in Sources */,
 				7C4F29B8D61E3A7504F8CE92 /* TrainingExample.swift in Sources */,

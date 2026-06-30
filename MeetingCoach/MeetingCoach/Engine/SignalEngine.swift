@@ -18,6 +18,9 @@ struct SignalEngine {
             TalkTimeSignal(),
             MissingDiscoverySignal(),
             TimeCheckSignal(scheduledMinutes: context.scheduledDurationMinutes),
+            RepetitionLoopSignal(),
+            StackedQuestionsSignal(),
+            NextStepsSignal(scheduledMinutes: context.scheduledDurationMinutes),
         ]
     }
 
