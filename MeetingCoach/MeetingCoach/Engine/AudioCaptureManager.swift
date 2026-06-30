@@ -22,6 +22,8 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     private var emittedWordCount = 0
     private var lastEmitTime: Date = Date()
     private var flushTimer: Timer?
+    /// Track the highest emittedWordCount ever seen in this generation to detect revisions
+    private var peakEmittedWordCount = 0
 
     // Audio sources
     private var engine: AVAudioEngine?
@@ -32,11 +34,18 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     // Speaker detection via audio energy
     private var micEnergy: Float = 0
     private var sysEnergy: Float = 0
-    private let energyDecay: Float = 0.7          // faster decay to track changes quickly
-    private let micSilenceFloor: Float = 0.005    // below this, mic is silent (not you)
-    private let sysSilenceFloor: Float = 0.002    // below this, system audio is silent
-    private var micSpeakingFrames: Int = 0        // consecutive frames where mic is "hot"
-    private var sysSpeakingFrames: Int = 0        // consecutive frames where system is "hot"
+    private let energyDecay: Float = 0.85           // slower decay to better represent who spoke during chunk
+    private let micSilenceFloor: Float = 0.005      // below this, mic is silent (not you)
+    private let sysSilenceFloor: Float = 0.002      // below this, system audio is silent
+    private var micSpeakingFrames: Int = 0           // frames where mic is "hot"
+    private var sysSpeakingFrames: Int = 0           // frames where system is "hot"
+
+    // Accumulated energy samples over the chunk window for time-averaged speaker detection
+    private var chunkMicSamples: [Float] = []
+    private var chunkSysSamples: [Float] = []
+
+    // Echo/bleed compensation: estimate how much system audio bleeds into the mic
+    private var estimatedBleedRatio: Float = 0.3    // mic picks up ~30% of system audio level
 
     override init() {
         speechRecognizer = SFSpeechRecognizer(locale: .init(identifier: "en-US"))
@@ -117,13 +126,22 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         inputNode.installTap(onBus: 0, bufferSize: 4096, format: recordingFormat) { [weak self] buffer, _ in
             guard let self else { return }
             self.recognitionRequest?.append(buffer)
+
             // Track mic energy for speaker detection
             let energy = self.rmsEnergy(buffer)
             self.micEnergy = max(energy, self.micEnergy * self.energyDecay)
-            if energy > self.micSilenceFloor {
+
+            // Compensate for speaker bleed: subtract expected bleed from mic reading
+            let compensatedMicEnergy = max(0, energy - self.sysEnergy * self.estimatedBleedRatio)
+
+            // Accumulate samples for time-averaged detection over the chunk window
+            self.chunkMicSamples.append(compensatedMicEnergy)
+
+            if compensatedMicEnergy > self.micSilenceFloor {
                 self.micSpeakingFrames += 1
             } else {
-                self.micSpeakingFrames = max(0, self.micSpeakingFrames - 2)
+                // Gradual decay instead of hard decrement
+                self.micSpeakingFrames = max(0, self.micSpeakingFrames - 1)
             }
         }
 
@@ -178,6 +196,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         generation += 1
         let gen = generation
         emittedWordCount = 0
+        peakEmittedWordCount = 0
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
@@ -219,16 +238,21 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         let t = Date().timeIntervalSince(startTime)
         let allWords = full.split(separator: " ")
 
+        // Fix: Handle revisions without replaying already-emitted content.
+        // When the recognizer revises (word count drops), only reset to the
+        // revision point, not to zero. This prevents echo/duplicate lines.
         if allWords.count < emittedWordCount {
-            mclog("[Speech] Revision: words=\(allWords.count) < emitted=\(emittedWordCount), resetting")
-            emittedWordCount = 0
+            mclog("[Speech] Revision: words=\(allWords.count) < emitted=\(emittedWordCount), adjusting")
+            // The recognizer revised — the new transcript replaces the old one.
+            // Don't re-emit words that were already sent. Just adjust our pointer.
+            emittedWordCount = min(emittedWordCount, allWords.count)
+            return  // Skip this result — wait for more words to accumulate
         }
 
         let stableCount = result.isFinal ? allWords.count : max(0, allWords.count - 1)
         let available = stableCount - emittedWordCount
 
-        // Emit in larger chunks for better speaker detection.
-        // More words per utterance = more stable energy measurement = better You/Them labeling.
+        // Emit in larger chunks for better speaker detection and natural sentences.
         let timeSinceLastEmit = Date().timeIntervalSince(lastEmitTime)
         let minWords: Int
         if result.isFinal {
@@ -248,43 +272,85 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
         let chunk = allWords[emittedWordCount..<stableCount].joined(separator: " ")
         emittedWordCount = stableCount
+        peakEmittedWordCount = max(peakEmittedWordCount, emittedWordCount)
         lastEmitTime = Date()
         cancelFlushTimer()
 
         mclog("[Speech] Emitting \(available) words (timeSince=\(String(format: "%.1f", timeSinceLastEmit))s): \(chunk.prefix(80))")
 
-        // Determine speaker: mic silent = definitely not you,
-        // mic hot + system quiet = definitely you,
-        // both active = use energy ratio with frame-count tiebreaker
-        let speaker: String
-        if !hasSystemAudio {
-            speaker = "Meeting"
-        } else if micEnergy < micSilenceFloor {
-            // Mic is silent — you're not talking
-            speaker = "Them"
-        } else if sysEnergy < sysSilenceFloor {
-            // System is silent — only your mic is active
-            speaker = "You"
-        } else if micEnergy > sysEnergy * 1.2 && micSpeakingFrames > sysSpeakingFrames {
-            speaker = "You"
-        } else if sysEnergy > micEnergy * 0.8 && sysSpeakingFrames > micSpeakingFrames {
-            speaker = "Them"
-        } else if micSpeakingFrames > sysSpeakingFrames * 2 {
-            speaker = "You"
-        } else if sysSpeakingFrames > micSpeakingFrames * 2 {
-            speaker = "Them"
-        } else {
-            speaker = "Meeting"
-        }
+        // Determine speaker using time-averaged energy over the chunk window.
+        // This is more accurate than point-in-time energy because it reflects
+        // who was actually speaking during the words being emitted.
+        let speaker = determineSpeaker()
 
-        // Reset frame counters after attribution
-        micSpeakingFrames = 0
-        sysSpeakingFrames = 0
+        // Reset chunk energy accumulators (but keep frame counters decaying gradually)
+        chunkMicSamples.removeAll(keepingCapacity: true)
+        chunkSysSamples.removeAll(keepingCapacity: true)
+        // Gradual decay of frame counters instead of hard reset
+        micSpeakingFrames = micSpeakingFrames / 3
+        sysSpeakingFrames = sysSpeakingFrames / 3
 
         let u = Utterance(t: t, speaker: speaker, text: chunk)
         Task { @MainActor [onUtterance] in
             onUtterance?(u)
         }
+    }
+
+    // MARK: - Speaker detection
+
+    /// Determine who was speaking during this chunk using accumulated energy samples
+    /// with echo compensation.
+    private func determineSpeaker() -> String {
+        guard hasSystemAudio else { return "Meeting" }
+
+        // Compute average energy over the chunk window
+        let avgMic: Float
+        let avgSys: Float
+        if !chunkMicSamples.isEmpty {
+            avgMic = chunkMicSamples.reduce(0, +) / Float(chunkMicSamples.count)
+        } else {
+            // Fallback to instantaneous if no samples accumulated
+            avgMic = max(0, micEnergy - sysEnergy * estimatedBleedRatio)
+        }
+        if !chunkSysSamples.isEmpty {
+            avgSys = chunkSysSamples.reduce(0, +) / Float(chunkSysSamples.count)
+        } else {
+            avgSys = sysEnergy
+        }
+
+        // Clear cases first
+        if avgMic < micSilenceFloor && avgSys < sysSilenceFloor {
+            return "Meeting"  // neither source active
+        }
+        if avgMic < micSilenceFloor {
+            return "Them"     // mic silent, only system audio
+        }
+        if avgSys < sysSilenceFloor {
+            return "You"      // system silent, only mic
+        }
+
+        // Both active — use energy ratio with frame count tiebreaker.
+        // Require mic to clearly dominate (compensated for bleed) to label "You".
+        // This corrects the bias toward "You" when system audio bleeds into mic.
+        if avgMic > avgSys * 1.5 && micSpeakingFrames > sysSpeakingFrames {
+            return "You"
+        }
+        if avgSys > avgMic * 0.5 && sysSpeakingFrames > micSpeakingFrames {
+            return "Them"
+        }
+
+        // Frame count tiebreaker with higher bar
+        if micSpeakingFrames > sysSpeakingFrames * 3 {
+            return "You"
+        }
+        if sysSpeakingFrames > micSpeakingFrames {
+            return "Them"
+        }
+
+        // When in doubt, default to "Them" instead of "Meeting" —
+        // "Meeting" provides no coaching value and the other person
+        // is more likely the one talking when both sources are active.
+        return "Them"
     }
 
     // MARK: - Flush timer
@@ -373,10 +439,14 @@ extension AudioCaptureManager: SCStreamOutput {
         // zero results. Just track energy for speaker detection.
         let energy = rmsEnergyPCM(pcmBuffer)
         sysEnergy = max(energy, sysEnergy * energyDecay)
+
+        // Accumulate system energy samples for time-averaged detection
+        chunkSysSamples.append(energy)
+
         if energy > sysSilenceFloor {
             sysSpeakingFrames += 1
         } else {
-            sysSpeakingFrames = max(0, sysSpeakingFrames - 2)
+            sysSpeakingFrames = max(0, sysSpeakingFrames - 1)
         }
     }
 }
