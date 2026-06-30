@@ -5,7 +5,7 @@ struct TalkTimeSignal: SignalMonitor {
     let nudgeType: NudgeType = .talkTime
 
     /// Continuous "You" speaking time before firing (seconds).
-    var threshold: TimeInterval = 60
+    var threshold: TimeInterval = 45
     /// Minimum seconds between fires.
     var cooldown: TimeInterval = 60
     /// Max gap between utterances before the streak breaks (seconds).
