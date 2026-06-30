@@ -54,7 +54,7 @@ final class SimulationViewModel {
             currentTime = 0
             triggerCount = 0
             triggersSkipped = 0
-            feedbackText = ""
+            // Preserve feedbackText — user may have coaching notes they want to keep
             feedbackSaved = false
             v2Nudges = []
             isV2Mode = false
