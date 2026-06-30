@@ -194,26 +194,24 @@ struct LiveTimelineView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
+                let joined = joinConsecutive(liveSession.utterances)
                 ScrollViewReader { proxy in
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 3) {
-                            ForEach(Array(liveSession.utterances.enumerated()), id: \.offset) { _, utt in
-                                let chunks = splitWords(utt.text)
-                                ForEach(Array(chunks.enumerated()), id: \.offset) { ci, chunk in
-                                    HStack(alignment: .top, spacing: 6) {
-                                        Text(ci == 0 ? utt.formattedTime : "")
-                                            .font(.system(.caption2, design: .monospaced))
-                                            .foregroundStyle(.tertiary)
-                                            .frame(width: 36, alignment: .trailing)
-                                        Text(ci == 0 ? utt.speaker : "")
-                                            .font(.caption2.bold())
-                                            .foregroundStyle(utt.isYou ? .blue : .orange)
-                                            .frame(width: 44, alignment: .leading)
-                                            .lineLimit(1)
-                                        Text(chunk)
-                                            .font(.caption)
-                                            .textSelection(.enabled)
-                                    }
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(Array(joined.enumerated()), id: \.offset) { _, utt in
+                                HStack(alignment: .top, spacing: 6) {
+                                    Text(utt.formattedTime)
+                                        .font(.system(.caption2, design: .monospaced))
+                                        .foregroundStyle(.tertiary)
+                                        .frame(width: 36, alignment: .trailing)
+                                    Text(utt.speaker)
+                                        .font(.caption2.bold())
+                                        .foregroundStyle(utt.isYou ? .blue : .orange)
+                                        .frame(width: 44, alignment: .leading)
+                                        .lineLimit(1)
+                                    Text(utt.text)
+                                        .font(.caption)
+                                        .textSelection(.enabled)
                                 }
                             }
                             Color.clear.frame(height: 1).id("transcript-bottom")
@@ -386,7 +384,7 @@ struct SidebarView: View {
             }
 
             Divider()
-            Text("v2.0.3")
+            Text("v2.0.4")
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(.quaternary)
                 .frame(maxWidth: .infinity)
@@ -1205,6 +1203,28 @@ struct RunSection: View {
 // MARK: - Helpers
 
 /// Split text into ~8-word chunks for display as flowing transcript lines.
+/// Join consecutive same-speaker utterances into flowing paragraphs.
+private func joinConsecutive(_ utterances: [Utterance]) -> [Utterance] {
+    guard !utterances.isEmpty else { return [] }
+    var result: [Utterance] = []
+    var currentSpeaker = utterances[0].speaker
+    var currentTime = utterances[0].t
+    var currentText = utterances[0].text
+
+    for u in utterances.dropFirst() {
+        if u.speaker == currentSpeaker {
+            currentText += " " + u.text
+        } else {
+            result.append(Utterance(t: currentTime, speaker: currentSpeaker, text: currentText))
+            currentSpeaker = u.speaker
+            currentTime = u.t
+            currentText = u.text
+        }
+    }
+    result.append(Utterance(t: currentTime, speaker: currentSpeaker, text: currentText))
+    return result
+}
+
 private func splitWords(_ text: String, perChunk: Int = 8) -> [String] {
     let words = text.split(separator: " ")
     guard words.count >= perChunk else { return [text] }
