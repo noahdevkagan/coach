@@ -18,7 +18,26 @@ struct Nudge: Identifiable, Codable {
 enum NudgeType: String, Codable, CaseIterable {
     case talkTime, missingDiscovery, timeCheck,
          repetitionLoop, stackedQuestions, nextSteps,
+         goingQuiet, yesMan, unansweredQuestion, interruption,
          commitmentGap, droppedThread, priceFlinch
+
+    var displayName: String {
+        switch self {
+        case .talkTime: return "Talk Time"
+        case .missingDiscovery: return "No Questions"
+        case .timeCheck: return "Time Check"
+        case .repetitionLoop: return "Repetition"
+        case .stackedQuestions: return "Stacked Qs"
+        case .nextSteps: return "Next Steps"
+        case .goingQuiet: return "They're Quiet"
+        case .yesMan: return "Yes-Manning"
+        case .unansweredQuestion: return "Their Question"
+        case .interruption: return "Interruption"
+        case .commitmentGap: return "Commitment"
+        case .droppedThread: return "Dropped Thread"
+        case .priceFlinch: return "Price Flinch"
+        }
+    }
 }
 
 enum NudgeUrgency: String, Codable { case low, med, high }

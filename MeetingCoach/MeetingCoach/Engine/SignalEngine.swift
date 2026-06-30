@@ -14,13 +14,49 @@ struct SignalEngine {
     private(set) var allNudges: [Nudge] = []
 
     init(context: PreCallContext) {
+        // Load adaptive multipliers from user feedback history
+        let m = AdaptiveThresholds.multiplier
+
+        var talkTime = TalkTimeSignal()
+        talkTime.threshold *= m(.talkTime)
+        talkTime.cooldown *= m(.talkTime)
+
+        var discovery = MissingDiscoverySignal()
+        discovery.windowSeconds *= m(.missingDiscovery)
+        discovery.cooldown *= m(.missingDiscovery)
+
+        var repetition = RepetitionLoopSignal()
+        repetition.cooldown *= m(.repetitionLoop)
+
+        var stacked = StackedQuestionsSignal()
+        stacked.cooldown *= m(.stackedQuestions)
+
+        var nextSteps = NextStepsSignal(scheduledMinutes: context.scheduledDurationMinutes)
+        nextSteps.cooldown *= m(.nextSteps)
+
+        var goingQuiet = GoingQuietSignal()
+        goingQuiet.cooldown *= m(.goingQuiet)
+
+        var yesMan = YesManSignal()
+        yesMan.cooldown *= m(.yesMan)
+
+        var unanswered = UnansweredQuestionSignal()
+        unanswered.cooldown *= m(.unansweredQuestion)
+
+        var interruption = InterruptionSignal()
+        interruption.cooldown *= m(.interruption)
+
         monitors = [
-            TalkTimeSignal(),
-            MissingDiscoverySignal(),
+            talkTime,
+            discovery,
             TimeCheckSignal(scheduledMinutes: context.scheduledDurationMinutes),
-            RepetitionLoopSignal(),
-            StackedQuestionsSignal(),
-            NextStepsSignal(scheduledMinutes: context.scheduledDurationMinutes),
+            repetition,
+            stacked,
+            nextSteps,
+            goingQuiet,
+            yesMan,
+            unanswered,
+            interruption,
         ]
     }
 

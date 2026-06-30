@@ -40,6 +40,13 @@
 		E2444F5818AC6C8A2195954B /* NextStepsSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4461803394B69BED5CCCDA36 /* NextStepsSignal.swift */; };
 		F7B42EEA125E7A7F9DCB41E1 /* RepetitionLoopSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA9B9EC3AC2701911F07C17 /* RepetitionLoopSignal.swift */; };
 		24182F1D3699E0020D1D58B5 /* StackedQuestionsSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB97F801A2B6BBDEA6061460 /* StackedQuestionsSignal.swift */; };
+		CC9D187AC4F77338000A200C /* GoingQuietSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD4DDB0B3BD684748C9D4137 /* GoingQuietSignal.swift */; };
+		B2B4ED9FBAEC24058A13AD94 /* YesManSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BF4465F42560DF19D9A8C0E /* YesManSignal.swift */; };
+		99F5B48FFCC874DD34E3CCBC /* UnansweredQuestionSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 493492DE921F885B0FE61754 /* UnansweredQuestionSignal.swift */; };
+		BB11D00E7E9F4A1132AA23E0 /* InterruptionSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18B41F6B3F7509A36F876A5 /* InterruptionSignal.swift */; };
+		053199A24BBCDB5504B4D10B /* AdaptiveThresholds.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65BB4F0029000D7B767A43A7 /* AdaptiveThresholds.swift */; };
+		2D2F1182B08E59EA15CB905D /* SessionTrends.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F781DA6DE48D9C5F88C4C9 /* SessionTrends.swift */; };
+		0DD7B7009764BA673080B697 /* SessionTrendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71BABC401E7CD8C5E3721B89 /* SessionTrendsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -76,6 +83,13 @@
 		4461803394B69BED5CCCDA36 /* NextStepsSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NextStepsSignal.swift; sourceTree = "<group>"; };
 		DAA9B9EC3AC2701911F07C17 /* RepetitionLoopSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepetitionLoopSignal.swift; sourceTree = "<group>"; };
 		BB97F801A2B6BBDEA6061460 /* StackedQuestionsSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StackedQuestionsSignal.swift; sourceTree = "<group>"; };
+		DD4DDB0B3BD684748C9D4137 /* GoingQuietSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoingQuietSignal.swift; sourceTree = "<group>"; };
+		7BF4465F42560DF19D9A8C0E /* YesManSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YesManSignal.swift; sourceTree = "<group>"; };
+		493492DE921F885B0FE61754 /* UnansweredQuestionSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnansweredQuestionSignal.swift; sourceTree = "<group>"; };
+		E18B41F6B3F7509A36F876A5 /* InterruptionSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterruptionSignal.swift; sourceTree = "<group>"; };
+		65BB4F0029000D7B767A43A7 /* AdaptiveThresholds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveThresholds.swift; sourceTree = "<group>"; };
+		B5F781DA6DE48D9C5F88C4C9 /* SessionTrends.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTrends.swift; sourceTree = "<group>"; };
+		71BABC401E7CD8C5E3721B89 /* SessionTrendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTrendsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -95,6 +109,7 @@
 			children = (
 				E80054B1508EFBBFD8D840F3 /* CoachingOverlayPanel.swift */,
 				79111ECBAFAB4FB9B2DFF409 /* PreCallFormView.swift */,
+				71BABC401E7CD8C5E3721B89 /* SessionTrendsView.swift */,
 				42E54C36F44DC42BE2B8D5D9 /* SimulationTimelineView.swift */,
 			);
 			path = Views;
@@ -133,6 +148,7 @@
 		7E6FC1095E62A1F6869418DD /* Engine */ = {
 			isa = PBXGroup;
 			children = (
+				65BB4F0029000D7B767A43A7 /* AdaptiveThresholds.swift */,
 				169665A106EBBC6CCDA1F018 /* AudioCaptureManager.swift */,
 				A22984B60FE899BBFFC15C2E /* Coach.swift */,
 				6A1BF8C4DA14D327E81E1832 /* OllamaClient.swift */,
@@ -153,6 +169,7 @@
 				CB75B3ED7916419E96830FA5 /* Nudge.swift */,
 				5A5F654837E24966B9F2E915 /* PreCallContext.swift */,
 				EAC07F7931A467E07514A5B8 /* Rubric.swift */,
+				B5F781DA6DE48D9C5F88C4C9 /* SessionTrends.swift */,
 				AA11BB22CC33DD44EE55FF67 /* SignalFeedItem.swift */,
 				3B7E41D2A9F058C6E12D4A83 /* TrainingExample.swift */,
 				826E23E63EE91A96C88BA0F1 /* Trigger.swift */,
@@ -196,6 +213,10 @@
 				BB97F801A2B6BBDEA6061460 /* StackedQuestionsSignal.swift */,
 				AC7F289E3E904814BB6FBC7E /* TalkTimeSignal.swift */,
 				D83B3AC564404AEBAFE8B749 /* TimeCheckSignal.swift */,
+				DD4DDB0B3BD684748C9D4137 /* GoingQuietSignal.swift */,
+				7BF4465F42560DF19D9A8C0E /* YesManSignal.swift */,
+				493492DE921F885B0FE61754 /* UnansweredQuestionSignal.swift */,
+				E18B41F6B3F7509A36F876A5 /* InterruptionSignal.swift */,
 			);
 			path = Signals;
 			sourceTree = "<group>";
@@ -328,6 +349,13 @@
 				FBBB2B4DB3372B0DD8A7CEE8 /* TranscriptParser.swift in Sources */,
 				B1EEF82CF42D4472D319BA92 /* Trigger.swift in Sources */,
 				1F9054E3DCAD7089CBA0CBA2 /* Utterance.swift in Sources */,
+				CC9D187AC4F77338000A200C /* GoingQuietSignal.swift in Sources */,
+				B2B4ED9FBAEC24058A13AD94 /* YesManSignal.swift in Sources */,
+				99F5B48FFCC874DD34E3CCBC /* UnansweredQuestionSignal.swift in Sources */,
+				BB11D00E7E9F4A1132AA23E0 /* InterruptionSignal.swift in Sources */,
+				053199A24BBCDB5504B4D10B /* AdaptiveThresholds.swift in Sources */,
+				2D2F1182B08E59EA15CB905D /* SessionTrends.swift in Sources */,
+				0DD7B7009764BA673080B697 /* SessionTrendsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

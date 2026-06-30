@@ -26,6 +26,9 @@ struct PreCallFormView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    // Focus areas from recent history
+                    FocusAreasBox()
+
                     // Meeting goal
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Meeting Goal").font(.caption.bold())
@@ -104,13 +107,48 @@ struct PreCallFormView: View {
             }
             .padding()
         }
-        .frame(width: 480, height: 440)
+        .frame(width: 480, height: 520)
         .onAppear {
             // Load remembered participants if none set yet
             if context.participants.isEmpty {
                 context.participants = ParticipantStore.load()
             }
         }
+    }
+}
+
+/// Shows focus areas from recent session history in the pre-call form.
+private struct FocusAreasBox: View {
+    @State private var areas: [String] = []
+
+    var body: some View {
+        if !areas.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Label("Focus Areas", systemImage: "target")
+                    .font(.caption.bold())
+                    .foregroundStyle(.orange)
+                ForEach(areas, id: \.self) { area in
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(.orange)
+                            .frame(width: 4, height: 4)
+                        Text(area)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.orange.opacity(0.06))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.orange.opacity(0.2), lineWidth: 1))
+        }
+    }
+
+    init() {
+        let sessions = SessionTrends.loadAll()
+        _areas = State(initialValue: SessionTrends.focusAreas(from: sessions))
     }
 }
 

@@ -67,7 +67,7 @@ final class LiveSessionViewModel {
         nudges = []
         activeNudge = nil
         error = nil
-        status = "Starting — 3 deterministic signals loaded"
+        status = "Starting — 10 coaching signals loaded"
         elapsedTime = 0
         meetingSummary = nil
         isLive = true
@@ -118,6 +118,9 @@ final class LiveSessionViewModel {
         dismissTask = nil
         showSilenceWarning = false
         status = "Stopped"
+
+        // Process feedback to adapt thresholds for next session
+        AdaptiveThresholds.processSessionFeedback(nudges)
 
         saveSession()
         showPostSession = true
