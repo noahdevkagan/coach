@@ -5,9 +5,9 @@ struct MissingDiscoverySignal: SignalMonitor {
     let nudgeType: NudgeType = .missingDiscovery
 
     /// Window to look back for questions (seconds).
-    var windowSeconds: TimeInterval = 600  // 10 minutes
+    var windowSeconds: TimeInterval = 300  // 5 minutes
     /// Minimum seconds between fires.
-    var cooldown: TimeInterval = 300       // 5 minutes
+    var cooldown: TimeInterval = 180       // 3 minutes
 
     private var lastFired: TimeInterval = -.infinity
 
