@@ -20,7 +20,7 @@ enum NudgeType: String, Codable, CaseIterable {
          repetitionLoop, stackedQuestions, nextSteps,
          goingQuiet, yesMan, unansweredQuestion, interruption,
          commitmentGap, droppedThread, priceFlinch, vagueAnswer,
-         overrun, voiceShare,
+         overrun, voiceShare, questionParked,
          // Tier-2 semantic signals (local LLM heartbeat)
          noDecision, alignmentReached, buriedSignal, hedgeNotPinned
 
@@ -42,6 +42,7 @@ enum NudgeType: String, Codable, CaseIterable {
         case .vagueAnswer: return "Vague Answer"
         case .overrun: return "Over Time"
         case .voiceShare: return "Floor Hog"
+        case .questionParked: return "Parked Question"
         case .noDecision: return "No Decision"
         case .alignmentReached: return "Converged"
         case .buriedSignal: return "Buried Signal"

@@ -38,6 +38,7 @@
 		7A31C4E2F09B4D11A5E2B301 /* TranscriptAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A31C4E2F09B4D11A5E2B302 /* TranscriptAnalysis.swift */; };
 		7A31C4E2F09B4D11A5E2B303 /* SemanticCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A31C4E2F09B4D11A5E2B304 /* SemanticCoach.swift */; };
 		AF16720C0FF9440A91BBE1AE /* TalkTimeSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7F289E3E904814BB6FBC7E /* TalkTimeSignal.swift */; };
+		7A31C4E2F09B4D11A5E2B313 /* QuestionParkedSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A31C4E2F09B4D11A5E2B314 /* QuestionParkedSignal.swift */; };
 		7A31C4E2F09B4D11A5E2B311 /* HighStakesSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A31C4E2F09B4D11A5E2B312 /* HighStakesSignal.swift */; };
 		7A31C4E2F09B4D11A5E2B309 /* VoiceShareSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A31C4E2F09B4D11A5E2B310 /* VoiceShareSignal.swift */; };
 		7A31C4E2F09B4D11A5E2B307 /* OverrunSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A31C4E2F09B4D11A5E2B308 /* OverrunSignal.swift */; };
@@ -87,6 +88,7 @@
 		7A31C4E2F09B4D11A5E2B302 /* TranscriptAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptAnalysis.swift; sourceTree = "<group>"; };
 		7A31C4E2F09B4D11A5E2B304 /* SemanticCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticCoach.swift; sourceTree = "<group>"; };
 		AC7F289E3E904814BB6FBC7E /* TalkTimeSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkTimeSignal.swift; sourceTree = "<group>"; };
+		7A31C4E2F09B4D11A5E2B314 /* QuestionParkedSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionParkedSignal.swift; sourceTree = "<group>"; };
 		7A31C4E2F09B4D11A5E2B312 /* HighStakesSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HighStakesSignal.swift; sourceTree = "<group>"; };
 		7A31C4E2F09B4D11A5E2B310 /* VoiceShareSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceShareSignal.swift; sourceTree = "<group>"; };
 		7A31C4E2F09B4D11A5E2B308 /* OverrunSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverrunSignal.swift; sourceTree = "<group>"; };
@@ -226,6 +228,7 @@
 				DAA9B9EC3AC2701911F07C17 /* RepetitionLoopSignal.swift */,
 				BB97F801A2B6BBDEA6061460 /* StackedQuestionsSignal.swift */,
 				AC7F289E3E904814BB6FBC7E /* TalkTimeSignal.swift */,
+				7A31C4E2F09B4D11A5E2B314 /* QuestionParkedSignal.swift */,
 				7A31C4E2F09B4D11A5E2B312 /* HighStakesSignal.swift */,
 				7A31C4E2F09B4D11A5E2B310 /* VoiceShareSignal.swift */,
 				7A31C4E2F09B4D11A5E2B308 /* OverrunSignal.swift */,
@@ -364,6 +367,7 @@
 				E244EF555EFC6E26269EA063 /* Simulator.swift in Sources */,
 				24182F1D3699E0020D1D58B5 /* StackedQuestionsSignal.swift in Sources */,
 				AF16720C0FF9440A91BBE1AE /* TalkTimeSignal.swift in Sources */,
+				7A31C4E2F09B4D11A5E2B313 /* QuestionParkedSignal.swift in Sources */,
 				7A31C4E2F09B4D11A5E2B311 /* HighStakesSignal.swift in Sources */,
 				7A31C4E2F09B4D11A5E2B309 /* VoiceShareSignal.swift in Sources */,
 				7A31C4E2F09B4D11A5E2B307 /* OverrunSignal.swift in Sources */,

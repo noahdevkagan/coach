@@ -53,6 +53,15 @@ struct VagueAnswerSignal: SignalMonitor {
               TextAnalysis.isQuestion(themTurn.text)
         else { return nil }
 
+        // A turn that is itself a question is not an answer — "I think the
+        // question is, what's the scorecard…" is you ASKING, not hedging.
+        // (Blind-test lesson: 8 misfires in one meeting were all this shape.)
+        guard !TextAnalysis.isQuestion(youTurn.text),
+              !TextAnalysis.containsPhrase(youTurn.text, "question is"),
+              !TextAnalysis.containsPhrase(youTurn.text, "my question"),
+              !TextAnalysis.containsPhrase(youTurn.text, "question for")
+        else { return nil }
+
         let hedged = Self.hedgeMarkers.contains { TextAnalysis.containsPhrase(youTurn.text, $0) }
         guard hedged, !Self.hasConcreteAnchor(youTurn.text) else { return nil }
 

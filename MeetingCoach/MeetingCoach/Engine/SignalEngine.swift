@@ -97,6 +97,7 @@ struct SignalEngine {
             OverrunSignal(scheduledMinutes: context.scheduledDurationMinutes),
             voiceShare,
             HighStakesSignal(),
+            QuestionParkedSignal(),
         ]
     }
 

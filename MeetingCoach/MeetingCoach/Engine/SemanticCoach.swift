@@ -23,7 +23,7 @@ final class SemanticCoach {
     /// drumbeat. Backtest evidence: noDecision fired 12× in one advisory 1:1.
     static let maxFiresPerType: [NudgeType: Int] = [
         .noDecision: 2, .alignmentReached: 3, .buriedSignal: 3,
-        .hedgeNotPinned: 3, .commitmentGap: 2,
+        .hedgeNotPinned: 3, .commitmentGap: 2, .questionParked: 2,
     ]
 
     private let client: OllamaClient
@@ -40,6 +40,7 @@ final class SemanticCoach {
         "buried_signal": .buriedSignal,
         "hedge_not_pinned": .hedgeNotPinned,
         "commitment_escalation": .commitmentGap,
+        "question_parked": .questionParked,
     ]
 
     init(model: String) {
@@ -136,6 +137,7 @@ final class SemanticCoach {
         3. buried_signal — a high-stakes statement (a number miss, churn, a named risk, someone hinting at quitting, a deadline slip) was mentioned and the conversation moved past it without engaging.
         4. hedge_not_pinned — a commitment was stated as a range or with soft language ("in a few weeks", "we should be able to") and was not pinned to a concrete date or number.
         5. commitment_escalation — the user's own commitment grew substantially mid-discussion ("two calls" becoming "a call a day") without anyone acknowledging the change in scope.
+        6. question_parked — the user has asked essentially the same substantive question more than twice (possibly in different words) and it keeps getting deflected or parked instead of answered.
 
         Rules:
         - Report a signal ONLY with strong evidence in the transcript. Silence is the correct output most of the time.
@@ -143,7 +145,7 @@ final class SemanticCoach {
         - "nudge" is the short coaching line shown to the user mid-meeting: max 8 words, imperative, concrete.
 
         Respond with ONLY a JSON array, no other text. Each item:
-        {"signal": "<one of: no_decision, alignment_reached, buried_signal, hedge_not_pinned, commitment_escalation>", "nudge": "<max 8 words>", "confidence": <0.0-1.0>}
+        {"signal": "<one of: no_decision, alignment_reached, buried_signal, hedge_not_pinned, commitment_escalation, question_parked>", "nudge": "<max 8 words>", "confidence": <0.0-1.0>}
 
         Return [] if nothing qualifies (this is the usual case).
         """
