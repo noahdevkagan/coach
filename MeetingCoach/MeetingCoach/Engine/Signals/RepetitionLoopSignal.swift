@@ -1,7 +1,7 @@
 import Foundation
 
 /// Signal #4: Fires when user repeats the same point/question within a short window.
-/// Detects high content-word overlap between recent "You" utterances.
+/// Detects high content-word overlap between recent "You" turns.
 struct RepetitionLoopSignal: SignalMonitor {
     let nudgeType: NudgeType = .repetitionLoop
 
@@ -11,46 +11,67 @@ struct RepetitionLoopSignal: SignalMonitor {
     var similarityThreshold: Double = 0.4
     /// Minimum seconds between fires.
     var cooldown: TimeInterval = 60
-    /// Minimum content words in an utterance to even consider it.
+    /// Minimum content words in a turn to even consider it.
     var minWords: Int = 3
 
     private var lastFired: TimeInterval = -.infinity
+    /// Content-word sets that already produced a nudge. The same repetition
+    /// sitting in the window must not re-fire every cooldown.
+    private var firedContent: [Set<String>] = []
+    /// Token cache keyed by turn id; invalidated when the turn grows.
+    private var tokenCache: [UUID: (wordCount: Int, words: Set<String>)] = [:]
 
-    private static let stopWords: Set<String> = [
-        "i", "me", "my", "we", "our", "you", "your", "he", "she", "it", "they", "them",
-        "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
-        "have", "has", "had", "do", "does", "did", "will", "would", "could", "should",
-        "can", "may", "might", "shall", "to", "of", "in", "on", "at", "for", "with",
-        "and", "or", "but", "not", "so", "if", "then", "than", "that", "this",
-        "just", "like", "yeah", "yes", "no", "ok", "okay", "right", "well",
-        "going", "gonna", "got", "get", "thing", "things", "think", "know",
-        "really", "actually", "basically", "literally", "um", "uh",
-    ]
+    mutating func evaluate(_ input: SignalInput) -> Nudge? {
+        guard input.elapsed - lastFired >= cooldown else { return nil }
 
-    mutating func evaluate(utterances: [Utterance], elapsed: TimeInterval, context: PreCallContext) -> Nudge? {
-        guard elapsed - lastFired >= cooldown else { return nil }
-
-        let windowStart = elapsed - windowSeconds
-        let recentYou = utterances.filter { $0.isYou && $0.t >= windowStart }
+        let windowStart = input.elapsed - windowSeconds
+        var recentYou: [Turn] = []
+        for turn in input.turns.reversed() {
+            if turn.endT < windowStart { break }
+            if turn.isYou { recentYou.insert(turn, at: 0) }
+        }
         guard recentYou.count >= 2 else { return nil }
 
-        // Extract content words for each utterance
-        let tokenized = recentYou.map { (utt: $0, words: Self.contentWords($0.text)) }
-            .filter { $0.words.count >= minWords }
+        // Prune cache entries that fell out of the window
+        let liveIDs = Set(recentYou.map(\.id))
+        tokenCache = tokenCache.filter { liveIDs.contains($0.key) }
+
+        // Tokenize (cached per turn until it grows)
+        var tokenized: [(turn: Turn, words: Set<String>)] = []
+        for turn in recentYou {
+            let words: Set<String>
+            if let cached = tokenCache[turn.id], cached.wordCount == turn.wordCount {
+                words = cached.words
+            } else {
+                words = TextAnalysis.contentWords(turn.text)
+                tokenCache[turn.id] = (turn.wordCount, words)
+            }
+            if words.count >= minWords {
+                tokenized.append((turn, words))
+            }
+        }
         guard tokenized.count >= 2 else { return nil }
 
-        // Compare the latest utterance against all earlier ones in the window
+        // Compare the latest turn against all earlier ones in the window
         let latest = tokenized.last!
+
+        // Evidence latch: skip if this content already produced a nudge
+        guard !firedContent.contains(where: {
+            TextAnalysis.jaccard(latest.words, $0) >= similarityThreshold
+        }) else { return nil }
+
         for earlier in tokenized.dropLast() {
-            let similarity = Self.jaccard(latest.words, earlier.words)
+            let similarity = TextAnalysis.jaccard(latest.words, earlier.words)
             if similarity >= similarityThreshold {
-                lastFired = elapsed
+                lastFired = input.elapsed
+                firedContent.append(latest.words)
+                if firedContent.count > 10 { firedContent.removeFirst() }
                 return Nudge(
                     id: UUID(),
                     type: .repetitionLoop,
                     text: "You already said this",
                     urgency: .med,
-                    timestamp: elapsed
+                    timestamp: input.elapsed
                 )
             }
         }
@@ -60,21 +81,7 @@ struct RepetitionLoopSignal: SignalMonitor {
 
     mutating func reset() {
         lastFired = -.infinity
-    }
-
-    // MARK: - Helpers
-
-    static func contentWords(_ text: String) -> Set<String> {
-        let lower = text.lowercased()
-        let words = lower.components(separatedBy: CharacterSet.alphanumerics.inverted)
-            .filter { $0.count > 1 && !stopWords.contains($0) }
-        return Set(words)
-    }
-
-    static func jaccard(_ a: Set<String>, _ b: Set<String>) -> Double {
-        guard !a.isEmpty || !b.isEmpty else { return 0 }
-        let intersection = a.intersection(b).count
-        let union = a.union(b).count
-        return Double(intersection) / Double(union)
+        firedContent = []
+        tokenCache = [:]
     }
 }

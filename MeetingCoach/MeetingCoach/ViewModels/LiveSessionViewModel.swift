@@ -6,6 +6,9 @@ import SwiftUI
 final class LiveSessionViewModel {
     var isLive = false
     var utterances: [Utterance] = []
+    /// Coalesced speaker turns (built incrementally by the signal engine) —
+    /// the UI renders these instead of re-joining fragments every frame.
+    var turns: [Turn] = []
     var nudges: [Nudge] = []
     var activeNudge: Nudge?
     var error: String?
@@ -33,6 +36,10 @@ final class LiveSessionViewModel {
     private var signalEngine: SignalEngine?
     private var dismissTask: Task<Void, Never>?
 
+    // Tier-2 semantic coaching (local LLM heartbeat)
+    private var semanticCoach: SemanticCoach?
+    private var semanticTask: Task<Void, Never>?
+
     var elapsedFormatted: String {
         let mm = Int(elapsedTime) / 60
         let ss = Int(elapsedTime) % 60
@@ -57,13 +64,25 @@ final class LiveSessionViewModel {
 
     // MARK: - Start / Stop
 
-    func startLive(context: PreCallContext) {
+    func startLive(context: PreCallContext, settings: SettingsViewModel? = nil, ollamaManager: OllamaManager? = nil) {
         guard !isLive else { return }
 
         preCallContext = context
         signalEngine = SignalEngine(context: context)
 
+        // Tier-2 semantic coaching: local LLM heartbeat (optional, toggleable)
+        if let settings, let ollamaManager, settings.semanticCoachEnabled {
+            semanticCoach = SemanticCoach(model: settings.selectedModel)
+            if ollamaManager.status == .stopped {
+                ollamaManager.start()
+            }
+            startSemanticHeartbeat(ollamaManager: ollamaManager)
+        } else {
+            semanticCoach = nil
+        }
+
         utterances = []
+        turns = []
         nudges = []
         activeNudge = nil
         error = nil
@@ -78,8 +97,8 @@ final class LiveSessionViewModel {
 
         manager.onUtterance = { [weak self] utterance in
             guard let self else { return }
-            self.utterances.append(utterance)
-            mclog("[VM] utterance #\(self.utterances.count): \(utterance.text.prefix(60))")
+            self.insertUtterance(utterance)
+            mclog("[VM] utterance #\(self.utterances.count): [\(utterance.speaker)] \(utterance.text.prefix(60))")
             // Evaluate on each new utterance for immediate talk-time detection
             self.runSignalEvaluation()
         }
@@ -110,6 +129,9 @@ final class LiveSessionViewModel {
         captureManager = nil
         signalTickTask?.cancel()
         signalTickTask = nil
+        semanticTask?.cancel()
+        semanticTask = nil
+        semanticCoach = nil
         timerTask?.cancel()
         timerTask = nil
         silenceCheckTask?.cancel()
@@ -132,6 +154,7 @@ final class LiveSessionViewModel {
             savedPath = nil
         }
         utterances = []
+        turns = []
         nudges = []
         activeNudge = nil
         meetingSummary = nil
@@ -141,6 +164,18 @@ final class LiveSessionViewModel {
 
     func dismissPostSession() {
         showPostSession = false
+    }
+
+    /// Insert keeping chronological order — the You and Them pipelines emit
+    /// independently, so arrivals can be slightly out of order.
+    private func insertUtterance(_ u: Utterance) {
+        if let last = utterances.last, u.t < last.t {
+            let idx = utterances.lastIndex(where: { $0.t <= u.t })
+                .map { utterances.index(after: $0) } ?? 0
+            utterances.insert(u, at: idx)
+        } else {
+            utterances.append(u)
+        }
     }
 
     // MARK: - Feedback
@@ -206,6 +241,32 @@ final class LiveSessionViewModel {
         }
     }
 
+    // MARK: - Semantic heartbeat (tier 2)
+
+    private func startSemanticHeartbeat(ollamaManager: OllamaManager) {
+        semanticTask = Task { @MainActor [weak self] in
+            // Let the meeting build some context before the first pass.
+            try? await Task.sleep(for: .seconds(90))
+
+            while !Task.isCancelled, let self, self.isLive {
+                if ollamaManager.status == .running, let coach = self.semanticCoach {
+                    let newNudges = await coach.analyze(
+                        utterances: self.utterances,
+                        elapsed: self.elapsedTime,
+                        context: self.preCallContext
+                    )
+                    guard self.isLive else { break }
+                    for nudge in newNudges {
+                        self.nudges.append(nudge)
+                        self.setActiveNudge(nudge)
+                        mclog("[Semantic] \(nudge.type.rawValue): \(nudge.text)")
+                    }
+                }
+                try? await Task.sleep(for: .seconds(SemanticCoach.heartbeatSeconds))
+            }
+        }
+    }
+
     // MARK: - Signal tick
 
     private func startSignalTick() {
@@ -228,6 +289,7 @@ final class LiveSessionViewModel {
             elapsed: elapsedTime,
             context: preCallContext
         )
+        turns = engine.turns
         signalEngine = engine
 
         for nudge in newNudges {

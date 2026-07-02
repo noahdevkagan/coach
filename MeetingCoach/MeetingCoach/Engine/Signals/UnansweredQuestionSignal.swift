@@ -1,75 +1,50 @@
 import Foundation
 
-/// Signal #9: Fires when the other person asked a question but the user
-/// talked for 3+ turns without addressing it.
+/// Signal #9: Fires when the other person asked a question and the user has
+/// been talking at length without letting them re-engage.
 struct UnansweredQuestionSignal: SignalMonitor {
     let nudgeType: NudgeType = .unansweredQuestion
 
-    /// How many "You" turns after their question before nudging.
-    var turnsBeforeNudge: Int = 3
+    /// How many words the user talks after their question before nudging.
+    /// (~60 words ≈ 25 seconds of monologue past their question.)
+    var wordsBeforeNudge: Int = 60
     /// Minimum seconds between fires.
     var cooldown: TimeInterval = 90
 
     private var lastFired: TimeInterval = -.infinity
-    private var pendingQuestion: String?
-    private var turnsSinceQuestion: Int = 0
+    /// One nudge per question — latch on the Them turn that asked it.
+    private var nudgedQuestionIDs: Set<UUID> = []
 
-    mutating func evaluate(utterances: [Utterance], elapsed: TimeInterval, context: PreCallContext) -> Nudge? {
-        guard elapsed - lastFired >= cooldown else { return nil }
-        guard utterances.count >= 2 else { return nil }
+    mutating func evaluate(_ input: SignalInput) -> Nudge? {
+        guard input.speakerLabelsReliable else { return nil }
+        guard input.elapsed - lastFired >= cooldown else { return nil }
+        let turns = input.turns
+        guard turns.count >= 2 else { return nil }
 
-        // Walk backwards to find the pattern:
-        // "Them" asks a question, then N consecutive "You" turns follow
-        var youTurnCount = 0
-        var foundTheirQuestion = false
+        // Pattern: last turn is You (still talking), the turn before is Them
+        // asking a question, and the You turn is long.
+        let youTurn = turns[turns.count - 1]
+        let themTurn = turns[turns.count - 2]
+        guard youTurn.isYou,
+              !themTurn.isYou, themTurn.speaker != "Meeting",
+              youTurn.wordCount >= wordsBeforeNudge,
+              !nudgedQuestionIDs.contains(themTurn.id),
+              TextAnalysis.isQuestion(themTurn.text)
+        else { return nil }
 
-        for utt in utterances.reversed() {
-            if utt.isYou {
-                youTurnCount += 1
-            } else if utt.speaker != "Meeting" {
-                // "Them" utterance — check if it's a question
-                if Self.isQuestion(utt.text) {
-                    foundTheirQuestion = true
-                }
-                break
-            }
-        }
-
-        guard foundTheirQuestion, youTurnCount >= turnsBeforeNudge else { return nil }
-
-        lastFired = elapsed
+        lastFired = input.elapsed
+        nudgedQuestionIDs.insert(themTurn.id)
         return Nudge(
             id: UUID(),
             type: .unansweredQuestion,
             text: "They asked a question — answer it",
             urgency: .high,
-            timestamp: elapsed
+            timestamp: input.elapsed
         )
     }
 
     mutating func reset() {
         lastFired = -.infinity
-        pendingQuestion = nil
-        turnsSinceQuestion = 0
-    }
-
-    private static let questionStarters: Set<String> = [
-        "what", "how", "why", "when", "where", "who", "which",
-        "could", "would", "should", "can", "do", "does", "did",
-        "is", "are", "was", "were", "have", "has", "will",
-    ]
-
-    static func isQuestion(_ text: String) -> Bool {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.hasSuffix("?") { return true }
-        let lower = trimmed.lowercased()
-        let sentences = lower.components(separatedBy: CharacterSet(charactersIn: ".!?"))
-        for sentence in sentences {
-            let words = sentence.trimmingCharacters(in: .whitespaces).split(separator: " ")
-            if let first = words.first, questionStarters.contains(String(first)) {
-                return true
-            }
-        }
-        return false
+        nudgedQuestionIDs = []
     }
 }

@@ -9,6 +9,8 @@ struct YesManSignal: SignalMonitor {
     var consecutiveThreshold: Int = 3
     /// Minimum seconds between fires.
     var cooldown: TimeInterval = 120
+    /// How many turns back to walk when counting the streak.
+    var maxLookback: Int = 10
 
     private var lastFired: TimeInterval = -.infinity
 
@@ -19,35 +21,48 @@ struct YesManSignal: SignalMonitor {
         "mmhmm", "mm-hmm", "sounds good", "fair enough",
     ]
 
-    mutating func evaluate(utterances: [Utterance], elapsed: TimeInterval, context: PreCallContext) -> Nudge? {
-        guard elapsed - lastFired >= cooldown else { return nil }
+    mutating func evaluate(_ input: SignalInput) -> Nudge? {
+        guard input.speakerLabelsReliable else { return nil }
+        guard input.elapsed - lastFired >= cooldown else { return nil }
 
-        // Walk backwards through utterances, counting consecutive "Them" agreement-only turns
+        // Walk backwards over TURNS counting consecutive Them agreement-only
+        // replies. A "yes" that directly answers a You question is legitimate
+        // and does not count toward the streak.
         var consecutiveAgreements = 0
-        for utt in utterances.reversed() {
-            if utt.isYou || utt.speaker == "Meeting" {
-                // Skip "You" turns — we're looking for consecutive "Them" patterns
-                // But if we already found some agreements, the streak continues across You turns
-                if consecutiveAgreements > 0 { continue }
-                break
+        let turns = input.turns
+        var i = turns.count - 1
+        var walked = 0
+        while i >= 0, walked < maxLookback {
+            let turn = turns[i]
+            walked += 1
+            if turn.isYou || turn.speaker == "Meeting" {
+                // Streak continues across You turns once started
+                if consecutiveAgreements == 0 && turn.isYou { break }
+                i -= 1
+                continue
             }
-            // It's a "Them" utterance
-            if Self.isAgreementOnly(utt.text) {
-                consecutiveAgreements += 1
+            if Self.isAgreementOnly(turn.text) {
+                // Direct answer to a question? Neutral — skip, don't count.
+                let prevIsYouQuestion = i > 0 && turns[i - 1].isYou
+                    && TextAnalysis.isQuestion(turns[i - 1].text)
+                if !prevIsYouQuestion {
+                    consecutiveAgreements += 1
+                }
             } else {
                 break
             }
+            i -= 1
         }
 
         guard consecutiveAgreements >= consecutiveThreshold else { return nil }
 
-        lastFired = elapsed
+        lastFired = input.elapsed
         return Nudge(
             id: UUID(),
             type: .yesMan,
             text: "They're just agreeing — probe deeper",
             urgency: .med,
-            timestamp: elapsed
+            timestamp: input.elapsed
         )
     }
 
@@ -56,19 +71,18 @@ struct YesManSignal: SignalMonitor {
     }
 
     static func isAgreementOnly(_ text: String) -> Bool {
-        let lower = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let words = lower.split(separator: " ")
+        let words = TextAnalysis.words(text)
         // Very short reply
-        guard words.count <= 6 else { return false }
-        // Check if the whole text is an agreement phrase
-        if agreementPhrases.contains(lower) { return true }
-        // Check if it's just filler + agreement
-        let cleaned = lower.replacingOccurrences(of: ",", with: "")
-            .replacingOccurrences(of: ".", with: "")
-            .trimmingCharacters(in: .whitespaces)
-        if agreementPhrases.contains(cleaned) { return true }
-        // Check if every word is an agreement word
-        let agreementWords: Set<String> = ["yeah", "yes", "yep", "sure", "right", "okay", "ok", "got", "it", "totally", "absolutely", "exactly", "agreed", "correct", "mm", "hmm", "uh", "huh", "sounds", "good", "makes", "sense", "fair", "enough", "for"]
-        return !words.isEmpty && words.allSatisfy { agreementWords.contains(String($0)) }
+        guard !words.isEmpty, words.count <= 6 else { return false }
+        let joined = words.joined(separator: " ")
+        if agreementPhrases.contains(joined) { return true }
+        // Every word is an unambiguous agreement/filler word
+        let agreementWords: Set<String> = [
+            "yeah", "yes", "yep", "yup", "sure", "right", "okay", "ok",
+            "totally", "absolutely", "exactly", "agreed", "correct",
+            "mm", "hmm", "mhm", "uh", "huh", "cool", "perfect", "great",
+            "awesome", "definitely", "gotcha", "alright", "fine",
+        ]
+        return words.allSatisfy { agreementWords.contains($0) }
     }
 }

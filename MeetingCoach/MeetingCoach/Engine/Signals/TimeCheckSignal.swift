@@ -10,26 +10,37 @@ struct TimeCheckSignal: SignalMonitor {
     let scheduledDuration: TimeInterval
 
     private var hasFired = false
+    // Incremental keyword tracking: only fresh utterances are scanned.
+    private var goalKeywords: Set<String>?
+    private var matchedKeywords: Set<String> = []
 
     init(scheduledMinutes: Int) {
         self.scheduledDuration = TimeInterval(scheduledMinutes * 60)
     }
 
-    mutating func evaluate(utterances: [Utterance], elapsed: TimeInterval, context: PreCallContext) -> Nudge? {
-        guard !hasFired else { return nil }
-        guard !context.meetingGoal.isEmpty else { return nil }
+    mutating func evaluate(_ input: SignalInput) -> Nudge? {
+        guard !input.context.meetingGoal.isEmpty else { return nil }
 
-        let remaining = scheduledDuration - elapsed
+        let keywords: Set<String>
+        if let goalKeywords {
+            keywords = goalKeywords
+        } else {
+            keywords = Self.extractKeywords(from: input.context.meetingGoal)
+            goalKeywords = keywords
+        }
+        guard !keywords.isEmpty else { return nil }
+
+        // Track keyword coverage on every tick (word-boundary, not substring —
+        // "plan" must not match "airplane"), even before the firing window.
+        for u in input.fresh where matchedKeywords.count < keywords.count {
+            matchedKeywords.formUnion(keywords.intersection(TextAnalysis.words(u.text)))
+        }
+
+        guard !hasFired else { return nil }
+        let remaining = scheduledDuration - input.elapsed
         guard remaining > 0, remaining <= remainingThreshold else { return nil }
 
-        // Check if goal keywords appear in transcript
-        let goalKeywords = extractKeywords(from: context.meetingGoal)
-        guard !goalKeywords.isEmpty else { return nil }
-
-        let fullText = utterances.map(\.text).joined(separator: " ").lowercased()
-        let matchCount = goalKeywords.filter { fullText.contains($0) }.count
-        let matchRatio = Double(matchCount) / Double(goalKeywords.count)
-
+        let matchRatio = Double(matchedKeywords.count) / Double(keywords.count)
         // If more than half the goal keywords appeared, goal is likely being addressed
         guard matchRatio < 0.5 else { return nil }
 
@@ -40,24 +51,24 @@ struct TimeCheckSignal: SignalMonitor {
             type: .timeCheck,
             text: "\(minutesLeft)min left, hit your goal",
             urgency: .high,
-            timestamp: elapsed
+            timestamp: input.elapsed
         )
     }
 
     mutating func reset() {
         hasFired = false
+        goalKeywords = nil
+        matchedKeywords = []
     }
 
     /// Extract meaningful keywords from the goal string (skip stop words).
-    private func extractKeywords(from goal: String) -> [String] {
+    private static func extractKeywords(from goal: String) -> Set<String> {
         let stopWords: Set<String> = [
             "a", "an", "the", "is", "are", "was", "were", "be", "been",
             "to", "of", "in", "on", "at", "for", "with", "and", "or",
             "but", "not", "this", "that", "it", "we", "they", "i", "my",
             "our", "their", "about", "get", "make", "do", "will", "can",
         ]
-        return goal.lowercased()
-            .components(separatedBy: CharacterSet.alphanumerics.inverted)
-            .filter { $0.count > 2 && !stopWords.contains($0) }
+        return Set(TextAnalysis.words(goal).filter { $0.count > 2 && !stopWords.contains($0) })
     }
 }

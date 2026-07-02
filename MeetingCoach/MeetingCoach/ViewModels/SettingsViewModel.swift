@@ -11,6 +11,11 @@ final class SettingsViewModel {
     var useMock: Bool = false
     var showModelCatalog: Bool = false
 
+    /// Tier-2 semantic coaching: local-LLM heartbeat during live sessions.
+    var semanticCoachEnabled: Bool {
+        didSet { UserDefaults.standard.set(semanticCoachEnabled, forKey: "semanticCoachEnabled") }
+    }
+
     // Download state
     var downloadingModel: String?
     var downloadProgress: Double = 0
@@ -25,6 +30,7 @@ final class SettingsViewModel {
     }
 
     init() {
+        self.semanticCoachEnabled = UserDefaults.standard.object(forKey: "semanticCoachEnabled") as? Bool ?? true
         self.selectedModel = UserDefaults.standard.string(forKey: "selectedModel")
             ?? "qwen2.5:7b-instruct"
         self.rubricPath = UserDefaults.standard.string(forKey: "rubricPath") ?? ""

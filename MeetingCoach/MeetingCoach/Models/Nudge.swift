@@ -19,7 +19,10 @@ enum NudgeType: String, Codable, CaseIterable {
     case talkTime, missingDiscovery, timeCheck,
          repetitionLoop, stackedQuestions, nextSteps,
          goingQuiet, yesMan, unansweredQuestion, interruption,
-         commitmentGap, droppedThread, priceFlinch
+         commitmentGap, droppedThread, priceFlinch, vagueAnswer,
+         overrun, voiceShare,
+         // Tier-2 semantic signals (local LLM heartbeat)
+         noDecision, alignmentReached, buriedSignal, hedgeNotPinned
 
     var displayName: String {
         switch self {
@@ -36,6 +39,13 @@ enum NudgeType: String, Codable, CaseIterable {
         case .commitmentGap: return "Commitment"
         case .droppedThread: return "Dropped Thread"
         case .priceFlinch: return "Price Flinch"
+        case .vagueAnswer: return "Vague Answer"
+        case .overrun: return "Over Time"
+        case .voiceShare: return "Floor Hog"
+        case .noDecision: return "No Decision"
+        case .alignmentReached: return "Converged"
+        case .buriedSignal: return "Buried Signal"
+        case .hedgeNotPinned: return "Pin the Date"
         }
     }
 }

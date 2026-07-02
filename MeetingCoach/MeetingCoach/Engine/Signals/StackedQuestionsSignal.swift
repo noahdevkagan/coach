@@ -11,63 +11,31 @@ struct StackedQuestionsSignal: SignalMonitor {
     var cooldown: TimeInterval = 60
 
     private var lastFired: TimeInterval = -.infinity
+    /// Turns that already produced a nudge — one nudge per turn, even if the
+    /// turn keeps growing past the threshold.
+    private var firedTurnIDs: Set<UUID> = []
 
-    private static let questionStarters: Set<String> = [
-        "what", "how", "why", "when", "where", "who", "which",
-        "could", "would", "should", "can", "do", "does", "did",
-        "is", "are", "was", "were", "have", "has", "will",
-    ]
+    mutating func evaluate(_ input: SignalInput) -> Nudge? {
+        guard input.elapsed - lastFired >= cooldown else { return nil }
+        guard let turn = input.turns.last, turn.isYou else { return nil }
+        guard !firedTurnIDs.contains(turn.id) else { return nil }
 
-    mutating func evaluate(utterances: [Utterance], elapsed: TimeInterval, context: PreCallContext) -> Nudge? {
-        guard elapsed - lastFired >= cooldown else { return nil }
-        guard utterances.count >= 2 else { return nil }
-
-        // Find the current speaking turn: consecutive "You" utterances at the end
-        var turnUtterances: [Utterance] = []
-        for utt in utterances.reversed() {
-            guard utt.isYou else { break }
-            turnUtterances.insert(utt, at: 0)
-        }
-        guard !turnUtterances.isEmpty else { return nil }
-
-        // Combine the turn into one block of text
-        let turnText = turnUtterances.map(\.text).joined(separator: " ")
-
-        // Count questions in this turn
-        let questionCount = Self.countQuestions(turnText)
+        let questionCount = TextAnalysis.questionCount(turn.text)
         guard questionCount >= questionThreshold else { return nil }
 
-        lastFired = elapsed
+        lastFired = input.elapsed
+        firedTurnIDs.insert(turn.id)
         return Nudge(
             id: UUID(),
             type: .stackedQuestions,
             text: "One question at a time",
             urgency: .med,
-            timestamp: elapsed
+            timestamp: input.elapsed
         )
     }
 
     mutating func reset() {
         lastFired = -.infinity
-    }
-
-    // MARK: - Helpers
-
-    static func countQuestions(_ text: String) -> Int {
-        var count = 0
-        // Split into sentence-like chunks
-        let sentences = text.components(separatedBy: CharacterSet(charactersIn: ".!?"))
-        for sentence in sentences {
-            let trimmed = sentence.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { continue }
-            let words = trimmed.lowercased().split(separator: " ")
-            guard let first = words.first else { continue }
-            if questionStarters.contains(String(first)) {
-                count += 1
-            }
-        }
-        // Also count question marks (catches questions the split above may miss)
-        let qmarkCount = text.filter { $0 == "?" }.count
-        return max(count, qmarkCount)
+        firedTurnIDs = []
     }
 }

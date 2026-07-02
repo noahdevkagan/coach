@@ -61,19 +61,31 @@ enum AdaptiveThresholds {
     /// Reset all multipliers to default.
     static func resetAll() {
         UserDefaults.standard.removeObject(forKey: key)
+        cache = nil
     }
 
     // MARK: - Private
 
+    /// Decoded-dict cache — engine init calls multiplier() once per signal.
+    /// Only touched from the main actor (engine init / session teardown).
+    nonisolated(unsafe) private static var cache: [String: Double]?
+
     private static func load() -> [String: Double] {
-        guard let data = UserDefaults.standard.data(forKey: key),
-              let dict = try? JSONDecoder().decode([String: Double].self, from: data)
-        else { return [:] }
+        if let cache { return cache }
+        let dict: [String: Double]
+        if let data = UserDefaults.standard.data(forKey: key),
+           let decoded = try? JSONDecoder().decode([String: Double].self, from: data) {
+            dict = decoded
+        } else {
+            dict = [:]
+        }
+        cache = dict
         return dict
     }
 
     private static func save(_ dict: [String: Double]) {
         guard let data = try? JSONEncoder().encode(dict) else { return }
         UserDefaults.standard.set(data, forKey: key)
+        cache = dict
     }
 }

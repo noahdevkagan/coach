@@ -7,8 +7,8 @@ struct GoingQuietSignal: SignalMonitor {
 
     /// Number of recent "Them" turns to check.
     var recentTurnCount: Int = 5
-    /// Average word count below this triggers the nudge.
-    var shortReplyThreshold: Int = 4
+    /// Average word count at or below this triggers the nudge.
+    var shortReplyThreshold: Double = 5
     /// Minimum seconds between fires.
     var cooldown: TimeInterval = 180
     /// Minimum elapsed time before this can fire (let the meeting warm up).
@@ -16,32 +16,37 @@ struct GoingQuietSignal: SignalMonitor {
 
     private var lastFired: TimeInterval = -.infinity
 
-    mutating func evaluate(utterances: [Utterance], elapsed: TimeInterval, context: PreCallContext) -> Nudge? {
-        guard elapsed >= warmupSeconds else { return nil }
-        guard elapsed - lastFired >= cooldown else { return nil }
+    mutating func evaluate(_ input: SignalInput) -> Nudge? {
+        guard input.speakerLabelsReliable else { return nil }
+        guard input.elapsed >= warmupSeconds else { return nil }
+        guard input.elapsed - lastFired >= cooldown else { return nil }
 
-        // Collect recent "Them" utterances
-        let themUtterances = utterances.filter { !$0.isYou && $0.speaker != "Meeting" }
-        guard themUtterances.count >= recentTurnCount else { return nil }
+        // Collect "Them" turns (real turns, not ASR fragments). Exclude pure
+        // backchannels ("yeah", "okay") — those are them LISTENING while you
+        // talk, not them replying briefly. Counting them as short replies
+        // made every monologue of yours look like their disengagement.
+        let themTurns = input.turns.filter {
+            !$0.isYou && $0.speaker != "Meeting" && !YesManSignal.isAgreementOnly($0.text)
+        }
+        guard themTurns.count >= recentTurnCount + 3 else { return nil }
 
-        let recentThem = Array(themUtterances.suffix(recentTurnCount))
-        let avgWords = recentThem.map { $0.text.split(separator: " ").count }.reduce(0, +) / recentTurnCount
-
+        let recent = themTurns.suffix(recentTurnCount)
+        let avgWords = Double(recent.map(\.wordCount).reduce(0, +)) / Double(recent.count)
         guard avgWords <= shortReplyThreshold else { return nil }
 
         // Make sure they were talking more earlier (not just a quiet person)
-        let earlierThem = Array(themUtterances.dropLast(recentTurnCount).suffix(recentTurnCount))
-        guard earlierThem.count >= 3 else { return nil }
-        let earlierAvg = earlierThem.map { $0.text.split(separator: " ").count }.reduce(0, +) / earlierThem.count
+        let earlier = themTurns.dropLast(recentTurnCount).suffix(recentTurnCount)
+        guard earlier.count >= 3 else { return nil }
+        let earlierAvg = Double(earlier.map(\.wordCount).reduce(0, +)) / Double(earlier.count)
         guard earlierAvg > shortReplyThreshold + 2 else { return nil }
 
-        lastFired = elapsed
+        lastFired = input.elapsed
         return Nudge(
             id: UUID(),
             type: .goingQuiet,
             text: "They've gone quiet — ask what they think",
             urgency: .med,
-            timestamp: elapsed
+            timestamp: input.elapsed
         )
     }
 

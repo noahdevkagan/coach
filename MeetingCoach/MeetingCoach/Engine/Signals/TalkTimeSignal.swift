@@ -8,40 +8,28 @@ struct TalkTimeSignal: SignalMonitor {
     var threshold: TimeInterval = 30
     /// Minimum seconds between fires.
     var cooldown: TimeInterval = 45
-    /// Max gap between utterances before the streak breaks (seconds).
+    /// Max silence after the turn's last words before the streak breaks.
     var maxGap: TimeInterval = 10
 
     private var lastFired: TimeInterval = -.infinity
 
-    mutating func evaluate(utterances: [Utterance], elapsed: TimeInterval, context: PreCallContext) -> Nudge? {
-        guard elapsed - lastFired >= cooldown else { return nil }
-        guard !utterances.isEmpty else { return nil }
+    mutating func evaluate(_ input: SignalInput) -> Nudge? {
+        guard input.elapsed - lastFired >= cooldown else { return nil }
+        // TurnBuilder already breaks turns on >10s silences, so the last turn
+        // IS the current streak. Require it to still be live (not trailed off).
+        guard let turn = input.turns.last, turn.isYou else { return nil }
+        guard input.elapsed - turn.endT <= maxGap else { return nil }
 
-        // Walk backwards through utterances counting continuous "You" speaking time.
-        // Break on: non-"You" speaker, or gap > maxGap between consecutive utterances.
-        var streakStart: TimeInterval = elapsed
-        var prevTime: TimeInterval = elapsed
-
-        for utt in utterances.reversed() {
-            guard utt.isYou else { break }
-            // If there's a big silence gap, the streak is broken
-            if prevTime - utt.t > maxGap {
-                break
-            }
-            streakStart = utt.t
-            prevTime = utt.t
-        }
-
-        let continuousTime = elapsed - streakStart
+        let continuousTime = input.elapsed - turn.t
         guard continuousTime >= threshold else { return nil }
 
-        lastFired = elapsed
+        lastFired = input.elapsed
         return Nudge(
             id: UUID(),
             type: .talkTime,
             text: "You're still talking",
             urgency: .high,
-            timestamp: elapsed
+            timestamp: input.elapsed
         )
     }
 

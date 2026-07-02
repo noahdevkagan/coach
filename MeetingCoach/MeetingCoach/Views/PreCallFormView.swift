@@ -36,6 +36,23 @@ struct PreCallFormView: View {
                             .textFieldStyle(.roundedBorder)
                     }
 
+                    // Meeting type — changes what good facilitation looks like
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Meeting Type").font(.caption.bold())
+                        Picker("", selection: Binding(
+                            get: { context.meetingType ?? .general },
+                            set: { context.meetingType = $0 }
+                        )) {
+                            ForEach(MeetingType.allCases) { type in
+                                Text(type.displayName).tag(type)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.segmented)
+                        Text("A 1:1 tolerates long updates; a sales call coaches you to listen and ask.")
+                            .font(.caption2).foregroundStyle(.tertiary)
+                    }
+
                     // Duration — dropdown
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Scheduled Duration").font(.caption.bold())

@@ -176,58 +176,77 @@ struct LiveTimelineView: View {
                 Text("Live Transcript")
                     .font(.caption.bold()).foregroundStyle(.secondary)
                 Spacer()
-                Text("\(liveSession.utterances.count) lines")
-                    .font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
-                Text(liveSession.elapsedFormatted)
-                    .font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
+                TranscriptHeaderStats(liveSession: liveSession)
             }
             .padding(.horizontal).padding(.vertical, 8)
             Divider()
 
-            if liveSession.utterances.isEmpty {
-                VStack(spacing: 8) {
-                    Image(systemName: "mic")
-                        .font(.title2).foregroundStyle(.tertiary)
-                    Text("Speak to see your\ntranscript appear here")
-                        .font(.caption).foregroundStyle(.tertiary)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                let turns = joinConsecutive(liveSession.utterances)
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 10) {
-                            ForEach(Array(turns.enumerated()), id: \.offset) { _, turn in
-                                VStack(alignment: .leading, spacing: 2) {
-                                    HStack(spacing: 4) {
-                                        Text(turn.formattedTime)
-                                            .font(.system(.caption2, design: .monospaced))
-                                            .foregroundStyle(.tertiary)
-                                        Text(turn.speaker)
-                                            .font(.caption2.bold())
-                                            .foregroundStyle(speakerColor(turn.speaker))
-                                    }
-                                    Text(turn.text)
-                                        .font(.callout)
-                                        .textSelection(.enabled)
-                                        .fixedSize(horizontal: false, vertical: true)
+            LiveTranscriptPane(liveSession: liveSession)
+        }
+        .background(Color(.controlBackgroundColor).opacity(0.5))
+    }
+}
+
+/// Isolated so the 1-second clock tick only re-renders these two Texts,
+/// not the whole transcript panel.
+private struct TranscriptHeaderStats: View {
+    var liveSession: LiveSessionViewModel
+
+    var body: some View {
+        Text("\(liveSession.utterances.count) lines")
+            .font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
+        Text(liveSession.elapsedFormatted)
+            .font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
+    }
+}
+
+/// Renders the pre-built turns from the view model — no per-frame re-joining,
+/// lazy rows, stable identity per turn.
+private struct LiveTranscriptPane: View {
+    var liveSession: LiveSessionViewModel
+
+    var body: some View {
+        if liveSession.turns.isEmpty {
+            VStack(spacing: 8) {
+                Image(systemName: "mic")
+                    .font(.title2).foregroundStyle(.tertiary)
+                Text("Speak to see your\ntranscript appear here")
+                    .font(.caption).foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        ForEach(liveSession.turns) { turn in
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 4) {
+                                    Text(turn.formattedTime)
+                                        .font(.system(.caption2, design: .monospaced))
+                                        .foregroundStyle(.tertiary)
+                                    Text(turn.speaker)
+                                        .font(.caption2.bold())
+                                        .foregroundStyle(speakerColor(turn.speaker))
                                 }
+                                Text(turn.text)
+                                    .font(.callout)
+                                    .textSelection(.enabled)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
-                            Color.clear.frame(height: 1).id("transcript-bottom")
                         }
-                        .padding(12)
+                        Color.clear.frame(height: 1).id("transcript-bottom")
                     }
-                    .onChange(of: liveSession.utterances.count) { _, _ in
-                        proxy.scrollTo("transcript-bottom")
-                    }
-                    .onChange(of: liveSession.utterances.last?.text) { _, _ in
-                        proxy.scrollTo("transcript-bottom")
-                    }
+                    .padding(12)
+                }
+                .onChange(of: liveSession.turns.count) { _, _ in
+                    proxy.scrollTo("transcript-bottom")
+                }
+                .onChange(of: liveSession.turns.last?.text) { _, _ in
+                    proxy.scrollTo("transcript-bottom")
                 }
             }
         }
-        .background(Color(.controlBackgroundColor).opacity(0.5))
     }
 }
 
@@ -976,9 +995,22 @@ struct LiveSection: View {
                 }
             } else {
                 // Start button
-                Text("Listens to your meeting audio and coaches you in real time. No model needed — deterministic signals only.")
+                Text("Listens to your meeting audio and coaches you in real time. Instant nudges (talk time, interruptions, unanswered questions) are always on.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                Toggle(isOn: $settings.semanticCoachEnabled) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("AI nudges")
+                            .font(.caption)
+                        Text("AI re-reads the conversation each minute for subtle moments — undecided topics, soft commitments. Uses more battery.")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .toggleStyle(.switch)
+                .controlSize(.mini)
 
                 Button {
                     liveSession.showPreCallForm = true
@@ -990,7 +1022,11 @@ struct LiveSection: View {
                 .tint(.green)
                 .sheet(isPresented: $liveSession.showPreCallForm) {
                     PreCallFormView(context: $liveSession.preCallContext) {
-                        liveSession.startLive(context: liveSession.preCallContext)
+                        liveSession.startLive(
+                            context: liveSession.preCallContext,
+                            settings: settings,
+                            ollamaManager: ollamaManager
+                        )
                     }
                 }
             }
@@ -1225,29 +1261,6 @@ struct RunSection: View {
 }
 
 // MARK: - Helpers
-
-/// Split text into ~8-word chunks for display as flowing transcript lines.
-/// Join consecutive same-speaker utterances into flowing paragraphs.
-private func joinConsecutive(_ utterances: [Utterance]) -> [Utterance] {
-    guard !utterances.isEmpty else { return [] }
-    var result: [Utterance] = []
-    var currentSpeaker = utterances[0].speaker
-    var currentTime = utterances[0].t
-    var currentText = utterances[0].text
-
-    for u in utterances.dropFirst() {
-        if u.speaker == currentSpeaker {
-            currentText += " " + u.text
-        } else {
-            result.append(Utterance(t: currentTime, speaker: currentSpeaker, text: currentText))
-            currentSpeaker = u.speaker
-            currentTime = u.t
-            currentText = u.text
-        }
-    }
-    result.append(Utterance(t: currentTime, speaker: currentSpeaker, text: currentText))
-    return result
-}
 
 private func speakerColor(_ speaker: String) -> Color {
     let lower = speaker.trimmingCharacters(in: .whitespaces).lowercased()

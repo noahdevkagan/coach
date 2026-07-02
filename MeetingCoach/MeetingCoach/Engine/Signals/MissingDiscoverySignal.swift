@@ -1,6 +1,6 @@
 import Foundation
 
-/// Signal #2: Fires when 10 min elapsed with no detected question from user.
+/// Signal #2: Fires when 5 min elapsed with no detected question from user.
 struct MissingDiscoverySignal: SignalMonitor {
     let nudgeType: NudgeType = .missingDiscovery
 
@@ -11,56 +11,30 @@ struct MissingDiscoverySignal: SignalMonitor {
 
     private var lastFired: TimeInterval = -.infinity
 
-    /// Regex patterns that indicate a question.
-    private static let questionStarters = [
-        "what", "how", "why", "when", "where", "who", "which",
-        "could", "would", "should", "can", "do", "does", "did",
-        "is", "are", "was", "were", "have", "has", "will",
-    ]
+    mutating func evaluate(_ input: SignalInput) -> Nudge? {
+        guard input.speakerLabelsReliable else { return nil }
+        guard input.elapsed >= windowSeconds else { return nil }
+        guard input.elapsed - lastFired >= cooldown else { return nil }
 
-    mutating func evaluate(utterances: [Utterance], elapsed: TimeInterval, context: PreCallContext) -> Nudge? {
-        guard elapsed >= windowSeconds else { return nil }
-        guard elapsed - lastFired >= cooldown else { return nil }
-
-        // Only check "You" utterances in the last window.
-        let windowStart = elapsed - windowSeconds
-        let recentYou = utterances.filter { $0.isYou && $0.t >= windowStart }
-
-        let hasQuestion = recentYou.contains { utt in
-            Self.isQuestion(utt.text)
+        // Only check "You" turns in the last window.
+        let windowStart = input.elapsed - windowSeconds
+        let hasQuestion = input.turns.reversed().contains { turn in
+            guard turn.endT >= windowStart else { return false }
+            return turn.isYou && TextAnalysis.isQuestion(turn.text)
         }
-
         guard !hasQuestion else { return nil }
 
-        lastFired = elapsed
+        lastFired = input.elapsed
         return Nudge(
             id: UUID(),
             type: .missingDiscovery,
             text: "Ask them something",
             urgency: .med,
-            timestamp: elapsed
+            timestamp: input.elapsed
         )
     }
 
     mutating func reset() {
         lastFired = -.infinity
-    }
-
-    /// Check if text contains a question — sentences ending in `?` or starting with question words.
-    static func isQuestion(_ text: String) -> Bool {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.hasSuffix("?") { return true }
-
-        let lower = trimmed.lowercased()
-        let sentences = lower.components(separatedBy: CharacterSet(charactersIn: ".!?"))
-        for sentence in sentences {
-            let words = sentence.trimmingCharacters(in: .whitespaces)
-                .split(separator: " ")
-            guard let firstWord = words.first else { continue }
-            if questionStarters.contains(String(firstWord)) {
-                return true
-            }
-        }
-        return false
     }
 }
