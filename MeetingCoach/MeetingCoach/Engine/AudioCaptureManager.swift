@@ -2,8 +2,15 @@ import AVFoundation
 import ScreenCaptureKit
 import Speech
 
-/// Captures both microphone and system audio (via ScreenCaptureKit) and feeds
-/// them into a single SFSpeechRecognizer pipeline for transcription.
+/// Captures microphone and system audio (via ScreenCaptureKit) and feeds each
+/// source into its OWN speech-recognition pipeline. Speaker identity is
+/// structural — mic = "You", system audio = "Them" — instead of inferred from
+/// audio energy heuristics.
+///
+/// Echo cancellation (voice processing) is enabled on the mic when system
+/// audio capture is active, so the other side's voice coming out of the
+/// speakers does not bleed into the "You" pipeline. A time-based bleed gate
+/// backstops the case where echo cancellation is unavailable.
 @available(macOS 14.2, *)
 final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
@@ -11,19 +18,12 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     var onUtterance: (@Sendable @MainActor (Utterance) -> Void)?
     var onStatus: (@Sendable @MainActor (String) -> Void)?
 
-    private let speechRecognizer: SFSpeechRecognizer?
     private let startTime = Date()
     private var isRunning = false
 
-    // Single recognition pipeline (both sources feed into this)
-    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
-    private var recognitionTask: SFSpeechRecognitionTask?
-    private var generation = 0
-    private var emittedWordCount = 0
-    private var lastEmitTime: Date = Date()
-    private var flushTimer: Timer?
-    /// Track the highest emittedWordCount ever seen in this generation to detect revisions
-    private var peakEmittedWordCount = 0
+    // One recognition pipeline per audio source
+    private var micPipeline: RecognitionPipeline?
+    private var sysPipeline: RecognitionPipeline?
 
     // Audio sources
     private var engine: AVAudioEngine?
@@ -31,60 +31,53 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     private let sysAudioQueue = DispatchQueue(label: "com.coach.systemAudio")
     private var hasSystemAudio = false
 
-    // Speaker detection via audio energy
-    private var micEnergy: Float = 0
-    private var sysEnergy: Float = 0
-    private let energyDecay: Float = 0.85           // slower decay to better represent who spoke during chunk
-    private let micSilenceFloor: Float = 0.005      // below this, mic is silent (not you)
-    private let sysSilenceFloor: Float = 0.002      // below this, system audio is silent
-    private var micSpeakingFrames: Int = 0           // frames where mic is "hot"
-    private var sysSpeakingFrames: Int = 0           // frames where system is "hot"
-
-    // Accumulated energy samples over the chunk window for time-averaged speaker detection
-    private var chunkMicSamples: [Float] = []
-    private var chunkSysSamples: [Float] = []
-
-    // Echo/bleed compensation: estimate how much system audio bleeds into the mic
-    private var estimatedBleedRatio: Float = 0.40   // mic picks up ~40% of system audio level
-
-    override init() {
-        speechRecognizer = SFSpeechRecognizer(locale: .init(identifier: "en-US"))
-        super.init()
-    }
+    // Bleed gate: if echo cancellation fails (or is unavailable), the mic
+    // picks up the other side through the speakers. Track when the mic was
+    // last genuinely hot so bleed-only transcriptions can be dropped.
+    private let micStateLock = NSLock()
+    private var lastLoudMicAt = Date.distantPast
+    private let micSilenceFloor: Float = 0.005
 
     // MARK: - Public
 
     func start() async throws {
         guard !isRunning else { return }
-
-        guard let speechRecognizer, speechRecognizer.isAvailable else {
-            throw CaptureError.speechNotAvailable
-        }
-
         isRunning = true
 
-        // Start recognition FIRST so both audio sources can feed it
-        startRecognition()
-
-        // Start microphone
-        emitStatus("Setting up microphone...")
-        try startMicrophone()
-
-        // Start system audio (optional — for Zoom/Teams capture)
+        // System audio first — whether it works decides mic configuration
+        // (echo cancellation on, mic speaker label "You" vs "Meeting").
         do {
             try await startSystemAudio()
             hasSystemAudio = true
-            emitStatus("Listening (mic + system audio)")
-            mclog("[Capture] Both mic and system audio active")
         } catch {
             mclog("[Capture] System audio failed: \(error.localizedDescription)")
+            hasSystemAudio = false
+        }
+
+        // Mic pipeline. Without system audio there is no You/Them separation,
+        // so keep the old generic label.
+        emitStatus("Setting up microphone...")
+        let micPipe = try makePipeline(speaker: hasSystemAudio ? "You" : "Meeting")
+        micPipeline = micPipe
+        micPipe.start()
+        do {
+            try startMicrophone(echoCancellation: hasSystemAudio)
+        } catch {
+            isRunning = false
+            stop()
+            throw error
+        }
+
+        if hasSystemAudio {
+            emitStatus("Listening (you + them)")
+            mclog("[Capture] Dual pipelines active (mic=You, system=Them)")
+        } else {
             emitStatus("Listening (mic only — grant Screen Recording for Zoom)")
         }
     }
 
     func stop() {
         isRunning = false
-        cancelFlushTimer()
 
         // Stop mic
         engine?.stop()
@@ -97,25 +90,70 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             scStream = nil
         }
 
-        // Stop recognition
-        recognitionTask?.cancel()
-        recognitionRequest?.endAudio()
-        recognitionRequest = nil
-        recognitionTask = nil
+        // Stop recognition (flushes any pending tail first)
+        micPipeline?.stop()
+        micPipeline = nil
+        sysPipeline?.stop()
+        sysPipeline = nil
+    }
+
+    // MARK: - Pipelines
+
+    private func makePipeline(speaker: String) throws -> RecognitionPipeline {
+        guard let recognizer = SFSpeechRecognizer(locale: .init(identifier: "en-US")),
+              recognizer.isAvailable else {
+            throw CaptureError.speechNotAvailable
+        }
+        // Hard local-first constraint: audio must never route to Apple's
+        // servers. Refuse to start rather than silently falling back.
+        guard recognizer.supportsOnDeviceRecognition else {
+            throw CaptureError.onDeviceUnavailable
+        }
+        let pipe = RecognitionPipeline(speaker: speaker, recognizer: recognizer, sessionStart: startTime)
+        pipe.onUtterance = { [weak self] u in self?.deliver(u) }
+        return pipe
+    }
+
+    /// Deliver an utterance from a pipeline, applying the bleed gate.
+    private func deliver(_ u: Utterance) {
+        // Bleed gate for the mic pipeline: a chunk transcribed while the mic
+        // has been silent is the other side leaking through the speakers.
+        if hasSystemAudio && u.speaker != "Them" {
+            micStateLock.lock()
+            let sinceLoud = Date().timeIntervalSince(lastLoudMicAt)
+            micStateLock.unlock()
+            if sinceLoud > 3.0 {
+                mclog("[Capture] Dropped bleed chunk (mic quiet \(String(format: "%.1f", sinceLoud))s): \(u.text.prefix(50))")
+                return
+            }
+        }
+        Task { @MainActor [onUtterance] in
+            onUtterance?(u)
+        }
     }
 
     // MARK: - Microphone
 
-    private func startMicrophone() throws {
+    private func startMicrophone(echoCancellation: Bool) throws {
         let audioEngine = AVAudioEngine()
         let inputNode = audioEngine.inputNode
 
-        try? inputNode.setVoiceProcessingEnabled(false)
+        if echoCancellation {
+            // Apple's AEC removes system-audio playback from the mic signal,
+            // so the "You" pipeline hears only the user.
+            do {
+                try inputNode.setVoiceProcessingEnabled(true)
+                mclog("[Mic] Echo cancellation ON")
+            } catch {
+                mclog("[Mic] Voice processing unavailable (\(error.localizedDescription)) — relying on bleed gate")
+            }
+        } else {
+            try? inputNode.setVoiceProcessingEnabled(false)
+        }
 
         let recordingFormat = inputNode.outputFormat(forBus: 0)
 
         guard recordingFormat.sampleRate > 0 else {
-            isRunning = false
             throw CaptureError.microphoneNotAvailable(
                 "No microphone available. Check System Settings > Privacy & Security > Microphone."
             )
@@ -125,23 +163,12 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
         inputNode.installTap(onBus: 0, bufferSize: 4096, format: recordingFormat) { [weak self] buffer, _ in
             guard let self else { return }
-            self.recognitionRequest?.append(buffer)
+            self.micPipeline?.append(buffer)
 
-            // Track mic energy for speaker detection
-            let energy = self.rmsEnergy(buffer)
-            self.micEnergy = max(energy, self.micEnergy * self.energyDecay)
-
-            // Compensate for speaker bleed: subtract expected bleed from mic reading
-            let compensatedMicEnergy = max(0, energy - self.sysEnergy * self.estimatedBleedRatio)
-
-            // Accumulate samples for time-averaged detection over the chunk window
-            self.chunkMicSamples.append(compensatedMicEnergy)
-
-            if compensatedMicEnergy > self.micSilenceFloor {
-                self.micSpeakingFrames += 1
-            } else {
-                // Gradual decay instead of hard decrement
-                self.micSpeakingFrames = max(0, self.micSpeakingFrames - 1)
+            if Self.rmsEnergy(buffer) > self.micSilenceFloor {
+                self.micStateLock.lock()
+                self.lastLoudMicAt = Date()
+                self.micStateLock.unlock()
             }
         }
 
@@ -179,215 +206,16 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         config.height = 2
         config.minimumFrameInterval = CMTime(value: 1, timescale: 1)
 
+        let pipe = try makePipeline(speaker: "Them")
+
         let stream = SCStream(filter: filter, configuration: config, delegate: self)
         try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: sysAudioQueue)
         try await stream.startCapture()
 
+        sysPipeline = pipe
+        pipe.start()
         scStream = stream
         mclog("[Capture] System audio started via ScreenCaptureKit")
-    }
-
-    // MARK: - Speech recognition (single pipeline)
-
-    private func startRecognition() {
-        let oldTask = recognitionTask
-        let oldRequest = recognitionRequest
-
-        generation += 1
-        let gen = generation
-        emittedWordCount = 0
-        peakEmittedWordCount = 0
-
-        let request = SFSpeechAudioBufferRecognitionRequest()
-        request.shouldReportPartialResults = true
-        request.addsPunctuation = true
-        if speechRecognizer?.supportsOnDeviceRecognition == true {
-            request.requiresOnDeviceRecognition = true
-        }
-        recognitionRequest = request
-
-        oldTask?.cancel()
-        oldRequest?.endAudio()
-
-        mclog("[Speech] Starting recognition gen=\(gen)")
-        recognitionTask = speechRecognizer?.recognitionTask(with: request) { [weak self] result, error in
-            guard let self, gen == self.generation else { return }
-            if let result {
-                self.handleResult(result)
-            }
-            if error != nil || (result?.isFinal == true) {
-                if let error {
-                    mclog("[Speech] Error: \(error.localizedDescription)")
-                }
-                guard self.isRunning else { return }
-                DispatchQueue.global().async {
-                    guard self.isRunning, gen == self.generation else { return }
-                    mclog("[Speech] Restarting recognition")
-                    self.startRecognition()
-                }
-            }
-        }
-    }
-
-    // MARK: - Result handler
-
-    private func handleResult(_ result: SFSpeechRecognitionResult) {
-        let full = result.bestTranscription.formattedString
-        guard !full.isEmpty else { return }
-
-        let t = Date().timeIntervalSince(startTime)
-        let allWords = full.split(separator: " ")
-
-        // Fix: Handle revisions without replaying already-emitted content.
-        // When the recognizer revises (word count drops), only reset to the
-        // revision point, not to zero. This prevents echo/duplicate lines.
-        if allWords.count < emittedWordCount {
-            mclog("[Speech] Revision: words=\(allWords.count) < emitted=\(emittedWordCount), adjusting")
-            // The recognizer revised — the new transcript replaces the old one.
-            // Don't re-emit words that were already sent. Just adjust our pointer.
-            emittedWordCount = min(emittedWordCount, allWords.count)
-            return  // Skip this result — wait for more words to accumulate
-        }
-
-        let stableCount = result.isFinal ? allWords.count : max(0, allWords.count - 1)
-        let available = stableCount - emittedWordCount
-
-        // Emit in larger chunks for better speaker detection and natural sentences.
-        let timeSinceLastEmit = Date().timeIntervalSince(lastEmitTime)
-        let minWords: Int
-        if result.isFinal {
-            minWords = 1
-        } else if timeSinceLastEmit > 5.0 {
-            minWords = 4  // flush after long pause
-        } else if timeSinceLastEmit > 3.5 {
-            minWords = 8  // moderate pause — flush with decent chunk
-        } else {
-            minWords = 18  // normal: accumulate ~18 words for natural sentence-length utterances
-        }
-        guard available >= minWords else {
-            // Schedule a flush timer to catch stragglers
-            scheduleFlushTimer()
-            return
-        }
-
-        let chunk = allWords[emittedWordCount..<stableCount].joined(separator: " ")
-        emittedWordCount = stableCount
-        peakEmittedWordCount = max(peakEmittedWordCount, emittedWordCount)
-        lastEmitTime = Date()
-        cancelFlushTimer()
-
-        mclog("[Speech] Emitting \(available) words (timeSince=\(String(format: "%.1f", timeSinceLastEmit))s): \(chunk.prefix(80))")
-
-        // Determine speaker using time-averaged energy over the chunk window.
-        // This is more accurate than point-in-time energy because it reflects
-        // who was actually speaking during the words being emitted.
-        let speaker = determineSpeaker()
-
-        // Reset chunk energy accumulators (but keep frame counters decaying gradually)
-        chunkMicSamples.removeAll(keepingCapacity: true)
-        chunkSysSamples.removeAll(keepingCapacity: true)
-        // Faster frame counter decay to reduce carryover bias at transitions
-        micSpeakingFrames = micSpeakingFrames / 4
-        sysSpeakingFrames = sysSpeakingFrames / 4
-
-        let u = Utterance(t: t, speaker: speaker, text: chunk)
-        Task { @MainActor [onUtterance] in
-            onUtterance?(u)
-        }
-    }
-
-    // MARK: - Speaker detection
-
-    /// Determine who was speaking during this chunk using accumulated energy samples
-    /// with echo compensation. Uses recency-weighted samples to reduce transition bleed.
-    private func determineSpeaker() -> String {
-        guard hasSystemAudio else { return "Meeting" }
-
-        // Use only the latter half of samples to reduce transition bleed.
-        // When speakers change mid-chunk, the first samples reflect the previous
-        // speaker and pollute the average. Trimming to recent samples improves
-        // accuracy at speaker transitions.
-        var micSamples = chunkMicSamples
-        var sysSamples = chunkSysSamples
-        if micSamples.count > 10 {
-            micSamples = Array(micSamples[(micSamples.count / 2)...])
-        }
-        if sysSamples.count > 10 {
-            sysSamples = Array(sysSamples[(sysSamples.count / 2)...])
-        }
-
-        // Compute average energy over the (recency-weighted) chunk window
-        let avgMic: Float
-        let avgSys: Float
-        if !micSamples.isEmpty {
-            avgMic = micSamples.reduce(0, +) / Float(micSamples.count)
-        } else {
-            // Fallback to instantaneous if no samples accumulated
-            avgMic = max(0, micEnergy - sysEnergy * estimatedBleedRatio)
-        }
-        if !sysSamples.isEmpty {
-            avgSys = sysSamples.reduce(0, +) / Float(sysSamples.count)
-        } else {
-            avgSys = sysEnergy
-        }
-
-        // Clear cases first
-        if avgMic < micSilenceFloor && avgSys < sysSilenceFloor {
-            return "Meeting"  // neither source active
-        }
-        if avgMic < micSilenceFloor {
-            return "Them"     // mic silent, only system audio
-        }
-        if avgSys < sysSilenceFloor {
-            return "You"      // system silent, only mic
-        }
-
-        // Both active — use energy ratio with frame count tiebreaker.
-        // Require mic to clearly dominate (compensated for bleed) to label "You".
-        if avgMic > avgSys * 1.5 && micSpeakingFrames > sysSpeakingFrames {
-            return "You"
-        }
-        // Require system to actually exceed mic (not just 0.5x) to label "Them".
-        // Previous 0.5x threshold was too permissive and caused Noah's short
-        // interjections to be mislabeled as "Them" during speaker transitions.
-        if avgSys > avgMic * 1.0 && sysSpeakingFrames > micSpeakingFrames {
-            return "Them"
-        }
-
-        // Frame count tiebreaker
-        if micSpeakingFrames > sysSpeakingFrames * 3 {
-            return "You"
-        }
-        if sysSpeakingFrames > micSpeakingFrames * 2 {
-            return "Them"
-        }
-
-        // When in doubt, default to "Them" instead of "Meeting" —
-        // "Meeting" provides no coaching value and the other person
-        // is more likely the one talking when both sources are active.
-        return "Them"
-    }
-
-    // MARK: - Flush timer
-
-    /// Schedule a timer to force-emit any pending words after 1.5s of silence.
-    private func scheduleFlushTimer() {
-        // Don't stack timers
-        guard flushTimer == nil else { return }
-        DispatchQueue.main.async { [weak self] in
-            self?.flushTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
-                guard let self, self.isRunning else { return }
-                self.flushTimer = nil
-                // Trigger the recognizer to give us a result by requesting partial
-                // The next handleResult call with timeSinceLastEmit > 1.5 will flush
-                mclog("[Speech] Flush timer fired — pending words will emit on next result")
-            }
-        }
-    }
-
-    private func cancelFlushTimer() {
-        flushTimer?.invalidate()
-        flushTimer = nil
     }
 
     // MARK: - Helpers
@@ -398,8 +226,8 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         }
     }
 
-    /// RMS energy of an AVAudioEngine tap buffer
-    private func rmsEnergy(_ buffer: AVAudioPCMBuffer) -> Float {
+    /// RMS energy of a PCM buffer
+    private static func rmsEnergy(_ buffer: AVAudioPCMBuffer) -> Float {
         guard let data = buffer.floatChannelData?[0] else { return 0 }
         let count = Int(buffer.frameLength)
         guard count > 0 else { return 0 }
@@ -407,15 +235,212 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         for i in 0..<count { sum += data[i] * data[i] }
         return sqrt(sum / Float(count))
     }
+}
 
-    /// RMS energy of a PCM buffer from ScreenCaptureKit
-    private func rmsEnergyPCM(_ buffer: AVAudioPCMBuffer) -> Float {
-        guard let data = buffer.floatChannelData?[0] else { return 0 }
-        let count = Int(buffer.frameLength)
-        guard count > 0 else { return 0 }
-        var sum: Float = 0
-        for i in 0..<count { sum += data[i] * data[i] }
-        return sqrt(sum / Float(count))
+// MARK: - Recognition pipeline
+
+/// One speech-recognition pipeline for one audio source. All mutable state is
+/// confined to `queue`; `append` is safe from any thread.
+@available(macOS 14.2, *)
+private final class RecognitionPipeline: @unchecked Sendable {
+    let speaker: String
+    /// Called on the pipeline's queue with each emitted utterance.
+    var onUtterance: ((Utterance) -> Void)?
+
+    private let recognizer: SFSpeechRecognizer
+    private let sessionStart: Date
+    private let queue: DispatchQueue
+
+    // `request` is the only state touched off-queue (audio threads append to
+    // it), so guard the pointer with a lock.
+    private let requestLock = NSLock()
+    private var request: SFSpeechAudioBufferRecognitionRequest?
+
+    private var task: SFSpeechRecognitionTask?
+    private var generation = 0
+    private var genStart = Date()
+    private var running = false
+
+    private var latestWords: [String] = []
+    private var latestSegments: [SFTranscriptionSegment] = []
+    private var emittedWordCount = 0
+    private var lastEmitTime = Date()
+    private var flushTimer: DispatchSourceTimer?
+
+    /// Force-emit any pending tail after this much recognizer silence.
+    private let flushDelay: TimeInterval = 1.2
+
+    init(speaker: String, recognizer: SFSpeechRecognizer, sessionStart: Date) {
+        self.speaker = speaker
+        self.recognizer = recognizer
+        self.sessionStart = sessionStart
+        self.queue = DispatchQueue(label: "com.coach.pipeline.\(speaker.lowercased())")
+    }
+
+    func start() {
+        queue.async {
+            self.running = true
+            self.startRecognition()
+        }
+    }
+
+    func stop() {
+        queue.async {
+            self.running = false
+            self.cancelFlushTimer()
+            // Flush pending words so the transcript tail isn't lost.
+            self.emit(upTo: self.latestWords.count, reason: "stop")
+            self.task?.cancel()
+            self.currentRequest?.endAudio()
+            self.setRequest(nil)
+            self.task = nil
+        }
+    }
+
+    /// Append audio. Safe from any thread (mic tap / SCStream queue).
+    func append(_ buffer: AVAudioPCMBuffer) {
+        currentRequest?.append(buffer)
+    }
+
+    // MARK: - Request pointer (lock-guarded)
+
+    private var currentRequest: SFSpeechAudioBufferRecognitionRequest? {
+        requestLock.lock()
+        defer { requestLock.unlock() }
+        return request
+    }
+
+    private func setRequest(_ r: SFSpeechAudioBufferRecognitionRequest?) {
+        requestLock.lock()
+        request = r
+        requestLock.unlock()
+    }
+
+    // MARK: - Recognition (on queue)
+
+    private func startRecognition() {
+        generation += 1
+        let gen = generation
+        genStart = Date()
+        emittedWordCount = 0
+        latestWords = []
+        latestSegments = []
+
+        let req = SFSpeechAudioBufferRecognitionRequest()
+        req.shouldReportPartialResults = true
+        req.addsPunctuation = true
+        req.requiresOnDeviceRecognition = true
+
+        task?.cancel()
+        currentRequest?.endAudio()
+        setRequest(req)
+
+        mclog("[Speech:\(speaker)] Starting recognition gen=\(gen)")
+        task = recognizer.recognitionTask(with: req) { [weak self] result, error in
+            guard let self else { return }
+            self.queue.async {
+                guard gen == self.generation, self.running else { return }
+                if let result {
+                    self.handleResult(result)
+                }
+                if error != nil || result?.isFinal == true {
+                    if let error {
+                        mclog("[Speech:\(self.speaker)] Error: \(error.localizedDescription)")
+                    }
+                    mclog("[Speech:\(self.speaker)] Restarting recognition")
+                    self.startRecognition()
+                }
+            }
+        }
+    }
+
+    private func handleResult(_ result: SFSpeechRecognitionResult) {
+        let full = result.bestTranscription.formattedString
+        guard !full.isEmpty else { return }
+
+        let words = full.split(separator: " ").map(String.init)
+
+        // Revision: the recognizer replaced already-emitted words. Move the
+        // pointer back; don't re-emit (the old text was already shown).
+        if words.count < emittedWordCount {
+            mclog("[Speech:\(speaker)] Revision: words=\(words.count) < emitted=\(emittedWordCount)")
+            emittedWordCount = words.count
+        }
+        latestWords = words
+        latestSegments = result.bestTranscription.segments
+
+        let stableCount = result.isFinal ? words.count : max(0, words.count - 1)
+        let available = stableCount - emittedWordCount
+        let sinceEmit = Date().timeIntervalSince(lastEmitTime)
+
+        // Chunks no longer serve speaker detection (identity is structural),
+        // so emit small — nudge-relevant words reach the signals sooner.
+        let minWords: Int
+        if result.isFinal {
+            minWords = 1
+        } else if sinceEmit > 2.0 {
+            minWords = 3
+        } else {
+            minWords = 8
+        }
+
+        if available >= minWords {
+            emit(upTo: stableCount, reason: result.isFinal ? "final" : "partial")
+        } else if words.count > emittedWordCount {
+            scheduleFlush()
+        }
+    }
+
+    private func emit(upTo count: Int, reason: String) {
+        let count = min(count, latestWords.count)
+        guard count > emittedWordCount else { return }
+
+        let text = latestWords[emittedWordCount..<count].joined(separator: " ")
+
+        // Timing: prefer recognizer segment timestamps (relative to this
+        // generation's audio start); fall back to wall clock.
+        let now = Date().timeIntervalSince(sessionStart)
+        var t = now
+        var endT = now
+        if latestSegments.count == latestWords.count, count <= latestSegments.count {
+            let first = latestSegments[emittedWordCount]
+            let last = latestSegments[count - 1]
+            if last.timestamp > 0 {
+                let offset = genStart.timeIntervalSince(sessionStart)
+                t = offset + first.timestamp
+                endT = offset + last.timestamp + last.duration
+            }
+        }
+
+        emittedWordCount = count
+        lastEmitTime = Date()
+        cancelFlushTimer()
+
+        mclog("[Speech:\(speaker)] Emit (\(reason)): \(text.prefix(80))")
+        onUtterance?(Utterance(t: t, speaker: speaker, text: text, endT: endT))
+    }
+
+    // MARK: - Flush (on queue)
+
+    /// Emit the pending tail — including the unstable last word — after the
+    /// recognizer goes quiet. The words right before a pause are often the
+    /// most coaching-relevant ("so are we agreed?" → silence).
+    private func scheduleFlush() {
+        guard flushTimer == nil else { return }
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + flushDelay)
+        timer.setEventHandler { [weak self] in
+            guard let self, self.running else { return }
+            self.flushTimer = nil
+            self.emit(upTo: self.latestWords.count, reason: "flush")
+        }
+        timer.resume()
+        flushTimer = timer
+    }
+
+    private func cancelFlushTimer() {
+        flushTimer?.cancel()
+        flushTimer = nil
     }
 }
 
@@ -449,20 +474,7 @@ extension AudioCaptureManager: SCStreamOutput {
         )
 
         guard status == noErr else { return }
-        // Don't feed system audio into speech recognizer — mixing two audio
-        // sources with different buffer characteristics causes it to produce
-        // zero results. Just track energy for speaker detection.
-        let energy = rmsEnergyPCM(pcmBuffer)
-        sysEnergy = max(energy, sysEnergy * energyDecay)
-
-        // Accumulate system energy samples for time-averaged detection
-        chunkSysSamples.append(energy)
-
-        if energy > sysSilenceFloor {
-            sysSpeakingFrames += 1
-        } else {
-            sysSpeakingFrames = max(0, sysSpeakingFrames - 1)
-        }
+        sysPipeline?.append(pcmBuffer)
     }
 }
 
@@ -479,6 +491,7 @@ extension AudioCaptureManager: SCStreamDelegate {
 enum CaptureError: Error, LocalizedError {
     case speechNotAvailable
     case speechNotAuthorized
+    case onDeviceUnavailable
     case systemAudioFailed(String)
     case microphoneNotAvailable(String)
 
@@ -486,6 +499,7 @@ enum CaptureError: Error, LocalizedError {
         switch self {
         case .speechNotAvailable: "Speech recognition not available. Enable Dictation in System Settings > Keyboard."
         case .speechNotAuthorized: "Speech recognition not authorized. Check System Settings > Privacy > Speech Recognition."
+        case .onDeviceUnavailable: "On-device speech recognition is not available for en-US. Refusing to start: audio must never leave this Mac. Download the English dictation model in System Settings > Keyboard > Dictation."
         case .systemAudioFailed(let msg): msg
         case .microphoneNotAvailable(let msg): msg
         }

@@ -28,9 +28,9 @@ struct TranscriptParser {
         pattern: #"^\[(\d{1,2}):(\d{2})\]\s*([^:]+?):\s*(.*)$"#)
     private static let zoomPattern = try! NSRegularExpression(
         pattern: #"^\*\*(.+?)\*\*\s*·\s*(\d{1,2}):(\d{2}):(\d{2})"#)
-    /// Matches "11:12:46 --> 11:12:48" (Zoom VTT/SRT style)
+    /// Matches "11:12:46 --> 11:12:48" (Zoom VTT/SRT style), capturing both ends
     private static let vttTimestampPattern = try! NSRegularExpression(
-        pattern: #"^(\d{1,2}):(\d{2}):(\d{2})\s*-->\s*\d{1,2}:\d{2}:\d{2}"#)
+        pattern: #"^(\d{1,2}):(\d{2}):(\d{2})\s*-->\s*(\d{1,2}):(\d{2}):(\d{2})"#)
 
     private static func detectFormat(_ lines: [String]) -> TranscriptFormat {
         for line in lines.prefix(30) {
@@ -123,7 +123,7 @@ struct TranscriptParser {
         pattern: #"^([^:]+?):\s+(.+)$"#)
 
     private static func parseZoomVTT(_ lines: [String], youName: String) -> [Utterance] {
-        var entries: [(absSeconds: Int, speaker: String, text: String)] = []
+        var entries: [(absSeconds: Int, endSeconds: Int, speaker: String, text: String)] = []
         var i = 0
         while i < lines.count {
             let trimmed = lines[i].trimmingCharacters(in: .whitespaces)
@@ -135,6 +135,10 @@ struct TranscriptParser {
                 let mm = Int((trimmed as NSString).substring(with: m.range(at: 2))) ?? 0
                 let ss = Int((trimmed as NSString).substring(with: m.range(at: 3))) ?? 0
                 let absSecs = hh * 3600 + mm * 60 + ss
+                let eh = Int((trimmed as NSString).substring(with: m.range(at: 4))) ?? 0
+                let em = Int((trimmed as NSString).substring(with: m.range(at: 5))) ?? 0
+                let es = Int((trimmed as NSString).substring(with: m.range(at: 6))) ?? 0
+                let endSecs = max(eh * 3600 + em * 60 + es, absSecs)
 
                 i += 1
                 // Next non-empty line(s) should be "speaker: text"
@@ -160,7 +164,7 @@ struct TranscriptParser {
                 }
                 let text = textParts.joined(separator: " ")
                 if !text.isEmpty {
-                    entries.append((absSecs, speaker, text))
+                    entries.append((absSecs, endSecs, speaker, text))
                 }
             } else {
                 i += 1
@@ -171,8 +175,9 @@ struct TranscriptParser {
         let youLower = youName.lowercased()
         return entries.map { entry in
             let rel = entry.absSeconds - startTime
+            let relEnd = entry.endSeconds - startTime
             let label = entry.speaker.lowercased() == youLower ? "You" : entry.speaker
-            return Utterance(t: Double(rel), speaker: label, text: entry.text)
+            return Utterance(t: Double(rel), speaker: label, text: entry.text, endT: Double(relEnd))
         }.sorted { $0.t < $1.t }
     }
 }
