@@ -398,8 +398,15 @@ struct SidebarView: View {
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    OllamaStatusBar(manager: ollamaManager)
+                VStack(alignment: .leading, spacing: 14) {
+                    // Engine auto-starts when Go Live / review needs it,
+                    // so only surface transient or error states here
+                    switch ollamaManager.status {
+                    case .stopped, .running:
+                        EmptyView()
+                    case .starting, .error:
+                        OllamaStatusBar(manager: ollamaManager)
+                    }
 
                     // Live coaching — the main feature
                     LiveSection(liveSession: liveSession,
@@ -487,12 +494,31 @@ struct OllamaStatusBar: View {
 struct TranscriptSection: View {
     @Bindable var simulation: SimulationViewModel
     var isDragOverEntireView: Bool = false
+    @State private var isExpanded = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Transcript", systemImage: "doc.text")
-                .font(.headline)
+        DisclosureGroup(isExpanded: $isExpanded) {
+            sectionContent
+                .padding(.top, 8)
+        } label: {
+            HStack(spacing: 6) {
+                Label("Transcript", systemImage: "doc.text")
+                    .font(.headline)
+                if simulation.transcriptFileName != nil {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                }
+            }
+        }
+        // Dragging a file over the sidebar reveals the drop zone
+        .onChange(of: isDragOverEntireView) { _, over in
+            if over { isExpanded = true }
+        }
+    }
 
+    private var sectionContent: some View {
+        VStack(alignment: .leading, spacing: 8) {
             if let name = simulation.transcriptFileName {
                 // Loaded state
                 HStack {
@@ -572,45 +598,52 @@ struct ModelSection: View {
 
     private var hasModels: Bool { !settings.availableModels.isEmpty }
 
+    @State private var isExpanded = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Label("Model", systemImage: "cpu")
-                    .font(.headline)
-                Spacer()
-                if hasModels {
-                    Button {
-                        settings.showModelCatalog = true
-                    } label: {
-                        Image(systemName: "plus.circle")
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-                    .help("Download more models")
-                }
-            }
-
             if hasModels {
-                // Model picker
-                Picker("", selection: $settings.selectedModel) {
-                    ForEach(settings.availableModels) { model in
-                        HStack {
-                            Text(model.name)
-                            Spacer()
-                            Text(model.parameterSize.isEmpty ? model.sizeLabel : model.parameterSize)
-                                .foregroundStyle(.secondary)
+                DisclosureGroup(isExpanded: $isExpanded) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Picker("", selection: $settings.selectedModel) {
+                            ForEach(settings.availableModels) { model in
+                                HStack {
+                                    Text(model.name)
+                                    Spacer()
+                                    Text(model.parameterSize.isEmpty ? model.sizeLabel : model.parameterSize)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .tag(model.name)
+                            }
                         }
-                        .tag(model.name)
+                        .labelsHidden()
+                        .onChange(of: settings.selectedModel) { _, _ in
+                            settings.save()
+                        }
+
+                        Toggle("Use mock (no model)", isOn: $settings.useMock)
+                            .font(.caption)
+
+                        Button("Browse all models...") {
+                            settings.showModelCatalog = true
+                        }
+                        .font(.caption)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.blue)
+                    }
+                    .padding(.top, 8)
+                } label: {
+                    HStack(spacing: 6) {
+                        Label("Model", systemImage: "cpu")
+                            .font(.headline)
+                        Spacer()
+                        // Collapsed state still answers "which model?"
+                        Text(settings.useMock ? "mock" : settings.selectedModel)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
                 }
-                .labelsHidden()
-                .onChange(of: settings.selectedModel) { _, _ in
-                    settings.save()
-                }
-
-                Toggle("Use mock (no model)", isOn: $settings.useMock)
-                    .font(.caption)
-
             } else if settings.downloadingModel != nil {
                 // Downloading state (shown below)
             } else if !settings.hasCheckedModels {
@@ -896,9 +929,6 @@ struct LiveSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Live Coaching", systemImage: "waveform.badge.mic")
-                .font(.headline)
-
             if liveSession.isLive {
                 // Active session
                 HStack(spacing: 8) {
@@ -918,34 +948,10 @@ struct LiveSection: View {
                         .font(.caption2).foregroundStyle(.tertiary)
                 }
 
-                // Stats
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Image(systemName: "text.bubble").font(.caption2)
-                        Text("\(liveSession.utterances.count) utterances heard")
-                        Spacer()
-                    }
-                    .font(.caption).foregroundStyle(.secondary)
-
-                    HStack {
-                        Image(systemName: "exclamationmark.bubble").font(.caption2)
-                        Text("\(liveSession.nudges.count) nudges")
-                        Spacer()
-                    }
-                    .font(.caption).foregroundStyle(.secondary)
-                }
-
-                // Last heard
-                if !liveSession.lastHeard.isEmpty {
-                    Text(liveSession.lastHeard)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(2)
-                        .padding(6)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color(.controlBackgroundColor))
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
-                }
+                // Stats — one line; the transcript panel already shows what's heard
+                Text("\(liveSession.utterances.count) heard · \(liveSession.nudges.count) nudges")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 if liveSession.showSilenceWarning {
                     HStack(spacing: 6) {
@@ -990,24 +996,6 @@ struct LiveSection: View {
                     .help("Toggle floating overlay")
                 }
             } else {
-                // Start button
-                Text("Listens to your meeting audio and coaches you in real time. Instant nudges (talk time, interruptions, unanswered questions) are always on.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Toggle(isOn: $settings.semanticCoachEnabled) {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("AI nudges")
-                            .font(.caption)
-                        Text("AI re-reads the conversation each minute for subtle moments — undecided topics, soft commitments. Uses more battery.")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                .toggleStyle(.switch)
-                .controlSize(.mini)
-
                 Button {
                     liveSession.showPreCallForm = true
                 } label: {
@@ -1016,6 +1004,7 @@ struct LiveSection: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.green)
+                .help("Listens to your meeting audio and coaches you in real time. Instant nudges (talk time, interruptions, unanswered questions) are always on.")
                 .sheet(isPresented: $liveSession.showPreCallForm) {
                     PreCallFormView(context: $liveSession.preCallContext) {
                         liveSession.startLive(
@@ -1025,6 +1014,12 @@ struct LiveSection: View {
                         )
                     }
                 }
+
+                Toggle("AI nudges", isOn: $settings.semanticCoachEnabled)
+                    .font(.caption)
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    .help("AI re-reads the conversation each minute for subtle moments — undecided topics, soft commitments. Uses more battery.")
             }
 
             // Post-session: save/delete + review
@@ -1111,11 +1106,21 @@ struct FeedbackSection: View {
         return "transcript"
     }
 
+    @State private var isExpanded = false
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            sectionContent
+                .padding(.top, 8)
+        } label: {
             Label("Coaching Notes", systemImage: "text.badge.checkmark")
                 .font(.headline)
+                .help("Paste coaching feedback to improve future detection")
+        }
+    }
 
+    private var sectionContent: some View {
+        VStack(alignment: .leading, spacing: 8) {
             Text("Paste coaching feedback to improve future detection")
                 .font(.caption).foregroundStyle(.secondary)
 
