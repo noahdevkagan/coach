@@ -6,6 +6,10 @@ struct PreCallFormView: View {
     let onStart: () -> Void
     @Environment(\.dismiss) private var dismiss
 
+    /// People from past meetings, offered as one-tap suggestions rather than
+    /// pre-filled — most meetings only involve a few of them.
+    @State private var remembered: [PreCallContext.Participant] = []
+
     private static let durationOptions = [15, 30, 60]
 
     var body: some View {
@@ -26,31 +30,11 @@ struct PreCallFormView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    // Focus areas from recent history
-                    FocusAreasBox()
-
                     // Meeting goal
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Meeting Goal").font(.caption.bold())
                         TextField("e.g. Close the deal, Get budget approval", text: $context.meetingGoal)
                             .textFieldStyle(.roundedBorder)
-                    }
-
-                    // Meeting type — changes what good facilitation looks like
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Meeting Type").font(.caption.bold())
-                        Picker("", selection: Binding(
-                            get: { context.meetingType ?? .general },
-                            set: { context.meetingType = $0 }
-                        )) {
-                            ForEach(MeetingType.allCases) { type in
-                                Text(type.displayName).tag(type)
-                            }
-                        }
-                        .labelsHidden()
-                        .pickerStyle(.segmented)
-                        Text("A 1:1 tolerates long updates; a sales call coaches you to listen and ask.")
-                            .font(.caption2).foregroundStyle(.tertiary)
                     }
 
                     // Duration — dropdown
@@ -79,7 +63,7 @@ struct PreCallFormView: View {
                             .foregroundStyle(.blue)
                         }
 
-                        if context.participants.isEmpty {
+                        if context.participants.isEmpty && remembered.isEmpty {
                             Text("Add people you're meeting with — they'll be remembered next time")
                                 .font(.caption)
                                 .foregroundStyle(.tertiary)
@@ -99,6 +83,36 @@ struct PreCallFormView: View {
                                         .foregroundStyle(.red)
                                 }
                                 .buttonStyle(.plain)
+                            }
+                        }
+
+                        // Remembered people as one-tap chips, not pre-filled rows
+                        let suggestions = remembered.filter { person in
+                            !context.participants.contains {
+                                $0.name.caseInsensitiveCompare(person.name) == .orderedSame
+                            }
+                        }
+                        if !suggestions.isEmpty {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 6) {
+                                    Text("Recent:")
+                                        .font(.caption)
+                                        .foregroundStyle(.tertiary)
+                                    ForEach(suggestions) { person in
+                                        Button {
+                                            context.participants.append(
+                                                .init(name: person.name, role: person.role)
+                                            )
+                                        } label: {
+                                            Text(person.role.isEmpty
+                                                 ? person.name
+                                                 : "\(person.name) · \(person.role)")
+                                                .font(.caption)
+                                        }
+                                        .buttonStyle(.bordered)
+                                        .controlSize(.small)
+                                    }
+                                }
                             }
                         }
                     }
@@ -124,48 +138,10 @@ struct PreCallFormView: View {
             }
             .padding()
         }
-        .frame(width: 480, height: 520)
+        .frame(width: 480, height: 420)
         .onAppear {
-            // Load remembered participants if none set yet
-            if context.participants.isEmpty {
-                context.participants = ParticipantStore.load()
-            }
+            remembered = ParticipantStore.load()
         }
-    }
-}
-
-/// Shows focus areas from recent session history in the pre-call form.
-private struct FocusAreasBox: View {
-    @State private var areas: [String] = []
-
-    var body: some View {
-        if !areas.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                Label("Focus Areas", systemImage: "target")
-                    .font(.caption.bold())
-                    .foregroundStyle(.orange)
-                ForEach(areas, id: \.self) { area in
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(.orange)
-                            .frame(width: 4, height: 4)
-                        Text(area)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.orange.opacity(0.06))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.orange.opacity(0.2), lineWidth: 1))
-        }
-    }
-
-    init() {
-        let sessions = SessionTrends.loadAll()
-        _areas = State(initialValue: SessionTrends.focusAreas(from: sessions))
     }
 }
 
@@ -174,9 +150,20 @@ enum ParticipantStore {
     private static let key = "savedParticipants"
 
     static func save(_ participants: [PreCallContext.Participant]) {
-        // Only save non-empty entries
+        // Merge this meeting's people into the remembered list (dedupe by
+        // name) — the form only contains today's participants, not everyone.
         let valid = participants.filter { !$0.name.isEmpty }
-        guard let data = try? JSONEncoder().encode(valid) else { return }
+        var merged = load()
+        for person in valid {
+            if let i = merged.firstIndex(where: {
+                $0.name.caseInsensitiveCompare(person.name) == .orderedSame
+            }) {
+                merged[i].role = person.role
+            } else {
+                merged.append(person)
+            }
+        }
+        guard let data = try? JSONEncoder().encode(merged) else { return }
         UserDefaults.standard.set(data, forKey: key)
     }
 

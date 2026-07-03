@@ -7,10 +7,39 @@ struct PreCallContext: Codable {
     var activePlaybook: String = ""
     var lastMeetingNotes: String = ""
     var myKnownTendencies: [String] = []
-    /// Optional so contexts persisted before this field decode cleanly.
+    /// Set explicitly only in rare paths (e.g. tests); normally nil and the
+    /// type is inferred from goal, roles, and participant count.
     var meetingType: MeetingType?
 
-    var effectiveMeetingType: MeetingType { meetingType ?? .general }
+    var effectiveMeetingType: MeetingType { meetingType ?? inferredMeetingType }
+
+    /// Infers the meeting type instead of asking the user for it.
+    /// Sales cues win over headcount, since a sales call can have any number
+    /// of people on it. Goal text gets the full cue list; participant roles
+    /// only the external-party cues — a teammate whose role is "sales" or
+    /// "cro" doesn't make the meeting a sales call.
+    var inferredMeetingType: MeetingType {
+        let goalCues = [
+            "deal", "sale", "sell", "close", "closing", "prospect", "customer",
+            "client", "pricing", "demo", "pitch", "discovery",
+            "renewal", "upsell", "negotiat", "contract", "buyer",
+        ]
+        let externalRoleCues = ["prospect", "customer", "client", "buyer", "lead"]
+
+        let goal = meetingGoal.lowercased()
+        let roles = participants.map { $0.role.lowercased() }
+        if goalCues.contains(where: goal.contains)
+            || roles.contains(where: { role in externalRoleCues.contains(where: role.contains) }) {
+            return .salesCall
+        }
+
+        let headcount = participants.filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }.count
+        switch headcount {
+        case 1: return .oneOnOne
+        case 3...: return .teamMeeting
+        default: return .general
+        }
+    }
 
     struct Participant: Codable, Identifiable {
         var id = UUID()

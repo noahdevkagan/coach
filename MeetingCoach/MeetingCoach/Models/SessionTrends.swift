@@ -52,21 +52,6 @@ enum SessionTrends {
         return .neutral
     }
 
-    /// Pre-call focus areas based on recent history.
-    static func focusAreas(from sessions: [SessionSummary], recentCount: Int = 5) -> [String] {
-        let recent = Array(sessions.suffix(recentCount))
-        guard !recent.isEmpty else { return [] }
-
-        let patterns = topPatterns(from: recent, limit: 3)
-        return patterns.compactMap { pattern in
-            let total = pattern.count
-            guard total > 0 else { return nil }
-            let avg = Double(total) / Double(recent.count)
-            guard avg >= 1.0 else { return nil }
-            return "\(pattern.type.displayName): \(total)x in last \(recent.count) meetings (avg \(String(format: "%.1f", avg))/meeting)"
-        }
-    }
-
     enum TrendDirection {
         case improving, neutral, worsening
     }
