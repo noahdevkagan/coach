@@ -20,5 +20,11 @@
 	<string>1</string>
 	<key>NSScreenCaptureUsageDescription</key>
 	<string>Meeting Coach captures system audio to transcribe what other meeting participants say.</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/noahdevkagan/meeting-coach-releases/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>AAD6OqEDMP6l/7gMFXBY8knuVAZWigp77zuYSSAS8CE=</string>
 </dict>
 </plist>

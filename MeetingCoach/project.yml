@@ -9,6 +9,9 @@ packages:
   Yams:
     url: https://github.com/jpsim/Yams.git
     from: "5.0.0"
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.6.0"
 
 targets:
   MeetingCoach:
@@ -21,6 +24,14 @@ targets:
       path: MeetingCoach/Info.plist
       properties:
         NSScreenCaptureUsageDescription: "Meeting Coach captures system audio to transcribe what other meeting participants say."
+        # Sparkle auto-updates: feed lives in the PUBLIC releases repo
+        # (noahdevkagan/meeting-coach-releases) so the app code + personal
+        # rubrics/transcripts in this repo stay private.
+        SUFeedURL: "https://raw.githubusercontent.com/noahdevkagan/meeting-coach-releases/main/appcast.xml"
+        # EdDSA public key — pairs with the private key CI signs updates with
+        # (secret SPARKLE_ED_PRIVATE_KEY). Placeholder replaced by generate_keys.
+        SUPublicEDKey: "AAD6OqEDMP6l/7gMFXBY8knuVAZWigp77zuYSSAS8CE="
+        SUEnableAutomaticChecks: true
     sources:
       - path: MeetingCoach
         excludes:
@@ -42,6 +53,7 @@ targets:
         name: "Copy to /Applications"
     dependencies:
       - package: Yams
+      - package: Sparkle
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.coach.MeetingCoach

@@ -47,6 +47,7 @@
 		CAD8C8E966931110E2D6415E /* SimulationTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42E54C36F44DC42BE2B8D5D9 /* SimulationTimelineView.swift */; };
 		CFFBB860B8F9AB35E34F7AEA /* StackedQuestionsSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC33A03F287BAB0CDBCFC8FD /* StackedQuestionsSignal.swift */; };
 		D18015A9C5944D5D37845BC9 /* PromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78FD64A28567F115FD3944A4 /* PromptBuilder.swift */; };
+		D77C09AA85DC5397A7D1B114 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 2ADB653C496B73D902CC4DFD /* Sparkle */; };
 		E244EF555EFC6E26269EA063 /* Simulator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E14BE3A1F1E4ACABA20A2F9C /* Simulator.swift */; };
 		E64A1CF9A596EDF1578EA6E0 /* InterruptionSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88673BD63F55A97082E19D05 /* InterruptionSignal.swift */; };
 		F1CADB35E72BF742F5571672 /* Yams in Frameworks */ = {isa = PBXBuildFile; productRef = F03462EBA44605723460996E /* Yams */; };
@@ -113,6 +114,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F1CADB35E72BF742F5571672 /* Yams in Frameworks */,
+				D77C09AA85DC5397A7D1B114 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -265,6 +267,7 @@
 			name = MeetingCoach;
 			packageProductDependencies = (
 				F03462EBA44605723460996E /* Yams */,
+				2ADB653C496B73D902CC4DFD /* Sparkle */,
 			);
 			productName = MeetingCoach;
 			productReference = 61CBD7F2B9C7BC596D8D6984 /* MeetingCoach.app */;
@@ -295,6 +298,7 @@
 			mainGroup = E53D33D29284EA222E7580F9;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				BB27E6060BE992D797223730 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				7146E9C669CF5019F145E411 /* XCRemoteSwiftPackageReference "Yams" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -622,9 +626,22 @@
 				minimumVersion = 5.0.0;
 			};
 		};
+		BB27E6060BE992D797223730 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.6.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		2ADB653C496B73D902CC4DFD /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BB27E6060BE992D797223730 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
 		F03462EBA44605723460996E /* Yams */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 7146E9C669CF5019F145E411 /* XCRemoteSwiftPackageReference "Yams" */;

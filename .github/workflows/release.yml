@@ -93,12 +93,14 @@ jobs:
           TEAM_ID: ${{ secrets.MACOS_TEAM_ID }}
           APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
           VERSION: ${{ steps.ver.outputs.version }}
+          RELEASES_REPO: noahdevkagan/meeting-coach-releases
         run: |
           chmod +x scripts/*.sh
           ./scripts/package-release.sh
 
-      - name: Upload DMG to Release
+      - name: Upload DMG to Release (this repo)
         uses: softprops/action-gh-release@v2
         with:
           # Explicit tag so workflow_dispatch runs (no tag ref) create
@@ -106,3 +108,27 @@ jobs:
           tag_name: v${{ steps.ver.outputs.version }}
           files: dist/*.dmg
           generate_release_notes: true
+
+      # Users (and Sparkle) can't reach a private repo — publish the DMG and
+      # the appcast feed to the PUBLIC releases repo. Needs RELEASES_TOKEN, a
+      # PAT with repo access there (the default GITHUB_TOKEN is scoped to this
+      # repo only).
+      - name: Publish DMG + appcast to public releases repo
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          RELEASES_REPO: noahdevkagan/meeting-coach-releases
+        run: |
+          set -euo pipefail
+          gh release create "v$VERSION" dist/*.dmg \
+            --repo "$RELEASES_REPO" \
+            --title "Meeting Coach $VERSION" \
+            --notes "Meeting Coach $VERSION — see the in-app release notes." \
+            || gh release upload "v$VERSION" dist/*.dmg --repo "$RELEASES_REPO" --clobber
+          # Commit appcast.xml to the releases repo's main branch (contents API
+          # needs the current blob sha when the file already exists).
+          SHA=$(gh api "repos/$RELEASES_REPO/contents/appcast.xml" -q .sha 2>/dev/null || true)
+          gh api -X PUT "repos/$RELEASES_REPO/contents/appcast.xml" \
+            -f message="Appcast for v$VERSION" \
+            -f content="$(base64 -i dist/appcast.xml)" \
+            ${SHA:+-f sha="$SHA"}

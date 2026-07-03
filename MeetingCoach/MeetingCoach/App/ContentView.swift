@@ -412,11 +412,7 @@ struct SidebarView: View {
                     Divider()
                     FeedbackSection(simulation: simulation, liveSession: liveSession)
                     Divider()
-                    SessionTrendsView()
-                    Divider()
                     ModelSection(settings: settings)
-                    Divider()
-                    RunSection(simulation: simulation, settings: settings)
                 }
                 .padding()
             }
@@ -1186,77 +1182,6 @@ struct FeedbackSection: View {
         TrainingStore.append(example)
         simulation.feedbackSaved = true
         mclog("[Training] Saved example with \(signals.count) parsed signals, source=\(sourceLabel)")
-    }
-}
-
-// MARK: - Run Section
-
-struct RunSection: View {
-    @Bindable var simulation: SimulationViewModel
-    @Bindable var settings: SettingsViewModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Training", systemImage: "play.circle")
-                .font(.headline)
-
-            if simulation.isRunning {
-                VStack(alignment: .leading, spacing: 4) {
-                    ProgressView(value: simulation.progress)
-                    HStack {
-                        Text("Trigger \(simulation.triggerCount)")
-                        Spacer()
-                        Text(formatTime(simulation.currentTime))
-                    }
-                    .font(.caption).foregroundStyle(.secondary)
-                    if !simulation.statusText.isEmpty {
-                        Text(simulation.statusText)
-                            .font(.caption2).foregroundStyle(.tertiary)
-                    }
-                }
-
-                Button("Stop") {
-                    simulation.stop()
-                }
-                .buttonStyle(.bordered)
-                .tint(.red)
-            } else {
-                // V2 deterministic simulation
-                Button {
-                    simulation.runV2(context: PreCallContext())
-                } label: {
-                    Label("Run Signals (v2)", systemImage: "bolt.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(simulation.utterances.isEmpty)
-
-                // Legacy LLM simulation
-                Button {
-                    simulation.run(settings: settings)
-                } label: {
-                    Label("Run LLM Training", systemImage: "play.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .disabled(simulation.utterances.isEmpty)
-            }
-
-            if !simulation.calls.isEmpty {
-                Text("\(simulation.calls.count) coaching calls")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            if !simulation.v2Nudges.isEmpty {
-                Text("\(simulation.v2Nudges.count) nudges (v2)")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private func formatTime(_ t: TimeInterval) -> String {
-        let mm = Int(t) / 60
-        let ss = Int(t) % 60
-        return String(format: "%02d:%02d", mm, ss)
     }
 }
 
