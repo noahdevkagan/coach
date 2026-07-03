@@ -430,7 +430,10 @@ struct SidebarView: View {
             }
 
             Divider()
-            Text("v2.1.2")
+            // Real bundle version (stamped from the release tag by CI) — never
+            // hardcode here again; a stale footer in an auto-updating app is
+            // worse than none.
+            Text("v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")")
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(.quaternary)
                 .frame(maxWidth: .infinity)
