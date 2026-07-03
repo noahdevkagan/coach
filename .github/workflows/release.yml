@@ -28,6 +28,10 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history + tags: release notes fall back to commit subjects
+          # since the previous release tag.
+          fetch-depth: 0
 
       # Runner images ship fully-versioned Xcode paths (Xcode_16.2.app etc.)
       # and default to an older Xcode that can't build Swift 6 — pick the
@@ -120,10 +124,15 @@ jobs:
           RELEASES_REPO: noahdevkagan/meeting-coach-releases
         run: |
           set -euo pipefail
+          if [ -f dist/RELEASE_NOTES.md ]; then
+            NOTES_ARGS=(--notes-file dist/RELEASE_NOTES.md)
+          else
+            NOTES_ARGS=(--notes "Meeting Coach $VERSION")
+          fi
           gh release create "v$VERSION" dist/*.dmg \
             --repo "$RELEASES_REPO" \
             --title "Meeting Coach $VERSION" \
-            --notes "Meeting Coach $VERSION — see the in-app release notes." \
+            "${NOTES_ARGS[@]}" \
             || gh release upload "v$VERSION" dist/*.dmg --repo "$RELEASES_REPO" --clobber
           # Commit appcast.xml to the releases repo's main branch (contents API
           # needs the current blob sha when the file already exists).
