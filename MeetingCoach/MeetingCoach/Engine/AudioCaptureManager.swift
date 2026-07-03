@@ -262,7 +262,16 @@ private final class RecognitionPipeline: @unchecked Sendable {
     private var running = false
 
     private var latestWords: [String] = []
-    private var latestSegments: [SFTranscriptionSegment] = []
+    private var latestSegments: [SegmentTiming] = []
+
+    /// Sendable snapshot of the only segment fields we use. The Speech types
+    /// (SFSpeechRecognitionResult, SFTranscriptionSegment) are not Sendable on
+    /// pre-26 SDKs, so they must not cross the recognition-callback → queue
+    /// boundary; extract values first.
+    struct SegmentTiming: Sendable {
+        let timestamp: TimeInterval
+        let duration: TimeInterval
+    }
     private var emittedWordCount = 0
     private var lastEmitTime = Date()
     private var flushTimer: DispatchSourceTimer?
@@ -338,14 +347,22 @@ private final class RecognitionPipeline: @unchecked Sendable {
         mclog("[Speech:\(speaker)] Starting recognition gen=\(gen)")
         task = recognizer.recognitionTask(with: req) { [weak self] result, error in
             guard let self else { return }
+            // Snapshot Sendable values here: the Speech result objects must
+            // not be captured by the queue closure (not Sendable pre-26 SDK).
+            let transcript = result?.bestTranscription.formattedString
+            let segments = result?.bestTranscription.segments.map {
+                SegmentTiming(timestamp: $0.timestamp, duration: $0.duration)
+            } ?? []
+            let isFinal = result?.isFinal == true
+            let errorDescription = error?.localizedDescription
             self.queue.async {
                 guard gen == self.generation, self.running else { return }
-                if let result {
-                    self.handleResult(result)
+                if let transcript {
+                    self.handleResult(transcript: transcript, segments: segments, isFinal: isFinal)
                 }
-                if error != nil || result?.isFinal == true {
-                    if let error {
-                        mclog("[Speech:\(self.speaker)] Error: \(error.localizedDescription)")
+                if errorDescription != nil || isFinal {
+                    if let errorDescription {
+                        mclog("[Speech:\(self.speaker)] Error: \(errorDescription)")
                     }
                     mclog("[Speech:\(self.speaker)] Restarting recognition")
                     self.startRecognition()
@@ -354,11 +371,10 @@ private final class RecognitionPipeline: @unchecked Sendable {
         }
     }
 
-    private func handleResult(_ result: SFSpeechRecognitionResult) {
-        let full = result.bestTranscription.formattedString
-        guard !full.isEmpty else { return }
+    private func handleResult(transcript: String, segments: [SegmentTiming], isFinal: Bool) {
+        guard !transcript.isEmpty else { return }
 
-        let words = full.split(separator: " ").map(String.init)
+        let words = transcript.split(separator: " ").map(String.init)
 
         // Revision: the recognizer replaced already-emitted words. Move the
         // pointer back; don't re-emit (the old text was already shown).
@@ -367,16 +383,16 @@ private final class RecognitionPipeline: @unchecked Sendable {
             emittedWordCount = words.count
         }
         latestWords = words
-        latestSegments = result.bestTranscription.segments
+        latestSegments = segments
 
-        let stableCount = result.isFinal ? words.count : max(0, words.count - 1)
+        let stableCount = isFinal ? words.count : max(0, words.count - 1)
         let available = stableCount - emittedWordCount
         let sinceEmit = Date().timeIntervalSince(lastEmitTime)
 
         // Chunks no longer serve speaker detection (identity is structural),
         // so emit small — nudge-relevant words reach the signals sooner.
         let minWords: Int
-        if result.isFinal {
+        if isFinal {
             minWords = 1
         } else if sinceEmit > 2.0 {
             minWords = 3
@@ -385,7 +401,7 @@ private final class RecognitionPipeline: @unchecked Sendable {
         }
 
         if available >= minWords {
-            emit(upTo: stableCount, reason: result.isFinal ? "final" : "partial")
+            emit(upTo: stableCount, reason: isFinal ? "final" : "partial")
         } else if words.count > emittedWordCount {
             scheduleFlush()
         }
