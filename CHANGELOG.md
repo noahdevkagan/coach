@@ -7,6 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## 0.4.0
+
+- Simpler pre-call setup: meeting type is inferred, participants suggested as chips
+
 ## 0.3.0
 
 - App version shown in the sidebar footer is now always accurate
