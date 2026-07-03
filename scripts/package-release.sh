@@ -170,6 +170,9 @@ cp -R "$APP" "$STAGING/"
 ln -s /Applications "$STAGING/Applications"
 hdiutil create -volname "$APP_NAME" -srcfolder "$STAGING" -ov -format UDZO "$DMG"
 rm -rf "$STAGING"
+# Sign the DMG container itself — not strictly required (Gatekeeper assesses
+# the app inside), but it makes `spctl -t open` on the download pass cleanly.
+codesign --force --timestamp --sign "$DEVELOPER_ID_APP" "$DMG"
 
 echo "==> Notarizing DMG…"
 notarize_file "$DMG"
