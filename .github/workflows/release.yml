@@ -1,0 +1,108 @@
+name: Release
+
+# Cut a release by pushing a version tag:
+#   git tag v0.1.0 && git push origin v0.1.0
+# Or run manually from the Actions tab (workflow_dispatch) with an explicit
+# version — the run creates tag v<version> and its Release.
+# Either path builds, signs (Developer ID), notarizes, and attaches
+# MeetingCoach-<ver>.dmg to a GitHub Release.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 0.1.0) — creates tag v<version>"
+        required: true
+
+permissions:
+  contents: write          # needed to create the Release + upload the .dmg
+
+env:
+  OLLAMA_VERSION: v0.5.7   # pinned; also keys the download cache
+
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      # Runner images ship fully-versioned Xcode paths (Xcode_16.2.app etc.)
+      # and default to an older Xcode that can't build Swift 6 — pick the
+      # newest 16.x explicitly and FAIL if none exists (no silent fallback).
+      - name: Select Xcode 16
+        run: |
+          set -euo pipefail
+          XCODE_PATH="$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -1)"
+          if [ -z "$XCODE_PATH" ]; then
+            echo "No Xcode 16.x on this runner image:" >&2
+            ls -d /Applications/Xcode*.app >&2
+            exit 1
+          fi
+          echo "Using $XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Derive version
+        id: ver
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # The Ollama zip is pinned — cache it so releases don't re-download ~80MB
+      # (and don't flake on a transient fetch failure).
+      - name: Cache Ollama runtime download
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/meeting-coach
+          key: ollama-darwin-${{ env.OLLAMA_VERSION }}
+
+      # Import the Developer ID Application cert into a temporary keychain.
+      # Store your exported .p12 (base64) and its password as repo secrets.
+      - name: Import signing certificate
+        env:
+          CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "$CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" \
+            -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+      - name: Build, sign, notarize, package
+        env:
+          DEVELOPER_ID_APP: ${{ secrets.MACOS_DEVELOPER_ID_APP }}
+          TEAM_ID: ${{ secrets.MACOS_TEAM_ID }}
+          APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          chmod +x scripts/*.sh
+          ./scripts/package-release.sh
+
+      - name: Upload DMG to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Explicit tag so workflow_dispatch runs (no tag ref) create
+          # v<version> instead of failing on a branch ref.
+          tag_name: v${{ steps.ver.outputs.version }}
+          files: dist/*.dmg
+          generate_release_notes: true

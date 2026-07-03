@@ -14,6 +14,13 @@ targets:
   MeetingCoach:
     type: application
     platform: macOS
+    # A real Info.plist (merged with the GENERATE_INFOPLIST_FILE output) for keys
+    # Xcode's INFOPLIST_KEY_* allowlist won't map — verified: NSScreenCapture...
+    # set as a build setting never reaches the generated plist.
+    info:
+      path: MeetingCoach/Info.plist
+      properties:
+        NSScreenCaptureUsageDescription: "Meeting Coach captures system audio to transcribe what other meeting participants say."
     sources:
       - path: MeetingCoach
         excludes:
@@ -21,6 +28,14 @@ targets:
       - path: MeetingCoach/Resources/ollama
         type: folder
         buildPhase: resources
+    preBuildScripts:
+      # Resources/ollama is gitignored (binaries too large for GitHub), but the
+      # resources build phase references it — stub it so a fresh clone builds.
+      # Dev builds fall back to system Ollama; release builds populate it via
+      # scripts/vendor-ollama.sh before archiving.
+      - script: |
+          mkdir -p "${SRCROOT}/MeetingCoach/Resources/ollama"
+        name: "Ensure ollama resource dir exists"
     postBuildScripts:
       - script: |
           cp -R "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app" "/Applications/${PRODUCT_NAME}.app" 2>/dev/null || true
@@ -38,6 +53,9 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: "Meeting Coach"
         INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "Meeting Coach uses on-device speech recognition to provide real-time coaching."
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "Meeting Coach uses your microphone to transcribe meeting audio for real-time coaching."
+        # NB: NSScreenCaptureUsageDescription lives in the target's `info:` block —
+        # Xcode's INFOPLIST_KEY_* allowlist doesn't map it, so as a build setting
+        # it silently never reaches the built Info.plist.
         SWIFT_VERSION: "6.0"
         MACOSX_DEPLOYMENT_TARGET: "14.2"
       configs:

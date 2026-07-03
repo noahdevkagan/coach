@@ -8,6 +8,29 @@ Forked from [anarlog](https://github.com/fastrepl/anarlog) (MIT), which already 
 
 See [`PLAN.md`](./PLAN.md) for the full build plan and [`findings.md`](./findings.md) for the Phase 0 recon.
 
+## Install (macOS)
+
+**Download the app:** grab the latest `MeetingCoach-*.dmg` from
+[Releases](../../releases), open it, and drag **Meeting Coach** to Applications.
+It's signed and notarized, so it opens with a normal double-click.
+
+**First launch:** the app bundles the Ollama runtime, so you don't install
+anything else — just click **Download model** once to fetch a local model
+(needs WiFi for that one download; everything after runs offline).
+
+### Build from source
+Requires Xcode 16+.
+```bash
+git clone https://github.com/noahdevkagan/coach.git meeting-coach
+cd meeting-coach/MeetingCoach
+xcodebuild -scheme MeetingCoach -configuration Debug build   # auto-copies to /Applications
+```
+For local LLM features when running a source build, either have
+[Ollama](https://ollama.com) running, or vendor the runtime into the bundle with
+`./scripts/vendor-ollama.sh`.
+
+Maintainers: see [`DISTRIBUTION.md`](./DISTRIBUTION.md) for cutting signed releases.
+
 ## Status
 
 - **Phase 0 (Recon): DONE** — see `findings.md`. Recommendation: build the coach **in-process (plugin / Tauri-event consumer), not a sidecar**, because the live transcript exists only as an in-process Tauri event stream.

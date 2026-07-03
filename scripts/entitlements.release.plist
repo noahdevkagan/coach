@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      Hardened Runtime entitlements for a NOTARIZED build that embeds the
+      Ollama runtime (third-party binaries + llama.cpp dylibs) in Resources/ollama.
+
+      Notarization REQUIRES Hardened Runtime, which by default blocks third-party
+      dylibs and JIT. These entitlements re-open exactly what the embedded Ollama
+      server needs — nothing more.
+    -->
+
+    <!-- Let the embedded ollama/llama-server load our own (non-Apple) dylibs. -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+
+    <!-- llama.cpp runners JIT-compile compute kernels. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+
+    <!-- OllamaManager sets DYLD_LIBRARY_PATH / OLLAMA_LLM_LIBRARY before spawning. -->
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+
+    <!-- Microphone capture for on-device transcription. -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+</dict>
+</plist>
