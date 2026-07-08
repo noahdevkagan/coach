@@ -368,7 +368,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cp -R \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app\" \"/Applications/${PRODUCT_NAME}.app\" 2>/dev/null || true\n";
+			shellScript = "rm -rf \"/Applications/${PRODUCT_NAME}.app\" 2>/dev/null\nif ditto \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app\" \"/Applications/${PRODUCT_NAME}.app\"; then\n  codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY:--}\" --entitlements \"${TARGET_TEMP_DIR}/${PRODUCT_NAME}.app.xcent\" --timestamp=none --generate-entitlement-der \"/Applications/${PRODUCT_NAME}.app\" || echo \"warning: re-sign of /Applications copy failed\"\nelse\n  echo \"warning: install to /Applications failed\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

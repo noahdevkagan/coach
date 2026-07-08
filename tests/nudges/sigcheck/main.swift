@@ -35,10 +35,33 @@ while clock <= 120 {
     }
 }
 
+var fail = false
 if let firedAt, firedAt <= 70 {
     print("talkTime timing: fired at tick \(Int(firedAt))s for speech starting t=30 (threshold 30s) -> PASS")
-    exit(0)
+} else {
+    print("talkTime timing: \(firedAt.map { "fired late at \(Int($0))s" } ?? "never fired") -> FAIL")
+    print("  Parakeet-shaped commits must keep the monologue turn alive (TurnBuilder joins on real endT).")
+    fail = true
 }
-print("talkTime timing: \(firedAt.map { "fired late at \(Int($0))s" } ?? "never fired") -> FAIL")
-print("  Parakeet-shaped commits must keep the monologue turn alive (TurnBuilder joins on real endT).")
-exit(1)
+
+// Diarizer relabel must not duplicate turns: invalidateTurnCache() +
+// re-evaluate rebuilds the same history, so the turn count must not grow.
+var engine = SignalEngine(context: PreCallContext(meetingGoal: "", scheduledDurationMinutes: 30))
+var history = [
+    Utterance(t: 5,  speaker: "Meeting", text: "How are we looking on the launch?", endT: 7),
+    Utterance(t: 20, speaker: "Meeting", text: "Honestly we are two weeks behind.", endT: 23),
+    Utterance(t: 40, speaker: "Meeting", text: "Okay, what would unblock the team?", endT: 43),
+]
+_ = engine.evaluate(utterances: history, elapsed: 45, context: PreCallContext(meetingGoal: "", scheduledDurationMinutes: 30))
+let before = engine.turns.count
+history[0].speaker = "Speaker 1"   // what applyDiarization does
+engine.invalidateTurnCache()
+_ = engine.evaluate(utterances: history, elapsed: 50, context: PreCallContext(meetingGoal: "", scheduledDurationMinutes: 30))
+let after = engine.turns.count
+if after <= before + 1 {           // relabel may split a merged turn, never duplicate
+    print("relabel rebuild: \(before) turns -> \(after) after invalidate+relabel -> PASS")
+} else {
+    print("relabel rebuild: \(before) turns -> \(after) after invalidate+relabel -> FAIL (duplicated turns)")
+    fail = true
+}
+exit(fail ? 1 : 0)

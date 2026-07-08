@@ -11,6 +11,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 - Much more accurate transcripts — a new on-device engine (Parakeet) replaces Apple's speech recognizer. Still 100% on your Mac; downloads a ~600 MB model on first session
 - If the model can't load, sessions automatically fall back to the previous engine
+- Fixed: large blank spaces appearing between transcript lines
+- Fixed: transcript lines duplicating (out of order) once speakers were identified
 
 ## 0.4.4
 

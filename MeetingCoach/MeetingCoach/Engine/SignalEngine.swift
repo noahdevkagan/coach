@@ -106,6 +106,9 @@ struct SignalEngine {
     mutating func invalidateTurnCache() {
         processedCount = 0
         lastProcessedID = nil
+        // Must clear the built turns too: evaluate() treats processedCount==0
+        // as append-from-scratch, so stale turns would be duplicated.
+        turnBuilder.reset()
     }
 
     /// Run all monitors against current state. Returns any new nudges.

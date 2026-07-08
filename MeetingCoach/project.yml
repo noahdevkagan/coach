@@ -51,8 +51,20 @@ targets:
           mkdir -p "${SRCROOT}/MeetingCoach/Resources/ollama"
         name: "Ensure ollama resource dir exists"
     postBuildScripts:
+      # rm + ditto, NOT cp -R: cp -R onto an existing .app nests the new
+      # bundle INSIDE the old one, leaving a stale app that still launches.
+      # Script phases run BEFORE Xcode's CodeSign step, so the copy must be
+      # re-signed here or the installed app fails to launch (POSIX 153).
       - script: |
-          cp -R "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app" "/Applications/${PRODUCT_NAME}.app" 2>/dev/null || true
+          rm -rf "/Applications/${PRODUCT_NAME}.app" 2>/dev/null
+          if ditto "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app" "/Applications/${PRODUCT_NAME}.app"; then
+            codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY:--}" \
+              --entitlements "${TARGET_TEMP_DIR}/${PRODUCT_NAME}.app.xcent" \
+              --timestamp=none --generate-entitlement-der \
+              "/Applications/${PRODUCT_NAME}.app" || echo "warning: re-sign of /Applications copy failed"
+          else
+            echo "warning: install to /Applications failed"
+          fi
         name: "Copy to /Applications"
     dependencies:
       - package: Yams

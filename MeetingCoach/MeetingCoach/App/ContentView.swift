@@ -202,7 +202,7 @@ private struct TranscriptHeaderStats: View {
 }
 
 /// Renders the pre-built turns from the view model — no per-frame re-joining,
-/// lazy rows, stable identity per turn.
+/// stable identity per turn.
 private struct LiveTranscriptPane: View {
     var liveSession: LiveSessionViewModel
 
@@ -227,7 +227,11 @@ private struct LiveTranscriptPane: View {
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 10) {
+                    // Plain VStack, NOT LazyVStack: lazy layout caches row
+                    // positions, and removing the tall pending row when it
+                    // commits leaves phantom blank space mid-list (Parakeet
+                    // partials grow into full paragraphs, so the hole is big).
+                    VStack(alignment: .leading, spacing: 10) {
                         ForEach(liveSession.turns) { turn in
                             VStack(alignment: .leading, spacing: 2) {
                                 HStack(spacing: 4) {
@@ -258,7 +262,6 @@ private struct LiveTranscriptPane: View {
                                     .foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
-                            .transition(.opacity)
                         }
                         Color.clear.frame(height: 1).id("transcript-bottom")
                     }
