@@ -2,6 +2,15 @@ import AVFoundation
 import ScreenCaptureKit
 import Speech
 
+/// One transcription pipeline for one audio source, whatever the engine.
+protocol TranscriptionPipeline: AnyObject {
+    var onUtterance: ((Utterance) -> Void)? { get set }
+    var onPartial: ((String) -> Void)? { get set }
+    func start()
+    func stop()
+    func append(_ buffer: AVAudioPCMBuffer)
+}
+
 /// Captures microphone and system audio (via ScreenCaptureKit) and feeds each
 /// source into its OWN speech-recognition pipeline. Speaker identity is
 /// structural — mic = "You", system audio = "Them" — instead of inferred from
@@ -33,8 +42,9 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     private var isRunning = false
 
     // One recognition pipeline per audio source
-    private var micPipeline: RecognitionPipeline?
-    private var sysPipeline: RecognitionPipeline?
+    private var micPipeline: (any TranscriptionPipeline)?
+    private var sysPipeline: (any TranscriptionPipeline)?
+    private var usingParakeet = false
 
     // Audio sources
     private var engine: AVAudioEngine?
@@ -74,6 +84,12 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             mclog("[Capture] System audio failed: \(error.localizedDescription)")
             hasSystemAudio = false
         }
+
+        // Prefer the Parakeet engine (far more accurate than SFSpeech on
+        // meeting audio); fall back to SFSpeech if the model can't load.
+        emitStatus("Preparing transcription engine...")
+        usingParakeet = await ParakeetEngine.shared.ensureLoaded()
+        mclog("[Capture] Transcription engine: \(usingParakeet ? "Parakeet" : "SFSpeech")")
 
         // Mic pipeline. Without system audio there is no You/Them separation,
         // so keep the old generic label.
@@ -135,18 +151,24 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
     // MARK: - Pipelines
 
-    private func makePipeline(speaker: String) throws -> RecognitionPipeline {
-        guard let recognizer = SFSpeechRecognizer(locale: .init(identifier: "en-US")),
-              recognizer.isAvailable else {
-            throw CaptureError.speechNotAvailable
+    private func makePipeline(speaker: String) throws -> any TranscriptionPipeline {
+        let pipe: any TranscriptionPipeline
+        if usingParakeet {
+            pipe = ParakeetPipeline(speaker: speaker, sessionStart: startTime)
+        } else {
+            guard let recognizer = SFSpeechRecognizer(locale: .init(identifier: "en-US")),
+                  recognizer.isAvailable else {
+                throw CaptureError.speechNotAvailable
+            }
+            // Hard local-first constraint: audio must never route to Apple's
+            // servers. Refuse to start rather than silently falling back.
+            guard recognizer.supportsOnDeviceRecognition else {
+                throw CaptureError.onDeviceUnavailable
+            }
+            let sf = RecognitionPipeline(speaker: speaker, recognizer: recognizer, sessionStart: startTime)
+            sf.contextualHints = contextualHints
+            pipe = sf
         }
-        // Hard local-first constraint: audio must never route to Apple's
-        // servers. Refuse to start rather than silently falling back.
-        guard recognizer.supportsOnDeviceRecognition else {
-            throw CaptureError.onDeviceUnavailable
-        }
-        let pipe = RecognitionPipeline(speaker: speaker, recognizer: recognizer, sessionStart: startTime)
-        pipe.contextualHints = contextualHints
         pipe.onUtterance = { [weak self] u in self?.deliver(u) }
         pipe.onPartial = { [weak self] text in
             guard let self else { return }
@@ -359,7 +381,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
 /// One speech-recognition pipeline for one audio source. All mutable state is
 /// confined to `queue`; `append` is safe from any thread.
 @available(macOS 14.2, *)
-private final class RecognitionPipeline: @unchecked Sendable {
+private final class RecognitionPipeline: TranscriptionPipeline, @unchecked Sendable {
     let speaker: String
     /// Called on the pipeline's queue with each emitted utterance.
     var onUtterance: ((Utterance) -> Void)?
