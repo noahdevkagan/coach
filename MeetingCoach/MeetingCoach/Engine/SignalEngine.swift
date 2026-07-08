@@ -101,6 +101,13 @@ struct SignalEngine {
         ]
     }
 
+    /// Force the next evaluate() to rebuild turns from scratch — used when
+    /// utterance history was edited in place (diarization relabeled speakers).
+    mutating func invalidateTurnCache() {
+        processedCount = 0
+        lastProcessedID = nil
+    }
+
     /// Run all monitors against current state. Returns any new nudges.
     mutating func evaluate(utterances: [Utterance], elapsed: TimeInterval, context: PreCallContext) -> [Nudge] {
         // Update turns incrementally when the array only grew by appends;

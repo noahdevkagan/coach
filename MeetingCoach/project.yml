@@ -12,6 +12,9 @@ packages:
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
     from: "2.6.0"
+  FluidAudio:
+    url: https://github.com/FluidInference/FluidAudio
+    from: "0.15.5"
 
 targets:
   MeetingCoach:
@@ -54,6 +57,7 @@ targets:
     dependencies:
       - package: Yams
       - package: Sparkle
+      - package: FluidAudio
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.coach.MeetingCoach

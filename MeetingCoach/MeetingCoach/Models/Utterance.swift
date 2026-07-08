@@ -4,7 +4,7 @@ struct Utterance: Identifiable, Sendable {
     let id = UUID()
     let t: TimeInterval        // seconds from meeting start
     let endT: TimeInterval     // when the utterance finished (== t if unknown)
-    let speaker: String
+    var speaker: String
     let text: String
 
     init(t: TimeInterval, speaker: String, text: String, endT: TimeInterval? = nil) {

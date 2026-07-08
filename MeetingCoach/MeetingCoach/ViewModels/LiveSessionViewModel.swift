@@ -9,6 +9,10 @@ final class LiveSessionViewModel {
     /// Coalesced speaker turns (built incrementally by the signal engine) —
     /// the UI renders these instead of re-joining fragments every frame.
     var turns: [Turn] = []
+
+    /// In-flight recognizer text per speaker, rendered as a live pending
+    /// line under the committed transcript. Cleared on emit/stop.
+    var livePartials: [String: String] = [:]
     var nudges: [Nudge] = []
     var activeNudge: Nudge?
     var error: String?
@@ -83,6 +87,7 @@ final class LiveSessionViewModel {
 
         utterances = []
         turns = []
+        livePartials = [:]
         nudges = []
         activeNudge = nil
         error = nil
@@ -101,6 +106,19 @@ final class LiveSessionViewModel {
             mclog("[VM] utterance #\(self.utterances.count): [\(utterance.speaker)] \(utterance.text.prefix(60))")
             // Evaluate on each new utterance for immediate talk-time detection
             self.runSignalEvaluation()
+        }
+
+        manager.onPartialText = { [weak self] speaker, text in
+            guard let self else { return }
+            if text.isEmpty {
+                self.livePartials.removeValue(forKey: speaker)
+            } else {
+                self.livePartials[speaker] = text
+            }
+        }
+
+        manager.onSpeakerSegments = { [weak self] segments in
+            self?.applyDiarization(segments)
         }
 
         manager.onStatus = { [weak self] msg in
@@ -139,6 +157,7 @@ final class LiveSessionViewModel {
         dismissTask?.cancel()
         dismissTask = nil
         showSilenceWarning = false
+        livePartials = [:]
         status = "Stopped"
 
         // Process feedback to adapt thresholds for next session
@@ -164,6 +183,42 @@ final class LiveSessionViewModel {
 
     func dismissPostSession() {
         showPostSession = false
+    }
+
+    /// Relabel mixed-stream ("Meeting") utterances with diarized speakers.
+    /// Segments arrive incrementally and can refine earlier calls, so every
+    /// pass re-derives labels for the whole diarizable history.
+    private func applyDiarization(_ segments: [SpeakerSegment]) {
+        var changed = false
+        for i in utterances.indices {
+            let current = utterances[i].speaker
+            guard current == "Meeting" || current.hasPrefix("Speaker ") else { continue }
+            guard let label = Self.dominantSpeaker(
+                for: utterances[i], in: segments), label != current else { continue }
+            utterances[i].speaker = label
+            changed = true
+        }
+        guard changed else { return }
+        if var engine = signalEngine {
+            engine.invalidateTurnCache()
+            signalEngine = engine
+        }
+        runSignalEvaluation()
+    }
+
+    /// The speaker whose segments overlap this utterance the most.
+    /// Requires meaningful overlap (>0.3s or >30% of the utterance).
+    private static func dominantSpeaker(for u: Utterance, in segments: [SpeakerSegment]) -> String? {
+        var overlapBySpeaker: [String: TimeInterval] = [:]
+        for seg in segments {
+            let overlap = min(u.endT, seg.end) - max(u.t, seg.start)
+            if overlap > 0 {
+                overlapBySpeaker[seg.speaker, default: 0] += overlap
+            }
+        }
+        guard let best = overlapBySpeaker.max(by: { $0.value < $1.value }) else { return nil }
+        let needed = min(0.3, max(0.1, u.duration * 0.3))
+        return best.value >= needed ? best.key : nil
     }
 
     /// Insert keeping chronological order — the You and Them pipelines emit

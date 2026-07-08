@@ -22,11 +22,13 @@
 		2FEDD9EAC36955339A139478 /* VagueAnswerSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94EF3B004043BDF659A8C3C2 /* VagueAnswerSignal.swift */; };
 		3C2ED703482E504317466F11 /* TalkTimeSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0A3778DC493524AA4D6FE0 /* TalkTimeSignal.swift */; };
 		3DD7919979773DBC30AA415A /* QuestionParkedSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9892670227218AFE8677E69 /* QuestionParkedSignal.swift */; };
+		42613F60A3CB14497FC859C2 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 52193459BBD760AF1CA7B7F7 /* FluidAudio */; };
 		46BB0140FA3D0C6D5953EA48 /* NextStepsSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C6B8636393601795161557 /* NextStepsSignal.swift */; };
 		47D5418F46BB2B90178F534E /* CoachingOverlayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E80054B1508EFBBFD8D840F3 /* CoachingOverlayPanel.swift */; };
 		4C4CE6FBC1FF6641932BEC3B /* TrainingExample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C9A04C9B391284F7BCDBD2E /* TrainingExample.swift */; };
 		5786720067BE8A950F4165ED /* SignalEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2E43CC253B7430EF30361 /* SignalEngine.swift */; };
 		643DA0464410998385AE5E60 /* PreCallFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25F544EB2BBE998E71984423 /* PreCallFormView.swift */; };
+		75C0D28E8BF07978D20349B6 /* SpeakerDiarizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB68720A316FEE2207F54E4B /* SpeakerDiarizer.swift */; };
 		80A3C6A385E3EE4BE0E678BD /* AudioCaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 169665A106EBBC6CCDA1F018 /* AudioCaptureManager.swift */; };
 		831AAAE68BDAAC75DC37FB2B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B601F828AB17A262298DF0AE /* ContentView.swift */; };
 		85E59446014AE47DD1E5A810 /* SessionTrendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A2619C7DBDE479D92329B84 /* SessionTrendsView.swift */; };
@@ -103,6 +105,7 @@
 		E9892670227218AFE8677E69 /* QuestionParkedSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionParkedSignal.swift; sourceTree = "<group>"; };
 		EAC07F7931A467E07514A5B8 /* Rubric.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Rubric.swift; sourceTree = "<group>"; };
 		EAF9E10DE86916E79704CA2C /* MeetingCoachApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingCoachApp.swift; sourceTree = "<group>"; };
+		EB68720A316FEE2207F54E4B /* SpeakerDiarizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeakerDiarizer.swift; sourceTree = "<group>"; };
 		F470B6BBEAFEE5A9526BABF7 /* SimulationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulationViewModel.swift; sourceTree = "<group>"; };
 		F56C800A06EA0F3F19E249A9 /* OverrunSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverrunSignal.swift; sourceTree = "<group>"; };
 		FA0A3778DC493524AA4D6FE0 /* TalkTimeSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkTimeSignal.swift; sourceTree = "<group>"; };
@@ -115,6 +118,7 @@
 			files = (
 				F1CADB35E72BF742F5571672 /* Yams in Frameworks */,
 				D77C09AA85DC5397A7D1B114 /* Sparkle in Frameworks */,
+				42613F60A3CB14497FC859C2 /* FluidAudio in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -175,6 +179,7 @@
 				07506FC59991300DD4578DB0 /* SemanticCoach.swift */,
 				5CD2E43CC253B7430EF30361 /* SignalEngine.swift */,
 				E14BE3A1F1E4ACABA20A2F9C /* Simulator.swift */,
+				EB68720A316FEE2207F54E4B /* SpeakerDiarizer.swift */,
 				9FFBE4A37EC6EEE8D7A7516D /* TranscriptAnalysis.swift */,
 				CA1F99166785B46F89B17133 /* TranscriptParser.swift */,
 				DBC9BADF442D5516D4C8BEC1 /* Signals */,
@@ -268,6 +273,7 @@
 			packageProductDependencies = (
 				F03462EBA44605723460996E /* Yams */,
 				2ADB653C496B73D902CC4DFD /* Sparkle */,
+				52193459BBD760AF1CA7B7F7 /* FluidAudio */,
 			);
 			productName = MeetingCoach;
 			productReference = 61CBD7F2B9C7BC596D8D6984 /* MeetingCoach.app */;
@@ -298,6 +304,7 @@
 			mainGroup = E53D33D29284EA222E7580F9;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				2C1BEE8C401178020F882506 /* XCRemoteSwiftPackageReference "FluidAudio" */,
 				BB27E6060BE992D797223730 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				7146E9C669CF5019F145E411 /* XCRemoteSwiftPackageReference "Yams" */,
 			);
@@ -399,6 +406,7 @@
 				CAD8C8E966931110E2D6415E /* SimulationTimelineView.swift in Sources */,
 				251A55DA15B1192554DF63E1 /* SimulationViewModel.swift in Sources */,
 				E244EF555EFC6E26269EA063 /* Simulator.swift in Sources */,
+				75C0D28E8BF07978D20349B6 /* SpeakerDiarizer.swift in Sources */,
 				CFFBB860B8F9AB35E34F7AEA /* StackedQuestionsSignal.swift in Sources */,
 				3C2ED703482E504317466F11 /* TalkTimeSignal.swift in Sources */,
 				0562C24581425CB3865E1A8F /* TimeCheckSignal.swift in Sources */,
@@ -618,6 +626,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		2C1BEE8C401178020F882506 /* XCRemoteSwiftPackageReference "FluidAudio" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/FluidInference/FluidAudio";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.15.5;
+			};
+		};
 		7146E9C669CF5019F145E411 /* XCRemoteSwiftPackageReference "Yams" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/jpsim/Yams.git";
@@ -641,6 +657,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = BB27E6060BE992D797223730 /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
+		};
+		52193459BBD760AF1CA7B7F7 /* FluidAudio */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2C1BEE8C401178020F882506 /* XCRemoteSwiftPackageReference "FluidAudio" */;
+			productName = FluidAudio;
 		};
 		F03462EBA44605723460996E /* Yams */ = {
 			isa = XCSwiftPackageProductDependency;

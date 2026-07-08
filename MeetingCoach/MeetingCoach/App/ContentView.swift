@@ -206,8 +206,16 @@ private struct TranscriptHeaderStats: View {
 private struct LiveTranscriptPane: View {
     var liveSession: LiveSessionViewModel
 
+    /// Pending recognizer text, stable order (You before Them).
+    private var pendingLines: [(speaker: String, text: String)] {
+        liveSession.livePartials
+            .sorted { $0.key < $1.key }
+            .map { (speaker: $0.key, text: $0.value) }
+            .reversed()
+    }
+
     var body: some View {
-        if liveSession.turns.isEmpty {
+        if liveSession.turns.isEmpty && pendingLines.isEmpty {
             VStack(spacing: 8) {
                 Image(systemName: "mic")
                     .font(.title2).foregroundStyle(.tertiary)
@@ -236,15 +244,34 @@ private struct LiveTranscriptPane: View {
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
+                        // Live pending line(s): what the recognizer hears right
+                        // now, before it's committed as a turn — dictation feel.
+                        ForEach(pendingLines, id: \.speaker) { line in
+                            VStack(alignment: .leading, spacing: 2) {
+                                if line.speaker != "Meeting" {
+                                    Text(line.speaker)
+                                        .font(.caption2.bold())
+                                        .foregroundStyle(speakerColor(line.speaker).opacity(0.6))
+                                }
+                                Text(line.text)
+                                    .font(.callout.italic())
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .transition(.opacity)
+                        }
                         Color.clear.frame(height: 1).id("transcript-bottom")
                     }
                     .padding(12)
                 }
                 .onChange(of: liveSession.turns.count) { _, _ in
-                    proxy.scrollTo("transcript-bottom")
+                    proxy.scrollTo("transcript-bottom", anchor: .bottom)
                 }
                 .onChange(of: liveSession.turns.last?.text) { _, _ in
-                    proxy.scrollTo("transcript-bottom")
+                    proxy.scrollTo("transcript-bottom", anchor: .bottom)
+                }
+                .onChange(of: pendingLines.first?.text) { _, _ in
+                    proxy.scrollTo("transcript-bottom", anchor: .bottom)
                 }
             }
         }
@@ -1200,6 +1227,11 @@ private func speakerColor(_ speaker: String) -> Color {
     let lower = speaker.trimmingCharacters(in: .whitespaces).lowercased()
     if ["you", "me", "self", "noah kagan"].contains(lower) { return .blue }
     if lower == "meeting" { return .secondary }
+    // Diarized speakers: stable distinct color per index.
+    if lower.hasPrefix("speaker "), let n = Int(lower.dropFirst("speaker ".count)) {
+        let palette: [Color] = [.blue, .orange, .purple, .teal, .pink, .indigo, .brown, .mint]
+        return palette[(n - 1 + palette.count) % palette.count]
+    }
     return .orange
 }
 

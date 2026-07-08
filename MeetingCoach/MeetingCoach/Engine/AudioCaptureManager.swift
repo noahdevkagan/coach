@@ -16,6 +16,14 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
     /// Called with a new utterance to append.
     var onUtterance: (@Sendable @MainActor (Utterance) -> Void)?
+
+    /// Live in-flight text per speaker for dictation-style display.
+    /// Empty text means that speaker's pending line cleared.
+    var onPartialText: (@Sendable @MainActor (_ speaker: String, _ text: String) -> Void)?
+
+    /// Finalized diarization segments (mic-only mode): who spoke when,
+    /// session-relative. The full list is re-published as it grows.
+    var onSpeakerSegments: (@Sendable @MainActor ([SpeakerSegment]) -> Void)?
     var onStatus: (@Sendable @MainActor (String) -> Void)?
 
     private let startTime = Date()
@@ -30,6 +38,9 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     private var scStream: SCStream?
     private let sysAudioQueue = DispatchQueue(label: "com.coach.systemAudio")
     private var hasSystemAudio = false
+
+    // Speaker diarization (mic-only mode: split "Meeting" into Speaker 1/2/…)
+    private var diarizer: SpeakerDiarizer?
 
     // Bleed gate: if echo cancellation fails (or is unavailable), the mic
     // picks up the other side through the speakers. Track when the mic was
@@ -73,6 +84,17 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             mclog("[Capture] Dual pipelines active (mic=You, system=Them)")
         } else {
             emitStatus("Listening (mic only — grant Screen Recording for Zoom)")
+            // Single mixed stream: run on-device diarization so the
+            // transcript can distinguish speakers.
+            let dia = SpeakerDiarizer()
+            dia.onSegments = { [weak self] segments in
+                guard let self else { return }
+                Task { @MainActor [onSpeakerSegments = self.onSpeakerSegments] in
+                    onSpeakerSegments?(segments)
+                }
+            }
+            dia.start()
+            diarizer = dia
         }
     }
 
@@ -83,6 +105,10 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         engine?.stop()
         engine?.inputNode.removeTap(onBus: 0)
         engine = nil
+
+        // Stop diarization (flushes the final partial chunk)
+        diarizer?.stop()
+        diarizer = nil
 
         // Stop system audio
         if let stream = scStream {
@@ -111,6 +137,12 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         }
         let pipe = RecognitionPipeline(speaker: speaker, recognizer: recognizer, sessionStart: startTime)
         pipe.onUtterance = { [weak self] u in self?.deliver(u) }
+        pipe.onPartial = { [weak self] text in
+            guard let self else { return }
+            Task { @MainActor [onPartialText = self.onPartialText] in
+                onPartialText?(speaker, text)
+            }
+        }
         return pipe
     }
 
@@ -161,11 +193,47 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
         mclog("[Mic] Format: \(recordingFormat.sampleRate)Hz, \(recordingFormat.channelCount)ch")
 
+        // Voice processing exposes multi-channel formats on some devices
+        // (7ch observed) and SFSpeechRecognizer rejects those buffers
+        // outright — the request dies instantly with "No speech detected".
+        // Downmix to mono before anything reaches the recognizer.
+        var converter: AVAudioConverter?
+        var monoFormat: AVAudioFormat?
+        if recordingFormat.channelCount > 1,
+           let mono = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                    sampleRate: recordingFormat.sampleRate,
+                                    channels: 1, interleaved: false) {
+            converter = AVAudioConverter(from: recordingFormat, to: mono)
+            monoFormat = mono
+            mclog("[Mic] Downmixing \(recordingFormat.channelCount)ch → mono for speech")
+        }
+
         inputNode.installTap(onBus: 0, bufferSize: 4096, format: recordingFormat) { [weak self] buffer, _ in
             guard let self else { return }
-            self.micPipeline?.append(buffer)
 
-            if Self.rmsEnergy(buffer) > self.micSilenceFloor {
+            var speechBuffer = buffer
+            if let converter, let monoFormat,
+               let mono = AVAudioPCMBuffer(pcmFormat: monoFormat, frameCapacity: buffer.frameLength) {
+                var fed = false
+                var convErr: NSError?
+                converter.convert(to: mono, error: &convErr) { _, outStatus in
+                    if fed { outStatus.pointee = .noDataNow; return nil }
+                    fed = true
+                    outStatus.pointee = .haveData
+                    return buffer
+                }
+                guard convErr == nil else { return }
+                speechBuffer = mono
+            }
+            self.micPipeline?.append(speechBuffer)
+
+            // Mirror the mono stream into the diarizer (mic-only mode).
+            if let dia = self.diarizer, let ch = speechBuffer.floatChannelData?[0] {
+                let samples = Array(UnsafeBufferPointer(start: ch, count: Int(speechBuffer.frameLength)))
+                dia.enqueue(samples, sampleRate: speechBuffer.format.sampleRate)
+            }
+
+            if Self.rmsEnergy(speechBuffer) > self.micSilenceFloor {
                 self.micStateLock.lock()
                 self.lastLoudMicAt = Date()
                 self.micStateLock.unlock()
@@ -247,6 +315,11 @@ private final class RecognitionPipeline: @unchecked Sendable {
     /// Called on the pipeline's queue with each emitted utterance.
     var onUtterance: ((Utterance) -> Void)?
 
+    /// In-flight recognizer text not yet emitted as an utterance. Fires on
+    /// every partial result so the UI can render live, dictation-style;
+    /// empty string means the pending line was committed or cleared.
+    var onPartial: ((String) -> Void)?
+
     private let recognizer: SFSpeechRecognizer
     private let sessionStart: Date
     private let queue: DispatchQueue
@@ -259,6 +332,7 @@ private final class RecognitionPipeline: @unchecked Sendable {
     private var task: SFSpeechRecognitionTask?
     private var generation = 0
     private var genStart = Date()
+    private var pendingStartedAt: Date?
     private var running = false
 
     private var latestWords: [String] = []
@@ -303,6 +377,7 @@ private final class RecognitionPipeline: @unchecked Sendable {
             self.currentRequest?.endAudio()
             self.setRequest(nil)
             self.task = nil
+            self.onPartial?("")
         }
     }
 
@@ -364,8 +439,20 @@ private final class RecognitionPipeline: @unchecked Sendable {
                     if let errorDescription {
                         mclog("[Speech:\(self.speaker)] Error: \(errorDescription)")
                     }
-                    mclog("[Speech:\(self.speaker)] Restarting recognition")
-                    self.startRecognition()
+                    // A generation that dies within seconds means the source is
+                    // broken (no audio, bad format) — back off instead of
+                    // hot-looping thousands of restarts at full CPU.
+                    let lifetime = Date().timeIntervalSince(self.genStart)
+                    if lifetime < 2 {
+                        mclog("[Speech:\(self.speaker)] Restarting recognition (backing off 1s)")
+                        self.queue.asyncAfter(deadline: .now() + 1) {
+                            guard gen == self.generation, self.running else { return }
+                            self.startRecognition()
+                        }
+                    } else {
+                        mclog("[Speech:\(self.speaker)] Restarting recognition")
+                        self.startRecognition()
+                    }
                 }
             }
         }
@@ -384,6 +471,18 @@ private final class RecognitionPipeline: @unchecked Sendable {
         }
         latestWords = words
         latestSegments = segments
+
+        // Wall-clock anchor: the pending chunk began when its first
+        // not-yet-emitted word appeared. Recognizer segment timestamps are
+        // unreliable in partial results, so this is the timing source.
+        if words.count > emittedWordCount, pendingStartedAt == nil {
+            pendingStartedAt = Date()
+        }
+
+        // Live pending line: everything past the last emit, unstable tail
+        // included. The UI shows this immediately; emits below only govern
+        // when text is committed to the coach/transcript history.
+        onPartial?(words[emittedWordCount...].joined(separator: " "))
 
         let stableCount = isFinal ? words.count : max(0, words.count - 1)
         let available = stableCount - emittedWordCount
@@ -413,20 +512,17 @@ private final class RecognitionPipeline: @unchecked Sendable {
 
         let text = latestWords[emittedWordCount..<count].joined(separator: " ")
 
-        // Timing: prefer recognizer segment timestamps (relative to this
-        // generation's audio start); fall back to wall clock.
+        // Timing: wall-clock window of the pending chunk. Recognizer segment
+        // timestamps looked usable but are ~0 in partial results, which broke
+        // every downstream consumer that needed real times (diarization).
+        // The chunk spans first-new-word arrival → now, shifted back by
+        // typical recognition latency.
+        let recognitionLatency: TimeInterval = 0.4
         let now = Date().timeIntervalSince(sessionStart)
-        var t = now
-        var endT = now
-        if latestSegments.count == latestWords.count, count <= latestSegments.count {
-            let first = latestSegments[emittedWordCount]
-            let last = latestSegments[count - 1]
-            if last.timestamp > 0 {
-                let offset = genStart.timeIntervalSince(sessionStart)
-                t = offset + first.timestamp
-                endT = offset + last.timestamp + last.duration
-            }
-        }
+        let started = (pendingStartedAt ?? Date()).timeIntervalSince(sessionStart)
+        let t = max(0, min(started - recognitionLatency, now))
+        let endT = max(t, now - recognitionLatency)
+        pendingStartedAt = nil
 
         emittedWordCount = count
         lastEmitTime = Date()
@@ -434,6 +530,7 @@ private final class RecognitionPipeline: @unchecked Sendable {
 
         mclog("[Speech:\(speaker)] Emit (\(reason)): \(text.prefix(80))")
         onUtterance?(Utterance(t: t, speaker: speaker, text: text, endT: endT))
+        onPartial?(latestWords[emittedWordCount...].joined(separator: " "))
     }
 
     // MARK: - Flush (on queue)
