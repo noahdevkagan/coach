@@ -52,6 +52,16 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     private var lastLoudMicAt = Date.distantPast
     private let micSilenceFloor: Float = 0.005
 
+    // Software echo suppression: with voice processing off, the far side's
+    // voice can reach the mic acoustically (speakers). Mic transcriptions
+    // that mostly repeat what "Them" said in the last few seconds are echo.
+    private let echoLock = NSLock()
+    private var recentThemWords: [(at: Date, words: [String])] = []
+
+    // Silence gate state for the system-audio feed (see mic tap for why).
+    private var lastLoudSysAt = Date.distantPast
+    private let sysSilenceFloor: Float = 0.003
+
     // MARK: - Public
 
     func start() async throws {
@@ -75,7 +85,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         micPipeline = micPipe
         micPipe.start()
         do {
-            try startMicrophone(echoCancellation: hasSystemAudio)
+            try startMicrophone()
         } catch {
             isRunning = false
             stop()
@@ -150,17 +160,32 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         return pipe
     }
 
-    /// Deliver an utterance from a pipeline, applying the bleed gate.
+    /// Deliver an utterance from a pipeline, applying echo suppression and
+    /// the bleed gate to the mic side.
     private func deliver(_ u: Utterance) {
-        // Bleed gate for the mic pipeline: a chunk transcribed while the mic
-        // has been silent is the other side leaking through the speakers.
-        if hasSystemAudio && u.speaker != "Them" {
-            micStateLock.lock()
-            let sinceLoud = Date().timeIntervalSince(lastLoudMicAt)
-            micStateLock.unlock()
-            if sinceLoud > 3.0 {
-                mclog("[Capture] Dropped bleed chunk (mic quiet \(String(format: "%.1f", sinceLoud))s): \(u.text.prefix(50))")
-                return
+        if hasSystemAudio {
+            if u.speaker == "Them" {
+                // Remember far-side words for echo comparison.
+                echoLock.lock()
+                recentThemWords.append((Date(), Self.normalizedWords(u.text)))
+                let cutoff = Date().addingTimeInterval(-8)
+                recentThemWords.removeAll { $0.at < cutoff }
+                echoLock.unlock()
+            } else {
+                // Echo: the mic transcribed what the speakers just played.
+                if isLikelyEcho(u.text) {
+                    mclog("[Capture] Dropped echo chunk: \(u.text.prefix(50))")
+                    return
+                }
+                // Bleed gate backstop: mic has been quiet — whatever was
+                // transcribed leaked from the speakers.
+                micStateLock.lock()
+                let sinceLoud = Date().timeIntervalSince(lastLoudMicAt)
+                micStateLock.unlock()
+                if sinceLoud > 3.0 {
+                    mclog("[Capture] Dropped bleed chunk (mic quiet \(String(format: "%.1f", sinceLoud))s): \(u.text.prefix(50))")
+                    return
+                }
             }
         }
         Task { @MainActor [onUtterance] in
@@ -168,30 +193,45 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         }
     }
 
+    /// True when most of this mic chunk's words appeared in recent far-side
+    /// speech — the acoustic-echo signature.
+    private func isLikelyEcho(_ text: String) -> Bool {
+        let words = Self.normalizedWords(text)
+        guard words.count >= 2 else { return false }
+        echoLock.lock()
+        var pool: [String: Int] = [:]
+        for entry in recentThemWords {
+            for w in entry.words { pool[w, default: 0] += 1 }
+        }
+        echoLock.unlock()
+        guard !pool.isEmpty else { return false }
+        var matched = 0
+        for w in words where (pool[w] ?? 0) > 0 {
+            matched += 1
+            pool[w]! -= 1
+        }
+        return Double(matched) / Double(words.count) >= 0.6
+    }
+
+    private static func normalizedWords(_ text: String) -> [String] {
+        text.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+    }
+
     // MARK: - Microphone
 
-    private func startMicrophone(echoCancellation: Bool) throws {
+    private func startMicrophone() throws {
         let audioEngine = AVAudioEngine()
         let inputNode = audioEngine.inputNode
 
-        if echoCancellation {
-            // Apple's AEC removes system-audio playback from the mic signal,
-            // so the "You" pipeline hears only the user.
-            do {
-                try inputNode.setVoiceProcessingEnabled(true)
-                // Voice processing DUCKS all other system audio by default —
-                // users could barely hear their own call. Turn ducking off;
-                // we only want the echo cancellation.
-                inputNode.voiceProcessingOtherAudioDuckingConfiguration =
-                    AVAudioVoiceProcessingOtherAudioDuckingConfiguration(
-                        enableAdvancedDucking: false, duckingLevel: .min)
-                mclog("[Mic] Echo cancellation ON (ducking off)")
-            } catch {
-                mclog("[Mic] Voice processing unavailable (\(error.localizedDescription)) — relying on bleed gate")
-            }
-        } else {
-            try? inputNode.setVoiceProcessingEnabled(false)
-        }
+        // NEVER enable voice processing (Apple's echo cancellation): it ducks
+        // all other system audio — even at the minimum ducking level users
+        // could barely hear their Zoom call — and it hijacks the mic into
+        // "call mode" (multi-channel formats, Bluetooth quality drops).
+        // Acoustic echo (the far side leaking speakers → mic) is handled in
+        // software instead: see isLikelyEcho + the bleed gate in deliver().
+        try? inputNode.setVoiceProcessingEnabled(false)
 
         let recordingFormat = inputNode.outputFormat(forBus: 0)
 
@@ -235,18 +275,27 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
                 guard convErr == nil else { return }
                 speechBuffer = mono
             }
-            self.micPipeline?.append(speechBuffer)
-
             // Mirror the mono stream into the diarizer (mic-only mode).
+            // Fed unconditionally: its timestamps are relative to fed audio,
+            // so gaps would skew every segment after them.
             if let dia = self.diarizer, let ch = speechBuffer.floatChannelData?[0] {
                 let samples = Array(UnsafeBufferPointer(start: ch, count: Int(speechBuffer.frameLength)))
                 dia.enqueue(samples, sampleRate: speechBuffer.format.sampleRate)
             }
 
+            self.micStateLock.lock()
             if Self.rmsEnergy(speechBuffer) > self.micSilenceFloor {
-                self.micStateLock.lock()
                 self.lastLoudMicAt = Date()
-                self.micStateLock.unlock()
+            }
+            let sinceLoud = Date().timeIntervalSince(self.lastLoudMicAt)
+            self.micStateLock.unlock()
+
+            // Silence gate: only feed the recognizer while there is real
+            // audio (plus a hangover for word tails). Feeding silence makes
+            // the request die with "No speech detected" every couple of
+            // seconds, and each restart chops the transcript into fragments.
+            if sinceLoud < 1.5 {
+                self.micPipeline?.append(speechBuffer)
             }
         }
 
@@ -601,7 +650,15 @@ extension AudioCaptureManager: SCStreamOutput {
         )
 
         guard status == noErr else { return }
-        sysPipeline?.append(pcmBuffer)
+
+        // Same silence gate as the mic: feeding gaps kills the recognition
+        // request every few seconds and fragments the transcript.
+        if Self.rmsEnergy(pcmBuffer) > sysSilenceFloor {
+            lastLoudSysAt = Date()
+        }
+        if Date().timeIntervalSince(lastLoudSysAt) < 1.5 {
+            sysPipeline?.append(pcmBuffer)
+        }
     }
 }
 

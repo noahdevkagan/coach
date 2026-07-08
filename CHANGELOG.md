@@ -7,6 +7,12 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## 0.4.3
+
+- Fixed: starting a session no longer reduces your call or system volume at all
+- Smoother transcripts — sentences no longer get chopped into fragments during pauses
+- The mic no longer switches into "call mode" when a session starts
+
 ## 0.4.2
 
 - Fixed: starting a session no longer makes the rest of your Mac's audio very quiet
