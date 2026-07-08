@@ -21,7 +21,7 @@
 set -euo pipefail
 
 # ---- config -----------------------------------------------------------------
-OLLAMA_VERSION="${OLLAMA_VERSION:-v0.5.7}"   # pin; bump deliberately
+OLLAMA_VERSION="${OLLAMA_VERSION:-v0.31.1}"   # pin; bump deliberately
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEST="$REPO_ROOT/MeetingCoach/MeetingCoach/Resources/ollama"
 

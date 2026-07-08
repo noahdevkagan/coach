@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import os
 
@@ -13,6 +14,18 @@ final class OllamaManager {
     }
 
     var status: Status = .stopped
+
+    init() {
+        // The embedded server is a plain child process — take it down with
+        // the app or every session leaks an `ollama serve`.
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.stop()
+            }
+        }
+    }
 
     private var process: Process?
     private let port: Int = 11434

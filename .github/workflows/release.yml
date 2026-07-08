@@ -21,7 +21,7 @@ permissions:
   contents: write          # needed to create the Release + upload the .dmg
 
 env:
-  OLLAMA_VERSION: v0.5.7   # pinned; also keys the download cache
+  OLLAMA_VERSION: v0.31.1  # pinned; also keys the download cache
 
 jobs:
   release:
