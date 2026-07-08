@@ -1,0 +1,10 @@
+{
+  "conv1": {"voice": "Samantha", "text": "How are we looking on the September launch date?"},
+  "conv2": {"voice": "Daniel",   "text": "Honestly, engineering is two weeks behind. The billing migration took longer than we expected."},
+  "conv3": {"voice": "Samantha", "text": "Okay. What would it take to still hit the first week of September?"},
+  "conv4": {"voice": "Daniel",   "text": "We would need to cut the analytics dashboard from version one and ship it in October."},
+  "conv5": {"voice": "Samantha", "text": "I can live with that. Are there any risks with the app review process?"},
+  "conv6": {"voice": "Daniel",   "text": "Maybe. I will confirm with the review team tomorrow and send you an update."},
+  "cut":   {"voice": "Samantha", "text": "Before we wrap up, the single most important action item is to send the revised contract to the partner by Friday."},
+  "long":  {"voice": "Samantha", "text": "Let me walk through the whole revenue model from the top because I think we keep talking past each other. The subscription tier brings in about forty thousand a month and it grows roughly five percent quarter over quarter. The marketplace side is lumpier because launches spike and then decay, but the baseline has been climbing steadily since February. If we combine both streams and subtract the partner payouts, the contribution margin lands somewhere around thirty eight percent. That number is the one I want everyone to remember, because every decision about discounts, about hiring, and about the September launch has to be justified against that margin, not against top line revenue, which is the mistake we made last year."}
+}

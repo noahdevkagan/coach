@@ -1,0 +1,31 @@
+# Same meeting, SFSpeech shape: frequent short fragments, some unpunctuated shards
+[00:05] Them: Hey, good to see you.
+[00:08] You: Good to see
+[00:10] You: you too
+[00:13] Them: So where do we stand on the partnership?
+[00:30] You: So the way I
+[00:34] You: think about the
+[00:38] You: partnership is that
+[00:42] You: we bring the
+[00:46] You: audience and they
+[00:50] You: bring the product
+[00:54] You: and the pricing
+[00:58] You: needs to reflect
+[01:02] You: that split because
+[01:06] You: our list did
+[01:10] You: the heavy lifting
+[01:14] You: on every launch
+[01:30] Them: But what about the
+[01:31] You: Right so the exclusivity window is the other piece we need.
+[02:10] Them: I think we should
+[02:11] You: Exactly, and that's why the ninety day term matters so much.
+[03:00] You: What's the timeline look like? Who owns the integration? And how do we split support?
+[03:20] Them: The timeline is roughly six weeks if the API work goes smoothly.
+[04:00] You: What's your budget for the launch campaign?
+[04:15] Them: We're really excited about the creative direction overall.
+[04:40] You: Okay.
+[05:10] Them: Let me pull the numbers and get back to you tomorrow.
+[05:20] You: Sounds good.
+[05:40] Them: Anything else on your list?
+[05:50] You: No I think
+[05:53] You: that covers it

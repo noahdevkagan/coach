@@ -36,3 +36,7 @@ xcuserdata/
 .idea/
 .vscode/
 *.swp
+tests/asr/audio/
+tests/asr/.build/
+tests/asr/.out/
+tests/nudges/.build/

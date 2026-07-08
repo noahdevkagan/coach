@@ -1,0 +1,6 @@
+== Tier 1 (deterministic): 5 nudges ==
+  [00:34] vagueAnswer: That was a guess — pin it down
+  [01:00] talkTime: You're still talking
+  [02:11] interruption: Let them finish
+  [03:00] stackedQuestions: One question at a time
+  [05:53] vagueAnswer: That was a guess — pin it down

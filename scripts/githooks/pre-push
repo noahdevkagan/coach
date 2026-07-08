@@ -1,0 +1,9 @@
+#!/bin/bash
+# Pre-push hook: run the full gate (build, transcript, nudges, trend).
+# Installed via: git config core.hooksPath scripts/githooks
+# Emergency bypass: SKIP_GATE=1 git push
+if [ "${SKIP_GATE:-0}" = "1" ]; then
+    echo "push gate SKIPPED (SKIP_GATE=1)"
+    exit 0
+fi
+exec bash "$(dirname "$0")/../push-gate.sh"

@@ -1,0 +1,19 @@
+# Same meeting, Parakeet shape: chunky punctuated commits on pauses / 30s cap
+[00:05] Them: Hey, good to see you.
+[00:08] You: Good to see you too.
+[00:13] Them: So where do we stand on the partnership?
+[00:30] You: So the way I think about the partnership is that we bring the audience and they bring the product, and the pricing needs to reflect that split
+[01:00] You: because our list did the heavy lifting on every launch.
+[01:30] Them: But what about the
+[01:31] You: Right so the exclusivity window is the other piece we need.
+[02:10] Them: I think we should
+[02:11] You: Exactly, and that's why the ninety day term matters so much.
+[03:00] You: What's the timeline look like? Who owns the integration? And how do we split support?
+[03:20] Them: The timeline is roughly six weeks if the API work goes smoothly.
+[04:00] You: What's your budget for the launch campaign?
+[04:15] Them: We're really excited about the creative direction overall.
+[04:40] You: Okay.
+[05:10] Them: Let me pull the numbers and get back to you tomorrow.
+[05:20] You: Sounds good.
+[05:40] Them: Anything else on your list?
+[05:50] You: No, I think that covers it.

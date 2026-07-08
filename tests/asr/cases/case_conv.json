@@ -1,0 +1,8 @@
+[
+ {"file": "audio/conv1.aiff", "gapAfter": 1.5},
+ {"file": "audio/conv2.aiff", "gapAfter": 1.5},
+ {"file": "audio/conv3.aiff", "gapAfter": 1.5},
+ {"file": "audio/conv4.aiff", "gapAfter": 1.5},
+ {"file": "audio/conv5.aiff", "gapAfter": 1.5},
+ {"file": "audio/conv6.aiff", "gapAfter": 0.5}
+]
