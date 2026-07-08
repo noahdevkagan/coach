@@ -182,7 +182,9 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
         lastPartial = ""
         onPartial?("")
 
-        guard snapshot.count > 3_200, started != nil || force else { return }
+        // Voice must have been detected: a forced flush of pre-roll silence
+        // makes Parakeet hallucinate short filler words ("Okay.").
+        guard snapshot.count > 3_200, started != nil else { return }
         guard let text = await ParakeetEngine.shared.transcribe(snapshot) else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
