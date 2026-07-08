@@ -7,6 +7,15 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## 0.4.2
+
+- Transcripts now tell speakers apart — turns are labeled Speaker 1, Speaker 2, … on phone and in-person calls, processed 100% on your Mac
+- Words appear in the transcript as you say them, instead of arriving in delayed chunks
+- Fixed: transcription silently produced nothing on some microphone setups
+- Fixed: high CPU usage when no audio was flowing
+- Adding participant names in Pre-Call Setup now improves how accurately they're transcribed
+- Fixed a large blank gap that could appear in the transcript pane
+
 ## 0.4.1
 
 - Fixed: downloading a model on first launch no longer fails with "Could not connect to the server"

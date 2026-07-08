@@ -41,25 +41,12 @@ struct PreCallContext: Codable {
         }
     }
 
-    /// Words to bias speech recognition toward. Real-call transcripts showed
-    /// the recognizer mangling exactly these: "AppSumo" -> "up soon",
-    /// "Black Friday" -> "flag Friday", "MRR" -> "some MR". Participant
-    /// names from setup are included so people are transcribed correctly.
+    /// Words to bias speech recognition toward — participant names from
+    /// setup, so people are transcribed correctly instead of mangled
+    /// ("Yeval" -> "you've all on").
     var vocabularyHints: [String] {
-        var hints = Self.domainLexicon
-        for p in participants where !p.name.isEmpty {
-            hints.append(p.name)
-        }
-        return hints
+        participants.map(\.name).filter { !$0.isEmpty }
     }
-
-    /// Business/deal vocabulary that generic dictation models get wrong.
-    static let domainLexicon: [String] = [
-        "AppSumo", "MRR", "ARR", "churn", "upsell", "SaaS", "API", "MCP",
-        "BYOK", "affiliate", "co-marketing", "Black Friday", "onboarding",
-        "roadmap", "tier", "add-on", "refund", "rev share", "LTV", "CAC",
-        "signups", "conversion", "sunset", "launch", "campaign",
-    ]
 
     struct Participant: Codable, Identifiable {
         var id = UUID()
