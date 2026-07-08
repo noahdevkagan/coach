@@ -7,6 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## 0.4.4
+
+- Fixed: transcripts turning into garbled fragments during calls (a 0.4.3 regression)
+
 ## 0.4.3
 
 - Fixed: starting a session no longer reduces your call or system volume at all

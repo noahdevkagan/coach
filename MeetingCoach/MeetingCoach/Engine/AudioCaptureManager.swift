@@ -58,9 +58,6 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     private let echoLock = NSLock()
     private var recentThemWords: [(at: Date, words: [String])] = []
 
-    // Silence gate state for the system-audio feed (see mic tap for why).
-    private var lastLoudSysAt = Date.distantPast
-    private let sysSilenceFloor: Float = 0.003
 
     // MARK: - Public
 
@@ -283,20 +280,13 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
                 dia.enqueue(samples, sampleRate: speechBuffer.format.sampleRate)
             }
 
-            self.micStateLock.lock()
             if Self.rmsEnergy(speechBuffer) > self.micSilenceFloor {
+                self.micStateLock.lock()
                 self.lastLoudMicAt = Date()
+                self.micStateLock.unlock()
             }
-            let sinceLoud = Date().timeIntervalSince(self.lastLoudMicAt)
-            self.micStateLock.unlock()
 
-            // Silence gate: only feed the recognizer while there is real
-            // audio (plus a hangover for word tails). Feeding silence makes
-            // the request die with "No speech detected" every couple of
-            // seconds, and each restart chops the transcript into fragments.
-            if sinceLoud < 1.5 {
-                self.micPipeline?.append(speechBuffer)
-            }
+            self.micPipeline?.append(speechBuffer)
         }
 
         try audioEngine.start()
@@ -650,15 +640,7 @@ extension AudioCaptureManager: SCStreamOutput {
         )
 
         guard status == noErr else { return }
-
-        // Same silence gate as the mic: feeding gaps kills the recognition
-        // request every few seconds and fragments the transcript.
-        if Self.rmsEnergy(pcmBuffer) > sysSilenceFloor {
-            lastLoudSysAt = Date()
-        }
-        if Date().timeIntervalSince(lastLoudSysAt) < 1.5 {
-            sysPipeline?.append(pcmBuffer)
-        }
+        sysPipeline?.append(pcmBuffer)
     }
 }
 
