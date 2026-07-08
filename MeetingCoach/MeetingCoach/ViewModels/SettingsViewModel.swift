@@ -11,6 +11,10 @@ final class SettingsViewModel {
     var useMock: Bool = false
     var showModelCatalog: Bool = false
 
+    /// Engine handle so on-demand flows (model downloads) can start
+    /// Ollama first — it is otherwise only started lazily at session start.
+    @ObservationIgnored weak var ollamaManager: OllamaManager?
+
     /// Tier-2 semantic coaching: local-LLM heartbeat during live sessions.
     var semanticCoachEnabled: Bool {
         didSet { UserDefaults.standard.set(semanticCoachEnabled, forKey: "semanticCoachEnabled") }
@@ -68,6 +72,17 @@ final class SettingsViewModel {
 
         let client = OllamaClient(model: fullName)
         downloadTask = Task {
+            // The engine starts lazily at session time, so on a fresh
+            // install nothing is listening yet — bring it up first.
+            if let manager = self.ollamaManager {
+                self.downloadStatus = "Starting engine..."
+                guard await manager.ensureRunning() else {
+                    self.downloadError = "error: Could not start the local AI engine."
+                    self.downloadingModel = nil
+                    return
+                }
+                self.downloadStatus = "Starting..."
+            }
             for await progress in await client.pullModel(name: fullName) {
                 self.downloadStatus = progress.status
                 if progress.total > 0 {

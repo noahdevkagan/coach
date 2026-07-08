@@ -30,6 +30,7 @@ struct ContentView: View {
         .task {
             // No longer wait for Ollama before allowing app use.
             // Refresh models in background for when post-call review is needed.
+            settings.ollamaManager = ollamaManager
             await settings.refreshModels()
         }
         .onChange(of: liveSession.activeNudge?.id) { _, _ in

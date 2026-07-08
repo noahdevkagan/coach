@@ -212,6 +212,20 @@ actor OllamaClient {
                               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                             continue
                         }
+                        // The registry reports failures as {"error": ...} lines,
+                        // not via the status key — surface them or the download
+                        // silently resets with no message.
+                        if let serverError = json["error"] as? String {
+                            // Registry errors can be multi-line (412 upgrade notices);
+                            // collapse to one line so the UI label stays readable.
+                            let compact = serverError
+                                .components(separatedBy: .whitespacesAndNewlines)
+                                .filter { !$0.isEmpty }
+                                .joined(separator: " ")
+                                .prefix(200)
+                            continuation.yield(PullProgress(status: "error: \(compact)", completed: 0, total: 0))
+                            break
+                        }
                         let status = json["status"] as? String ?? ""
                         let completed = json["completed"] as? Int64 ?? 0
                         let total = json["total"] as? Int64 ?? 0

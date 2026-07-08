@@ -140,6 +140,30 @@ final class OllamaManager {
         }
     }
 
+    /// Start the engine if needed and wait until it accepts requests.
+    /// For flows that need Ollama on demand (e.g. model downloads from
+    /// onboarding) before any session has lazily started it.
+    /// Returns false if the engine can't come up within ~15s.
+    func ensureRunning() async -> Bool {
+        if status == .running {
+            // A previously-detected server may have died since (e.g. the
+            // user quit Ollama.app) — verify before trusting the status.
+            if await OllamaClient().isReachable() { return true }
+            status = .stopped
+        }
+        if status != .starting {
+            start()
+        }
+        for _ in 0..<30 {
+            switch status {
+            case .running: return true
+            case .error: return false
+            default: try? await Task.sleep(for: .milliseconds(500))
+            }
+        }
+        return false
+    }
+
     /// Stop the embedded Ollama server.
     func stop() {
         guard let proc = process, proc.isRunning else {
