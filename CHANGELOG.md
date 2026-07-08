@@ -9,6 +9,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## 0.4.2
 
+- Fixed: starting a session no longer makes the rest of your Mac's audio very quiet
 - Transcripts now tell speakers apart — turns are labeled Speaker 1, Speaker 2, … on phone and in-person calls, processed 100% on your Mac
 - Words appear in the transcript as you say them, instead of arriving in delayed chunks
 - Fixed: transcription silently produced nothing on some microphone setups

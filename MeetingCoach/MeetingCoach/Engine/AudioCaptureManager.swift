@@ -179,7 +179,13 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             // so the "You" pipeline hears only the user.
             do {
                 try inputNode.setVoiceProcessingEnabled(true)
-                mclog("[Mic] Echo cancellation ON")
+                // Voice processing DUCKS all other system audio by default —
+                // users could barely hear their own call. Turn ducking off;
+                // we only want the echo cancellation.
+                inputNode.voiceProcessingOtherAudioDuckingConfiguration =
+                    AVAudioVoiceProcessingOtherAudioDuckingConfiguration(
+                        enableAdvancedDucking: false, duckingLevel: .min)
+                mclog("[Mic] Echo cancellation ON (ducking off)")
             } catch {
                 mclog("[Mic] Voice processing unavailable (\(error.localizedDescription)) — relying on bleed gate")
             }
