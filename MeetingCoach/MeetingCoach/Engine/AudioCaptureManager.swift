@@ -26,6 +26,9 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     var onSpeakerSegments: (@Sendable @MainActor ([SpeakerSegment]) -> Void)?
     var onStatus: (@Sendable @MainActor (String) -> Void)?
 
+    /// Vocabulary to bias recognition toward (participant names, deal terms).
+    var contextualHints: [String] = []
+
     private let startTime = Date()
     private var isRunning = false
 
@@ -136,6 +139,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             throw CaptureError.onDeviceUnavailable
         }
         let pipe = RecognitionPipeline(speaker: speaker, recognizer: recognizer, sessionStart: startTime)
+        pipe.contextualHints = contextualHints
         pipe.onUtterance = { [weak self] u in self?.deliver(u) }
         pipe.onPartial = { [weak self] text in
             guard let self else { return }
@@ -315,6 +319,9 @@ private final class RecognitionPipeline: @unchecked Sendable {
     /// Called on the pipeline's queue with each emitted utterance.
     var onUtterance: ((Utterance) -> Void)?
 
+    /// Vocabulary bias applied to every recognition request.
+    var contextualHints: [String] = []
+
     /// In-flight recognizer text not yet emitted as an utterance. Fires on
     /// every partial result so the UI can render live, dictation-style;
     /// empty string means the pending line was committed or cleared.
@@ -414,6 +421,7 @@ private final class RecognitionPipeline: @unchecked Sendable {
         req.shouldReportPartialResults = true
         req.addsPunctuation = true
         req.requiresOnDeviceRecognition = true
+        req.contextualStrings = contextualHints
 
         task?.cancel()
         currentRequest?.endAudio()

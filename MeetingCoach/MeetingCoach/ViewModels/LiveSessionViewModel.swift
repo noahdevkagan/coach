@@ -97,6 +97,7 @@ final class LiveSessionViewModel {
         isLive = true
 
         let manager = AudioCaptureManager()
+        manager.contextualHints = context.vocabularyHints
         captureManager = manager
         let sessionStart = Date()
 
