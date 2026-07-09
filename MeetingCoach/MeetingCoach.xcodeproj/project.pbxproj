@@ -266,7 +266,6 @@
 				B9B6D1CF78696895E5DA41AF /* Sources */,
 				0874089BE662ED1DAB699DEB /* Resources */,
 				7DC22CA249D6D735BC064D04 /* Frameworks */,
-				CF008423AF5E677184DA049C /* Copy to /Applications */,
 			);
 			buildRules = (
 			);
@@ -351,24 +350,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "mkdir -p \"${SRCROOT}/MeetingCoach/Resources/ollama\"\n";
-		};
-		CF008423AF5E677184DA049C /* Copy to /Applications */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Copy to /Applications";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "rm -rf \"/Applications/${PRODUCT_NAME}.app\" 2>/dev/null\nif ditto \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app\" \"/Applications/${PRODUCT_NAME}.app\"; then\n  codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY:--}\" --entitlements \"${TARGET_TEMP_DIR}/${PRODUCT_NAME}.app.xcent\" --timestamp=none --generate-entitlement-der \"/Applications/${PRODUCT_NAME}.app\" || echo \"warning: re-sign of /Applications copy failed\"\nelse\n  echo \"warning: install to /Applications failed\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

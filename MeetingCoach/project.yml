@@ -50,22 +50,10 @@ targets:
       - script: |
           mkdir -p "${SRCROOT}/MeetingCoach/Resources/ollama"
         name: "Ensure ollama resource dir exists"
-    postBuildScripts:
-      # rm + ditto, NOT cp -R: cp -R onto an existing .app nests the new
-      # bundle INSIDE the old one, leaving a stale app that still launches.
-      # Script phases run BEFORE Xcode's CodeSign step, so the copy must be
-      # re-signed here or the installed app fails to launch (POSIX 153).
-      - script: |
-          rm -rf "/Applications/${PRODUCT_NAME}.app" 2>/dev/null
-          if ditto "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app" "/Applications/${PRODUCT_NAME}.app"; then
-            codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY:--}" \
-              --entitlements "${TARGET_TEMP_DIR}/${PRODUCT_NAME}.app.xcent" \
-              --timestamp=none --generate-entitlement-der \
-              "/Applications/${PRODUCT_NAME}.app" || echo "warning: re-sign of /Applications copy failed"
-          else
-            echo "warning: install to /Applications failed"
-          fi
-        name: "Copy to /Applications"
+    # NB: installing to /Applications must NOT be a build phase — script
+    # phases run before Xcode's CodeSign step, so any copy made there ships
+    # an unsigned app that fails to launch. It lives in the scheme's build
+    # post-action below, which runs after signing completes.
     dependencies:
       - package: Yams
       - package: Sparkle
@@ -99,3 +87,21 @@ targets:
           CODE_SIGN_STYLE: "Manual"
           DEVELOPMENT_TEAM: ""
           ENABLE_APP_SANDBOX: "NO"
+
+schemes:
+  MeetingCoach:
+    build:
+      targets:
+        MeetingCoach: all
+      postActions:
+        # Runs AFTER code signing (unlike build phases, which run before
+        # it and would install an unsigned, unlaunchable app). rm + ditto,
+        # not cp -R: cp -R onto an existing .app nests the new bundle
+        # inside the old one, leaving a stale app that still launches.
+        - name: "Install to /Applications"
+          settingsTarget: MeetingCoach
+          script: |
+            rm -rf "/Applications/${PRODUCT_NAME}.app"
+            ditto "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app" "/Applications/${PRODUCT_NAME}.app" || echo "warning: install to /Applications failed"
+    run:
+      config: Debug
