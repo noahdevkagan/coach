@@ -47,6 +47,7 @@
 		B2AC75147E4394FD58C99445 /* LiveSessionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67120DB8C352138595D0B749 /* LiveSessionViewModel.swift */; };
 		C322C07D3607C86B929C4345 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 226945101416D23B896436E1 /* SettingsViewModel.swift */; };
 		C333FB6099F885862570B759 /* SessionTrends.swift in Sources */ = {isa = PBXBuildFile; fileRef = C383A162604A3D3AE197F2A2 /* SessionTrends.swift */; };
+		C4B5DD336F4BEA94B577F930 /* PositiveSignals.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6012F4265B831203CEF29D7 /* PositiveSignals.swift */; };
 		C7D931047233C23F27CBE934 /* HighStakesSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AC5039B5EC737FFECE6A190 /* HighStakesSignal.swift */; };
 		CAD8C8E966931110E2D6415E /* SimulationTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42E54C36F44DC42BE2B8D5D9 /* SimulationTimelineView.swift */; };
 		CFFBB860B8F9AB35E34F7AEA /* StackedQuestionsSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC33A03F287BAB0CDBCFC8FD /* StackedQuestionsSignal.swift */; };
@@ -102,6 +103,7 @@
 		C6D95FE03A7025FB8F8EE69D /* MissingDiscoverySignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MissingDiscoverySignal.swift; sourceTree = "<group>"; };
 		CA1F99166785B46F89B17133 /* TranscriptParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptParser.swift; sourceTree = "<group>"; };
 		D42F23C4E546293201AFCA59 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		D6012F4265B831203CEF29D7 /* PositiveSignals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositiveSignals.swift; sourceTree = "<group>"; };
 		D6938A6A744BB0879039ACA6 /* SignalFeedItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignalFeedItem.swift; sourceTree = "<group>"; };
 		E14BE3A1F1E4ACABA20A2F9C /* Simulator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Simulator.swift; sourceTree = "<group>"; };
 		E2D977B35E70510FAAE58159 /* AdaptiveThresholds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveThresholds.swift; sourceTree = "<group>"; };
@@ -236,6 +238,7 @@
 				C6D95FE03A7025FB8F8EE69D /* MissingDiscoverySignal.swift */,
 				B3C6B8636393601795161557 /* NextStepsSignal.swift */,
 				F56C800A06EA0F3F19E249A9 /* OverrunSignal.swift */,
+				D6012F4265B831203CEF29D7 /* PositiveSignals.swift */,
 				E9892670227218AFE8677E69 /* QuestionParkedSignal.swift */,
 				0A77874939901EA598BC1814 /* RepetitionLoopSignal.swift */,
 				BC33A03F287BAB0CDBCFC8FD /* StackedQuestionsSignal.swift */,
@@ -380,6 +383,7 @@
 				29B5CC4536FD985F624286F8 /* OllamaManager.swift in Sources */,
 				070C44F2395C329D75265ED2 /* OverrunSignal.swift in Sources */,
 				4030F7FB23A09D09F296291C /* ParakeetTranscriber.swift in Sources */,
+				C4B5DD336F4BEA94B577F930 /* PositiveSignals.swift in Sources */,
 				1C1FD0E1B619D8BD0BDE9FF4 /* PreCallContext.swift in Sources */,
 				643DA0464410998385AE5E60 /* PreCallFormView.swift in Sources */,
 				D18015A9C5944D5D37845BC9 /* PromptBuilder.swift in Sources */,

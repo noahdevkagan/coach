@@ -57,10 +57,13 @@ Two parts:
    `UPDATE_GOLDEN=1 tests/nudges/run.sh`, review the diff, commit.
    The fixture format has no `endT`, so the parakeet golden legitimately
    lacks `talkTime` (see the comment in `run.sh`); part 2 covers it.
-2. **sigcheck.** Compiles `TalkTimeSignal` + `TurnBuilder` and replays a
+2. **sigcheck.** Compiles the real signal sources and asserts live
+   properties the golden can't test: talkTime fires by tick 70 for a
    monologue delivered as chunky Parakeet commits with real `[t, endT]`
-   spans, asserting the nudge fires by tick 70. This is the live-timing
-   property the golden can't test.
+   spans; diarizer relabel doesn't duplicate turns; questionLanded
+   (positive reinforcement) fires for a short open question that pulls a
+   long answer but not for a monologue ending in "?"; and positive
+   phrase signals respect their per-meeting fire cap.
 
 ## Stage 4: trend (`bench/run.sh`)
 

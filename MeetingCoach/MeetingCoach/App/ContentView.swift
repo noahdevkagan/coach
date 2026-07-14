@@ -387,6 +387,7 @@ struct NudgeCardView: View {
     }
 
     private var urgencyColor: Color {
+        if nudge.type.isPositive { return .green }
         switch nudge.urgency {
         case .low: return .gray
         case .med: return .blue

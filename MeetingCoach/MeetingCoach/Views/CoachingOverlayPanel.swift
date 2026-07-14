@@ -52,9 +52,9 @@ struct CoachingOverlayView: View {
                 .frame(width: 6, height: 6)
 
             if let nudge = activeNudge {
-                // Urgency dot
+                // Urgency dot (green = reinforcement, not a correction)
                 Circle()
-                    .fill(urgencyColor(nudge.urgency))
+                    .fill(nudgeColor(nudge))
                     .frame(width: 8, height: 8)
 
                 // Nudge text
@@ -101,7 +101,7 @@ struct CoachingOverlayView: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(activeNudge != nil ? urgencyColor(activeNudge!.urgency).opacity(0.3) : Color.primary.opacity(0.08), lineWidth: 1)
+                .stroke(activeNudge != nil ? nudgeColor(activeNudge!).opacity(0.3) : Color.primary.opacity(0.08), lineWidth: 1)
         )
         .padding(6)
         .animation(.easeInOut(duration: 0.3), value: activeNudge?.id)
@@ -118,8 +118,9 @@ struct CoachingOverlayView: View {
         .buttonStyle(.plain)
     }
 
-    private func urgencyColor(_ urgency: NudgeUrgency) -> Color {
-        switch urgency {
+    private func nudgeColor(_ nudge: Nudge) -> Color {
+        if nudge.type.isPositive { return .green }
+        switch nudge.urgency {
         case .low: return .gray
         case .med: return .blue
         case .high: return .orange

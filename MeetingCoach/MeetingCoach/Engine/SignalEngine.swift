@@ -82,6 +82,19 @@ struct SignalEngine {
         voiceShare.shareThreshold = min(0.9, voiceShare.shareThreshold * m(.voiceShare) * kind.talkTimeMultiplier.squareRoot())
         voiceShare.cooldown *= m(.voiceShare)
 
+        // Positive reinforcement — feedback adapts frequency like any other
+        // signal ("useful" makes green more common, "annoying" rarer).
+        var questionLanded = QuestionLandedSignal()
+        questionLanded.cooldown *= m(.questionLanded)
+        var ownership = PositiveSignals.ownershipHanded()
+        ownership.cooldown *= m(.ownershipHanded)
+        var refocused = PositiveSignals.refocused()
+        refocused.cooldown *= m(.refocused)
+        var locked = PositiveSignals.commitmentLocked()
+        locked.cooldown *= m(.commitmentLocked)
+        var reflected = PositiveSignals.reflectedBack()
+        reflected.cooldown *= m(.reflectedBack)
+
         monitors = [
             talkTime,
             discovery,
@@ -98,6 +111,11 @@ struct SignalEngine {
             voiceShare,
             HighStakesSignal(),
             QuestionParkedSignal(),
+            questionLanded,
+            ownership,
+            refocused,
+            locked,
+            reflected,
         ]
     }
 

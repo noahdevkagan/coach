@@ -64,4 +64,50 @@ if after <= before + 1 {           // relabel may split a merged turn, never dup
     print("relabel rebuild: \(before) turns -> \(after) after invalidate+relabel -> FAIL (duplicated turns)")
     fail = true
 }
+
+// Positive reinforcement: a short open question from You that pulls a long
+// answer from Them fires questionLanded; a long You turn ending in "?" (a
+// monologue, not an open question) must NOT.
+let longAnswer = Array(repeating: "the honest answer is the process broke when we started building while designing", count: 8).joined(separator: " ")
+func landed(question: String) -> Bool {
+    var qBuilder = TurnBuilder()
+    var qSignal = QuestionLandedSignal()
+    let utts = [
+        Utterance(t: 10, speaker: "You", text: question, endT: 14),
+        Utterance(t: 16, speaker: "Them", text: longAnswer, endT: 55),
+    ]
+    for u in utts { qBuilder.append(u) }
+    let qInput = SignalInput(utterances: utts, turns: qBuilder.turns,
+                             fresh: utts[...], elapsed: 60,
+                             context: PreCallContext(meetingGoal: "", scheduledDurationMinutes: 30),
+                             speakerLabelsReliable: true)
+    return qSignal.evaluate(qInput) != nil
+}
+let openQ = landed(question: "What should I know that I don't?")
+let monologueQ = landed(question: Array(repeating: "so the way I see the launch working is that we anchor on the number and", count: 4).joined(separator: " ") + " does that make sense?")
+if openQ && !monologueQ {
+    print("questionLanded: open question fires, 60-word monologue-question doesn't -> PASS")
+} else {
+    print("questionLanded: open=\(openQ) monologue=\(monologueQ) (want true/false) -> FAIL")
+    fail = true
+}
+
+// Phrase reinforcement respects the per-meeting fire cap.
+var phraseSignal = PositiveSignals.ownershipHanded()
+var firedCount = 0
+for round in 0..<4 {
+    let t = Double(round) * 1_000 + 50
+    let u = [Utterance(t: t, speaker: "You", text: "This one is your call to make.", endT: t + 2)]
+    var b = TurnBuilder(); for x in u { b.append(x) }
+    let inp = SignalInput(utterances: u, turns: b.turns, fresh: u[...], elapsed: t + 5,
+                          context: PreCallContext(meetingGoal: "", scheduledDurationMinutes: 30),
+                          speakerLabelsReliable: true)
+    if phraseSignal.evaluate(inp) != nil { firedCount += 1 }
+}
+if firedCount == 2 {
+    print("positive phrase cap: 4 triggers -> \(firedCount) fires (max 2) -> PASS")
+} else {
+    print("positive phrase cap: 4 triggers -> \(firedCount) fires (want 2) -> FAIL")
+    fail = true
+}
 exit(fail ? 1 : 0)

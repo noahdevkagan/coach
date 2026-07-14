@@ -9,6 +9,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## 0.4.6
 
+- The coach now praises too: green nudges reinforce your best moves the moment they happen — a great open question that gets them talking, handing someone the decision, refocusing a drifting room, locking commitments, and reflecting their point back
 - Fixed: the other side's voice no longer bleeds into your ("You") side of the transcript when you're on speakers — measured on a real call, wrong-speaker words dropped from ~3,800 to ~500
 - Their side of the transcript now comes through in full sentences instead of 2-3 word fragments, and stops dropping quiet words
 

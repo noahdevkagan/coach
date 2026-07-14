@@ -21,6 +21,10 @@ enum NudgeType: String, Codable, CaseIterable {
          goingQuiet, yesMan, unansweredQuestion, interruption,
          commitmentGap, droppedThread, priceFlinch, vagueAnswer,
          overrun, voiceShare, questionParked,
+         // Positive reinforcement (deterministic) — behaviors the coaching
+         // notes flag as wins, reinforced the moment they happen
+         questionLanded, ownershipHanded, refocused,
+         commitmentLocked, reflectedBack,
          // Tier-2 semantic signals (local LLM heartbeat)
          noDecision, alignmentReached, buriedSignal, hedgeNotPinned
 
@@ -43,10 +47,26 @@ enum NudgeType: String, Codable, CaseIterable {
         case .overrun: return "Over Time"
         case .voiceShare: return "Floor Hog"
         case .questionParked: return "Parked Question"
+        case .questionLanded: return "Question Landed"
+        case .ownershipHanded: return "Handed Over"
+        case .refocused: return "Refocused"
+        case .commitmentLocked: return "Locked In"
+        case .reflectedBack: return "Reflected"
         case .noDecision: return "No Decision"
         case .alignmentReached: return "Converged"
         case .buriedSignal: return "Buried Signal"
         case .hedgeNotPinned: return "Pin the Date"
+        }
+    }
+
+    /// Reinforcement, not correction — rendered green, worded as praise.
+    var isPositive: Bool {
+        switch self {
+        case .questionLanded, .ownershipHanded, .refocused,
+             .commitmentLocked, .reflectedBack, .alignmentReached:
+            return true
+        default:
+            return false
         }
     }
 }
