@@ -9,16 +9,13 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## 0.4.6
 
+<!-- 0.4.5 was never tagged, so its notes ship here — updaters come from 0.4.4. -->
+
 - The coach now praises too: green nudges reinforce your best moves the moment they happen — a great open question that gets them talking, handing someone the decision, refocusing a drifting room, locking commitments, and reflecting their point back
+- Much more accurate transcripts — a new on-device engine (Parakeet) replaces Apple's speech recognizer. Still 100% on your Mac; downloads a ~600 MB model on first session (falls back to the old engine if the model can't load)
 - Fixed: the other side's voice no longer bleeds into your ("You") side of the transcript when you're on speakers — measured on a real call, wrong-speaker words dropped from ~3,800 to ~500
 - Their side of the transcript now comes through in full sentences instead of 2-3 word fragments, and stops dropping quiet words
-
-## 0.4.5
-
-- Much more accurate transcripts — a new on-device engine (Parakeet) replaces Apple's speech recognizer. Still 100% on your Mac; downloads a ~600 MB model on first session
-- If the model can't load, sessions automatically fall back to the previous engine
-- Fixed: large blank spaces appearing between transcript lines
-- Fixed: transcript lines duplicating (out of order) once speakers were identified
+- Fixed: large blank spaces between transcript lines, and lines duplicating once speakers were identified
 
 ## 0.4.4
 
