@@ -1,0 +1,43 @@
+# Ground-truth notes for transcript-leadership-team-mtg.txt (2026-07-14 leadership team).
+# Times are elapsed mm:ss from meeting start (11:31:49 wall clock).
+# Full rationale and NO_FIRE / HARD_NEGATIVE stretches: leadership-2026-07-14-labels.md
+# Requires rubric fixes: broaden stacked_asks beyond single-turn; add hedge_not_pinned
+# to personal.yaml (currently default.yaml only).
+
+- signal_id: unaddressed_objection
+  t: "02:16"
+  text: "Lyndsay said no with a reason (no audience overlap, fiction writers); Noah repitched twice without reflecting it."
+
+- signal_id: promise_vs_clock
+  t: "28:26"
+  text: "Noah boxed 'another 2 min' at 22:26, then kept opening threads to 36:01."
+
+- signal_id: hedge_not_pinned
+  t: "30:21"
+  text: "Matt softened tomorrow's proposal list to 'on my radar' with no new date; accepted without pinning. (Matt-to-Anna thread — acceptable v1 miss.)"
+
+- signal_id: stacked_asks
+  t: "35:07"
+  text: "Six asks to Lyndsay in 49s (one-pager, optimize-for, think-and-return, options, baseline, check with Caitlin); 4th ask lands at 35:07."
+
+- signal_id: unaddressed_objection
+  t: "35:12"
+  text: "Noah asked what to optimize for; Lyndsay answered 'conversion rate' (Matt: 'net revenue'); Noah's next utterance reflected neither."
+
+# Candidate v2 signal (private context surfaced live) — no rubric signal_id yet.
+# Detectable at low confidence from surface text; needs pre-call context object to confirm.
+- t: "13:38"
+  text: "Noah aired Anna's private 1:1 read ('people maybe aren't telling you the truth') to the group."
+
+# Positive reinforcement (green nudges expected)
+- signal_id: positive_reinforcement
+  t: "00:22"
+  text: "Noah self-interrupted the tangent spiral ('okay, I'm stopping')."
+
+- signal_id: positive_reinforcement
+  t: "33:08"
+  text: "Decision-forcing question after long ambiguity ('what would make it easy to make a decision?') plus over-time acknowledgment."
+
+# Logged saves, no nudge expected (excluded from recall so silence doesn't count as a miss):
+#   13:20  parked Anna's dashboard thread out of the group meeting ("do this afterwards?")
+#   02:35  ownership handoff ("That would be Caitlin's call")
