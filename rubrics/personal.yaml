@@ -62,8 +62,10 @@ signals:
   - id: stacked_asks
     tier: A
     description: >
-      You bundled 3+ asks, questions, or topics into one turn without labeling them.
-      The listener can only track one at a time.
+      You issued 3+ asks, questions, or topics to the same person in a short window
+      (one turn or a rapid series of turns) without closing or confirming any of them.
+      Their acknowledgments ("yeah, okay", "I'll think about it") don't reset the count —
+      only a closed ask does. The listener can only track one at a time.
     nudge: "You're stacking asks. Label them 1, 2, 3 and take one at a time."
 
   - id: global_negative
@@ -81,6 +83,14 @@ signals:
       You've been talking significantly more than everyone else in the recent window.
       Over ~65% of the words are yours. Time to listen.
     nudge: "You're over 65% talk time. Ask one open question and go quiet."
+
+  - id: hedge_not_pinned
+    tier: B
+    description: >
+      A commitment or deliverable got softened from a date to vague language
+      ("on my radar", "at some point", a range) with no new date stated, and it
+      was accepted without pinning.
+    nudge: "That's not a date. Pin one."
 
   - id: promise_vs_clock
     tier: B

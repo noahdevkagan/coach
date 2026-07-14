@@ -11,12 +11,17 @@ it just exercises the plumbing and gives a non-empty baseline.
 from __future__ import annotations
 
 import json
+import os
 import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Protocol
 
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+# Overridable because MeetingCoach.app's bundled ollama occupies the default
+# port; the loopback assertion below still applies to any override.
+DEFAULT_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
 
 
 class Provider(Protocol):
@@ -36,7 +41,7 @@ class OllamaProvider:
     """Talks to a local Ollama daemon (OpenAI-compatible chat endpoint)."""
 
     def __init__(self, model: str = "qwen2.5:7b-instruct",
-                 base_url: str = "http://127.0.0.1:11434/v1", timeout: float = 60.0):
+                 base_url: str = DEFAULT_BASE_URL, timeout: float = 60.0):
         _assert_loopback(base_url)
         self.model = model
         self.base_url = base_url.rstrip("/")
