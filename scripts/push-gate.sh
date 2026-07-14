@@ -30,6 +30,7 @@ echo "build: PASS"
 
 echo "--- [2/4] transcript (real-time audio, ~2-3 min)"
 bash tests/asr/run.sh || { echo "TRANSCRIPT GATE FAILED"; exit 1; }
+bash tests/echo/run.sh || { echo "ECHO FILTER GATE FAILED"; exit 1; }
 
 echo "--- [3/4] nudges"
 bash tests/nudges/run.sh || { echo "NUDGE GATE FAILED"; exit 1; }

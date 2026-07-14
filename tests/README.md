@@ -39,6 +39,13 @@ Chunk boundaries depend on wall-clock ticks, so runs aren't
 byte-identical — that's why the gate scores WER + count bands, never
 exact text.
 
+Stage 2 also runs `tests/echo/run.sh`: pure-logic checks (seconds, no
+audio) compiling the app's real `EchoFilter.swift` — the sentence-level
+suppression that keeps the far side's voice (speakers → mic bleed) out
+of the "You" channel. Covers: echoed sentence stripped from a mixed
+chunk, all-echo chunk dropped, genuine speech untouched, short
+backchannels always kept, the time window, and partial-delta pooling.
+
 ## Stage 3: nudges (`tests/nudges`)
 
 Two parts:

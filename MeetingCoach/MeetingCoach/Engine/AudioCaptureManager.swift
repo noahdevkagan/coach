@@ -63,10 +63,9 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     private let micSilenceFloor: Float = 0.005
 
     // Software echo suppression: with voice processing off, the far side's
-    // voice can reach the mic acoustically (speakers). Mic transcriptions
-    // that mostly repeat what "Them" said in the last few seconds are echo.
-    private let echoLock = NSLock()
-    private var recentThemWords: [(at: Date, words: [String])] = []
+    // voice can reach the mic acoustically (speakers). Mic sentences that
+    // mostly repeat concurrent "Them" speech are stripped before delivery.
+    private let echoFilter = EchoFilter()
 
 
     // MARK: - Public
@@ -151,10 +150,13 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
     // MARK: - Pipelines
 
-    private func makePipeline(speaker: String) throws -> any TranscriptionPipeline {
+    private func makePipeline(speaker: String,
+                              voiceFloor: Float = 0.006,
+                              commitSilence: TimeInterval = 0.9) throws -> any TranscriptionPipeline {
         let pipe: any TranscriptionPipeline
         if usingParakeet {
-            pipe = ParakeetPipeline(speaker: speaker, sessionStart: startTime)
+            pipe = ParakeetPipeline(speaker: speaker, sessionStart: startTime,
+                                    voiceFloor: voiceFloor, commitSilence: commitSilence)
         } else {
             guard let recognizer = SFSpeechRecognizer(locale: .init(identifier: "en-US")),
                   recognizer.isAvailable else {
@@ -172,8 +174,18 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         pipe.onUtterance = { [weak self] u in self?.deliver(u) }
         pipe.onPartial = { [weak self] text in
             guard let self else { return }
+            var display = text
+            if speaker == "Them" {
+                // Feed the echo pool from partials: committed "Them" text can
+                // lag the mic commit by many seconds, partials arrive in ~1s.
+                self.echoFilter.recordFarPartial(text)
+            } else if self.hasSystemAudio, !text.isEmpty {
+                // The live pending line should not show the far side's words.
+                display = self.echoFilter.filter(
+                    text, since: Date().addingTimeInterval(-35))?.text ?? ""
+            }
             Task { @MainActor [onPartialText = self.onPartialText] in
-                onPartialText?(speaker, text)
+                onPartialText?(speaker, display)
             }
         }
         return pipe
@@ -182,20 +194,13 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     /// Deliver an utterance from a pipeline, applying echo suppression and
     /// the bleed gate to the mic side.
     private func deliver(_ u: Utterance) {
+        var u = u
         if hasSystemAudio {
             if u.speaker == "Them" {
-                // Remember far-side words for echo comparison.
-                echoLock.lock()
-                recentThemWords.append((Date(), Self.normalizedWords(u.text)))
-                let cutoff = Date().addingTimeInterval(-8)
-                recentThemWords.removeAll { $0.at < cutoff }
-                echoLock.unlock()
+                // Remember far-side words for echo comparison (partials feed
+                // the pool too; commits catch re-transcription revisions).
+                echoFilter.recordFarText(u.text)
             } else {
-                // Echo: the mic transcribed what the speakers just played.
-                if isLikelyEcho(u.text) {
-                    mclog("[Capture] Dropped echo chunk: \(u.text.prefix(50))")
-                    return
-                }
                 // Bleed gate backstop: mic has been quiet — whatever was
                 // transcribed leaked from the speakers.
                 micStateLock.lock()
@@ -205,37 +210,26 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
                     mclog("[Capture] Dropped bleed chunk (mic quiet \(String(format: "%.1f", sinceLoud))s): \(u.text.prefix(50))")
                     return
                 }
+                // Strip echoed sentences. The pool window opens slightly
+                // before the chunk started: echo is simultaneous with the
+                // far speech that caused it.
+                let chunkStart = startTime.addingTimeInterval(u.t - 3)
+                guard let (text, keptFraction) = echoFilter.filter(u.text, since: chunkStart) else {
+                    mclog("[Capture] Dropped echo chunk: \(u.text.prefix(50))")
+                    return
+                }
+                if keptFraction < 1.0 {
+                    mclog("[Capture] Stripped echo (kept \(Int(keptFraction * 100))%): \(text.prefix(50))")
+                    // Shrink the span too, or talk-time would credit "You"
+                    // for the time the far side was speaking into the mic.
+                    u = Utterance(t: u.t, speaker: u.speaker, text: text,
+                                  endT: u.t + u.duration * keptFraction)
+                }
             }
         }
         Task { @MainActor [onUtterance] in
             onUtterance?(u)
         }
-    }
-
-    /// True when most of this mic chunk's words appeared in recent far-side
-    /// speech — the acoustic-echo signature.
-    private func isLikelyEcho(_ text: String) -> Bool {
-        let words = Self.normalizedWords(text)
-        guard words.count >= 2 else { return false }
-        echoLock.lock()
-        var pool: [String: Int] = [:]
-        for entry in recentThemWords {
-            for w in entry.words { pool[w, default: 0] += 1 }
-        }
-        echoLock.unlock()
-        guard !pool.isEmpty else { return false }
-        var matched = 0
-        for w in words where (pool[w] ?? 0) > 0 {
-            matched += 1
-            pool[w]! -= 1
-        }
-        return Double(matched) / Double(words.count) >= 0.6
-    }
-
-    private static func normalizedWords(_ text: String) -> [String] {
-        text.lowercased()
-            .components(separatedBy: CharacterSet.alphanumerics.inverted)
-            .filter { !$0.isEmpty }
     }
 
     // MARK: - Microphone
@@ -345,7 +339,13 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         config.height = 2
         config.minimumFrameInterval = CMTime(value: 1, timescale: 1)
 
-        let pipe = try makePipeline(speaker: "Them")
+        // System audio is digitally silent between phrases (Zoom/Meet noise-
+        // gate the remote stream) and remote voices trail off well below the
+        // mic's room-noise floor. With mic-tuned thresholds this channel
+        // fragmented into 2-3 word chunks (median 3 words over a real 82-min
+        // call) that transcribe with no context and clip boundary words —
+        // hence the lower floor and the longer silence gap here.
+        let pipe = try makePipeline(speaker: "Them", voiceFloor: 0.002, commitSilence: 2.0)
 
         let stream = SCStream(filter: filter, configuration: config, delegate: self)
         try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: sysAudioQueue)

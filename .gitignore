@@ -40,3 +40,4 @@ tests/asr/audio/
 tests/asr/.build/
 tests/asr/.out/
 tests/nudges/.build/
+tests/echo/.build/

@@ -20,6 +20,7 @@
 		27B1368F1ECD54E49385BA3E /* GoingQuietSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4A0318F6463431087594DA0 /* GoingQuietSignal.swift */; };
 		29B5CC4536FD985F624286F8 /* OllamaManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AA712484D677FBBAA951166 /* OllamaManager.swift */; };
 		2FEDD9EAC36955339A139478 /* VagueAnswerSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94EF3B004043BDF659A8C3C2 /* VagueAnswerSignal.swift */; };
+		3777383CF5218E48A0B5262D /* EchoFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85881F8DA1B5854DE7BA9F7A /* EchoFilter.swift */; };
 		3C2ED703482E504317466F11 /* TalkTimeSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0A3778DC493524AA4D6FE0 /* TalkTimeSignal.swift */; };
 		3DD7919979773DBC30AA415A /* QuestionParkedSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9892670227218AFE8677E69 /* QuestionParkedSignal.swift */; };
 		4030F7FB23A09D09F296291C /* ParakeetTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73E93FA8D25DA2577F2827FF /* ParakeetTranscriber.swift */; };
@@ -84,6 +85,7 @@
 		7A2619C7DBDE479D92329B84 /* SessionTrendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTrendsView.swift; sourceTree = "<group>"; };
 		81D33EEE89EF224DC87FCF6E /* Utterance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utterance.swift; sourceTree = "<group>"; };
 		826E23E63EE91A96C88BA0F1 /* Trigger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Trigger.swift; sourceTree = "<group>"; };
+		85881F8DA1B5854DE7BA9F7A /* EchoFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EchoFilter.swift; sourceTree = "<group>"; };
 		88673BD63F55A97082E19D05 /* InterruptionSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterruptionSignal.swift; sourceTree = "<group>"; };
 		912C009E304E68EE3CED2F6A /* UnansweredQuestionSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnansweredQuestionSignal.swift; sourceTree = "<group>"; };
 		94EF3B004043BDF659A8C3C2 /* VagueAnswerSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VagueAnswerSignal.swift; sourceTree = "<group>"; };
@@ -175,6 +177,7 @@
 				E2D977B35E70510FAAE58159 /* AdaptiveThresholds.swift */,
 				169665A106EBBC6CCDA1F018 /* AudioCaptureManager.swift */,
 				A22984B60FE899BBFFC15C2E /* Coach.swift */,
+				85881F8DA1B5854DE7BA9F7A /* EchoFilter.swift */,
 				6A1BF8C4DA14D327E81E1832 /* OllamaClient.swift */,
 				9AA712484D677FBBAA951166 /* OllamaManager.swift */,
 				73E93FA8D25DA2577F2827FF /* ParakeetTranscriber.swift */,
@@ -364,6 +367,7 @@
 				0346B4653AC7CE35316608D8 /* CoachingCall.swift in Sources */,
 				47D5418F46BB2B90178F534E /* CoachingOverlayPanel.swift in Sources */,
 				831AAAE68BDAAC75DC37FB2B /* ContentView.swift in Sources */,
+				3777383CF5218E48A0B5262D /* EchoFilter.swift in Sources */,
 				27B1368F1ECD54E49385BA3E /* GoingQuietSignal.swift in Sources */,
 				C7D931047233C23F27CBE934 /* HighStakesSignal.swift in Sources */,
 				E64A1CF9A596EDF1578EA6E0 /* InterruptionSignal.swift in Sources */,

@@ -67,14 +67,22 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
     private let converter = AudioConverter()
     private var lastPartial = ""
 
-    private let voiceFloor: Float = 0.006
-    private let commitSilence: TimeInterval = 0.9
+    private let voiceFloor: Float
+    private let commitSilence: TimeInterval
     private let maxChunkSeconds = 30.0
     private let preRollSamples = 8_000         // 0.5s kept while waiting for voice
 
-    init(speaker: String, sessionStart: Date) {
+    /// Defaults are tuned for the microphone (room noise sets the floor).
+    /// System audio is digitally silent between phrases and remote voices
+    /// trail off quietly, so its pipeline passes a lower floor and a longer
+    /// silence gap — otherwise sentences fragment into 2-3 word chunks that
+    /// transcribe with no context.
+    init(speaker: String, sessionStart: Date,
+         voiceFloor: Float = 0.006, commitSilence: TimeInterval = 0.9) {
         self.speaker = speaker
         self.sessionStart = sessionStart
+        self.voiceFloor = voiceFloor
+        self.commitSilence = commitSilence
     }
 
     func start() {

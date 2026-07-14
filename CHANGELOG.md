@@ -7,6 +7,11 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## 0.4.6
+
+- Fixed: the other side's voice no longer bleeds into your ("You") side of the transcript when you're on speakers — measured on a real call, wrong-speaker words dropped from ~3,800 to ~500
+- Their side of the transcript now comes through in full sentences instead of 2-3 word fragments, and stops dropping quiet words
+
 ## 0.4.5
 
 - Much more accurate transcripts — a new on-device engine (Parakeet) replaces Apple's speech recognizer. Still 100% on your Mac; downloads a ~600 MB model on first session
