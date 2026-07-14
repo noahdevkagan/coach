@@ -39,7 +39,7 @@ final class SettingsViewModel {
             ?? "qwen2.5:7b-instruct"
         self.rubricPath = UserDefaults.standard.string(forKey: "rubricPath") ?? ""
         if self.rubricPath.isEmpty {
-            let defaultPath = NSString("~/dev/coach/rubrics/personal.yaml").expandingTildeInPath
+            let defaultPath = NSString("~/dev/meeting-coach/rubrics/personal.yaml").expandingTildeInPath
             if FileManager.default.fileExists(atPath: defaultPath) {
                 self.rubricPath = defaultPath
             }
@@ -135,13 +135,12 @@ final class SettingsViewModel {
     }
 
     func loadRubricOrDefault() throws -> Rubric {
-        let path = rubricPath.isEmpty ? nil : rubricPath
-        if let path, FileManager.default.fileExists(atPath: path) {
-            return try loadRubric(from: URL(fileURLWithPath: path))
+        if !rubricPath.isEmpty {
+            if FileManager.default.fileExists(atPath: rubricPath) {
+                return try loadRubric(from: URL(fileURLWithPath: rubricPath))
+            }
+            mclog("[Settings] Rubric not found at \(rubricPath) — falling back to built-in default rubric")
         }
-        return Rubric(
-            name: "default", version: 1,
-            cadence: Cadence(), window: TranscriptWindow(),
-            output: OutputConfig(), signals: [])
+        return .builtInDefault
     }
 }

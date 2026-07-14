@@ -39,6 +39,38 @@ struct Rubric: Sendable {
     }
 }
 
+extension Rubric {
+    /// Built-in generic rubric, mirroring rubrics/default.yaml. Used when no
+    /// rubric file is configured or the configured path is missing, so a fresh
+    /// install coaches with person-neutral signals instead of an empty rubric.
+    static let builtInDefault = Rubric(
+        name: "default", version: 1,
+        cadence: Cadence(), window: TranscriptWindow(),
+        output: OutputConfig(maxCallsPerTrigger: 3, minConfidenceToShow: 0.6),
+        signals: [
+            Signal(id: "no_decision_owner_date", tier: "A",
+                   description: "A clear question has been open too long with no decision, owner, and date stated.",
+                   nudge: "This has been open a while with nothing named. Decide it or park it.",
+                   needsDiarization: false, minConfidence: 0.6),
+            Signal(id: "alignment_reached_still_talking", tier: "A",
+                   description: "Two or more people state compatible positions on the open question.",
+                   nudge: "Sounds like agreement. Consider closing this out.",
+                   needsDiarization: false, minConfidence: 0.6),
+            Signal(id: "reopening_closed_thread", tier: "A",
+                   description: "A previously resolved topic gets relitigated.",
+                   nudge: "This seemed settled earlier. Intentional, or drift?",
+                   needsDiarization: false, minConfidence: 0.6),
+            Signal(id: "buried_signal_ignored", tier: "A",
+                   description: "A high-stakes statement (a metric, a risk, a concern) the conversation moves past.",
+                   nudge: "That sounded important and the conversation moved on.",
+                   needsDiarization: false, minConfidence: 0.6),
+            Signal(id: "hedge_not_pinned", tier: "B",
+                   description: "A commitment stated as a range or soft language.",
+                   nudge: "That was a range, not a firm commitment. Worth pinning down.",
+                   needsDiarization: false, minConfidence: 0.8),
+        ])
+}
+
 func loadRubric(from url: URL) throws -> Rubric {
     let text = try String(contentsOf: url, encoding: .utf8)
     guard let yaml = try Yams.load(yaml: text) as? [String: Any] else {
