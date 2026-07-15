@@ -10,6 +10,7 @@ cadence:
   heartbeat_seconds: 15
   extra_check_on_long_pause_seconds: 8
   extra_check_on_speaker_handoff: true
+  judge_interval_seconds: 30   # each per-signal LLM judge runs this often, staggered
 
 window:
   transcript_seconds: 300        # 5 min rolling window
@@ -61,6 +62,8 @@ signals:
 
   - id: stacked_asks
     tier: A
+    deterministic: true          # ask counter: "?" or request cues from you, rolling window
+    params: { min_asks: 4, window_seconds: 90 }
     description: >
       You issued 3+ asks, questions, or topics to the same person in a short window
       (one turn or a rapid series of turns) without closing or confirming any of them.
@@ -70,6 +73,7 @@ signals:
 
   - id: global_negative
     tier: A
+    deterministic: true          # regex: sweeping negation + capability verb from you
     description: >
       You said "we don't", "we never", "nobody does", "I don't think we do that" —
       a sweeping negative that makes the other person defend instead of inform.
@@ -79,6 +83,8 @@ signals:
 
   - id: talk_time_imbalance
     tier: B
+    deterministic: true          # word-count arithmetic over the window
+    params: { threshold: 0.65, min_window_words: 150 }
     description: >
       You've been talking significantly more than everyone else in the recent window.
       Over ~65% of the words are yours. Time to listen.
