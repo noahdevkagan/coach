@@ -19,6 +19,7 @@ class Signal:
     description: str
     nudge: str = ""
     needs_diarization: bool = False
+    deterministic: bool = False   # handled by code (regex/clock), never sent to the LLM
     params: dict[str, Any] = field(default_factory=dict)
     # Resolved from the tier table at load time.
     min_confidence: float = 0.6
@@ -76,6 +77,7 @@ def load_rubric(path: str | Path) -> Rubric:
                 description=raw.get("description", ""),
                 nudge=raw.get("nudge", ""),
                 needs_diarization=raw.get("needs_diarization", False),
+                deterministic=raw.get("deterministic", False),
                 params=raw.get("params", {}),
                 min_confidence=tier_floor,
             )

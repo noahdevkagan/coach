@@ -44,6 +44,37 @@ def _extract_json_array(raw: str) -> list[dict]:
             return []
 
 
+class TimeBoxMonitor:
+    """Deterministic promise_vs_clock: regex on explicit time-box phrases from
+    the coached user + wall clock. No LLM call. Fires once per promise when the
+    clock exceeds `multiplier` x the stated box (default 3x)."""
+
+    CUE = re.compile(r"\b(box|keep (?:this|it)|wrap|quick|short|tight)\b", re.IGNORECASE)
+    MINUTES = re.compile(r"\b(\d+)\s*(?:more\s+)?min(?:ute)?s?\b", re.IGNORECASE)
+
+    def __init__(self, multiplier: float = 3.0):
+        self.multiplier = multiplier
+        self._boxes: list[dict] = []      # {t, box_s, fired}
+        self._seen: set[float] = set()    # promise utterance times already armed
+
+    def observe(self, window, now: float) -> tuple[float, float] | None:
+        """Arm new boxes from the window; return (promise_t, box_s) if one just
+        expired past multiplier x box."""
+        for u in window:
+            if not u.is_you or u.t in self._seen:
+                continue
+            if self.CUE.search(u.text):
+                m = self.MINUTES.search(u.text)
+                if m:
+                    self._seen.add(u.t)
+                    self._boxes.append({"t": u.t, "box_s": int(m.group(1)) * 60, "fired": False})
+        for b in self._boxes:
+            if not b["fired"] and now - b["t"] >= self.multiplier * b["box_s"]:
+                b["fired"] = True
+                return b["t"], b["box_s"]
+        return None
+
+
 class Coach:
     def __init__(self, rubric: Rubric, provider: Provider, dedup_cooldown_s: float = 120.0):
         self.rubric = rubric
@@ -51,10 +82,31 @@ class Coach:
         self.dedup_cooldown_s = dedup_cooldown_s
         self.system = build_system(rubric)
         self._last_fired: dict[str, float] = {}   # signal_id -> last fire time
+        sig = rubric.signal("promise_vs_clock")
+        self._timebox = None
+        if sig is not None and sig.deterministic:
+            self._timebox = TimeBoxMonitor(multiplier=float(sig.params.get("multiplier", 3)))
+
+    def _deterministic_calls(self, trig: Trigger) -> list[Call]:
+        if self._timebox is None:
+            return []
+        hit = self._timebox.observe(trig.window, trig.now)
+        if hit is None:
+            return []
+        promise_t, box_s = hit
+        ago = round((trig.now - promise_t) / 60)
+        sig = self.rubric.signal("promise_vs_clock")
+        return [Call(
+            t=trig.now, signal_id=sig.id, confidence=0.95,
+            evidence=f"time box of {box_s // 60} min stated at "
+                     f"{int(promise_t) // 60:02d}:{int(promise_t) % 60:02d}",
+            nudge=f"You said {box_s // 60} min, {ago} min ago. Close or re-box.",
+            reason="deterministic",
+        )]
 
     def on_trigger(self, trig: Trigger) -> list[Call]:
         raw = self.provider.complete(self.system, build_user(trig.window, trig.summary, trig.now))
-        kept: list[Call] = []
+        kept: list[Call] = self._deterministic_calls(trig)
         for item in _extract_json_array(raw):
             sig = self.rubric.signal(item.get("signal_id", ""))
             if sig is None:

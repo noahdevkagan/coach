@@ -94,6 +94,8 @@ signals:
 
   - id: promise_vs_clock
     tier: B
+    deterministic: true          # regex on explicit time-box phrases + wall clock, no LLM
+    params: { multiplier: 3 }    # fire when elapsed exceeds 3x the stated box
     description: >
       You said "keep this short", "quick", "tight", "just two questions" but the
       meeting has continued well past that on the same topic.
