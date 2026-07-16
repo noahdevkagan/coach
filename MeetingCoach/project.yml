@@ -93,15 +93,8 @@ schemes:
     build:
       targets:
         MeetingCoach: all
-      postActions:
-        # Runs AFTER code signing (unlike build phases, which run before
-        # it and would install an unsigned, unlaunchable app). rm + ditto,
-        # not cp -R: cp -R onto an existing .app nests the new bundle
-        # inside the old one, leaving a stale app that still launches.
-        - name: "Install to /Applications"
-          settingsTarget: MeetingCoach
-          script: |
-            rm -rf "/Applications/${PRODUCT_NAME}.app"
-            ditto "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app" "/Applications/${PRODUCT_NAME}.app" || echo "warning: install to /Applications failed"
+      # No install-to-/Applications post-action: /Applications holds the
+      # signed Sparkle-updated release, and dev builds (always stamped
+      # 0.1.0) were silently clobbering it on every build and push gate.
     run:
       config: Debug

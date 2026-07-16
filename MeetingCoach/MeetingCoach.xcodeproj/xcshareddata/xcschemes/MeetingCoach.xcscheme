@@ -6,24 +6,6 @@
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES"
       runPostActionsOnFailure = "NO">
-      <PostActions>
-         <ExecutionAction
-            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
-            <ActionContent
-               title = "Install to /Applications"
-               scriptText = "rm -rf &quot;/Applications/${PRODUCT_NAME}.app&quot;&#10;ditto &quot;${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app&quot; &quot;/Applications/${PRODUCT_NAME}.app&quot; || echo &quot;warning: install to /Applications failed&quot;&#10;">
-               <EnvironmentBuildable>
-                  <BuildableReference
-                     BuildableIdentifier = "primary"
-                     BlueprintIdentifier = "D1A8716762363953800FC52D"
-                     BuildableName = "MeetingCoach.app"
-                     BlueprintName = "MeetingCoach"
-                     ReferencedContainer = "container:MeetingCoach.xcodeproj">
-                  </BuildableReference>
-               </EnvironmentBuildable>
-            </ActionContent>
-         </ExecutionAction>
-      </PostActions>
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
