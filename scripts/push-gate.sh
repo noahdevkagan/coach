@@ -16,6 +16,17 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
+# A benchmark-record commit touches only bench/history.jsonl. Re-running the
+# gate on it appends yet another line, so the tree never comes clean.
+upstream=$(git rev-parse '@{u}' 2>/dev/null)
+if [ -n "$upstream" ]; then
+    changed=$(git diff --name-only "$upstream"..HEAD)
+    if [ -n "$changed" ] && [ "$changed" = "bench/history.jsonl" ]; then
+        echo "=== push gate SKIPPED — outgoing commits touch only bench/history.jsonl ==="
+        exit 0
+    fi
+fi
+
 echo "=== push gate ==="
 start=$(date +%s)
 
