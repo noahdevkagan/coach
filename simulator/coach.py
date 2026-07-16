@@ -1,8 +1,16 @@
 """The coaching core, decoupled from audio.
 
-Given a trigger (window + summary), ask the model for calls, then apply the
-rubric's gates: per-tier confidence floor, global floor, per-trigger cap, and a
-dedup cooldown so the same signal doesn't nag repeatedly. Nag control lives here.
+Hybrid engine, mirroring the Swift app's architecture:
+- Deterministic detectors (detectors.py) handle the countable signals —
+  regex + counters + wall clock, no LLM, always on, effectively free.
+- The model judges the conversational signals ONE AT A TIME with a binary
+  verdict (prompts.build_judge_*). Each judge runs on its own staggered
+  interval so a trigger costs at most a couple of short model calls, not one
+  giant multi-classification.
+
+All calls then pass the same gates: per-tier confidence floor, global floor,
+per-trigger cap, and a dedup cooldown so the same signal doesn't nag
+repeatedly. Nag control lives here.
 """
 from __future__ import annotations
 
@@ -10,8 +18,9 @@ import json
 import re
 from dataclasses import dataclass
 
+from detectors import build_detectors
 from llm import Provider
-from prompts import build_system, build_user
+from prompts import build_judge_system, build_judge_user
 from rubric import Rubric
 from transcript import Trigger
 
@@ -26,53 +35,45 @@ class Call:
     reason: str         # which trigger produced it
 
 
-def _extract_json_array(raw: str) -> list[dict]:
-    """Models sometimes wrap JSON in prose/markdown. Pull the first array out."""
+def _normalize(text: str) -> str:
+    return re.sub(r"[^a-z0-9 ]", "", text.lower())
+
+
+def _evidence_in_transcript(evidence: str, haystack: str) -> bool:
+    """A judge's evidence must be a (near-)verbatim quote: some 4-word shingle
+    of it has to appear in the window or summary. Kills paraphrased-vibes calls
+    — the model asserting a pattern it cannot point to."""
+    words = _normalize(evidence).split()
+    if len(words) < 4:
+        return False
+    hay = _normalize(haystack)
+    return any(" ".join(words[i:i + 4]) in hay for i in range(len(words) - 3))
+
+
+def _extract_json_obj(raw: str) -> dict:
+    """Judges answer with one JSON object; models sometimes wrap it in prose,
+    markdown, or a one-element array."""
     raw = raw.strip()
     if raw.startswith("```"):
         raw = re.sub(r"^```[a-zA-Z]*\n?|\n?```$", "", raw).strip()
-    try:
-        val = json.loads(raw)
-        return val if isinstance(val, list) else []
-    except json.JSONDecodeError:
-        m = re.search(r"\[.*\]", raw, re.DOTALL)
-        if not m:
-            return []
+    for candidate in (raw,):
         try:
-            return json.loads(m.group(0))
+            val = json.loads(candidate)
         except json.JSONDecodeError:
-            return []
-
-
-class TimeBoxMonitor:
-    """Deterministic promise_vs_clock: regex on explicit time-box phrases from
-    the coached user + wall clock. No LLM call. Fires once per promise when the
-    clock exceeds `multiplier` x the stated box (default 3x)."""
-
-    CUE = re.compile(r"\b(box|keep (?:this|it)|wrap|quick|short|tight)\b", re.IGNORECASE)
-    MINUTES = re.compile(r"\b(\d+)\s*(?:more\s+)?min(?:ute)?s?\b", re.IGNORECASE)
-
-    def __init__(self, multiplier: float = 3.0):
-        self.multiplier = multiplier
-        self._boxes: list[dict] = []      # {t, box_s, fired}
-        self._seen: set[float] = set()    # promise utterance times already armed
-
-    def observe(self, window, now: float) -> tuple[float, float] | None:
-        """Arm new boxes from the window; return (promise_t, box_s) if one just
-        expired past multiplier x box."""
-        for u in window:
-            if not u.is_you or u.t in self._seen:
-                continue
-            if self.CUE.search(u.text):
-                m = self.MINUTES.search(u.text)
-                if m:
-                    self._seen.add(u.t)
-                    self._boxes.append({"t": u.t, "box_s": int(m.group(1)) * 60, "fired": False})
-        for b in self._boxes:
-            if not b["fired"] and now - b["t"] >= self.multiplier * b["box_s"]:
-                b["fired"] = True
-                return b["t"], b["box_s"]
-        return None
+            break
+        if isinstance(val, dict):
+            return val
+        if isinstance(val, list) and val and isinstance(val[0], dict):
+            return val[0]
+        return {}
+    m = re.search(r"\{.*\}", raw, re.DOTALL)
+    if m:
+        try:
+            val = json.loads(m.group(0))
+            return val if isinstance(val, dict) else {}
+        except json.JSONDecodeError:
+            pass
+    return {}
 
 
 class Coach:
@@ -80,53 +81,85 @@ class Coach:
         self.rubric = rubric
         self.provider = provider
         self.dedup_cooldown_s = dedup_cooldown_s
-        self.system = build_system(rubric)
+        self.detectors = build_detectors(rubric)
+        self.judged = [s for s in rubric.signals if not s.deterministic]
+        self._judge_system = {s.id: build_judge_system(s) for s in self.judged}
         self._last_fired: dict[str, float] = {}   # signal_id -> last fire time
-        sig = rubric.signal("promise_vs_clock")
-        self._timebox = None
-        if sig is not None and sig.deterministic:
-            self._timebox = TimeBoxMonitor(multiplier=float(sig.params.get("multiplier", 3)))
+        self._fire_count: dict[str, int] = {}     # signal_id -> fires this meeting
+        self._next_due: dict[str, float] | None = None  # judge schedule, lazy init
 
-    def _deterministic_calls(self, trig: Trigger) -> list[Call]:
-        if self._timebox is None:
-            return []
-        hit = self._timebox.observe(trig.window, trig.now)
-        if hit is None:
-            return []
-        promise_t, box_s = hit
-        ago = round((trig.now - promise_t) / 60)
-        sig = self.rubric.signal("promise_vs_clock")
-        return [Call(
-            t=trig.now, signal_id=sig.id, confidence=0.95,
-            evidence=f"time box of {box_s // 60} min stated at "
-                     f"{int(promise_t) // 60:02d}:{int(promise_t) % 60:02d}",
-            nudge=f"You said {box_s // 60} min, {ago} min ago. Close or re-box.",
-            reason="deterministic",
-        )]
+    def _due_judges(self, now: float) -> list:
+        """Stagger judges across the interval so one trigger never runs them all."""
+        interval = float(self.rubric.cadence.judge_interval_seconds)
+        if self._next_due is None:
+            n = max(len(self.judged), 1)
+            self._next_due = {s.id: now + i * interval / n for i, s in enumerate(self.judged)}
+        due = [s for s in self.judged if now >= self._next_due[s.id]]
+        for s in due:
+            self._next_due[s.id] = now + interval
+        return due
 
     def on_trigger(self, trig: Trigger) -> list[Call]:
-        raw = self.provider.complete(self.system, build_user(trig.window, trig.summary, trig.now))
-        kept: list[Call] = self._deterministic_calls(trig)
-        for item in _extract_json_array(raw):
-            sig = self.rubric.signal(item.get("signal_id", ""))
-            if sig is None:
-                continue  # hallucinated signal id
-            conf = float(item.get("confidence", 0.0))
-            floor = max(sig.min_confidence, self.rubric.output.min_confidence_to_show)
-            if conf < floor:
+        kept: list[Call] = []
+
+        for det in self.detectors:
+            for h in det.observe(trig.window, trig.now):
+                kept.append(Call(trig.now, h.signal_id, h.confidence,
+                                 h.evidence, h.nudge, "deterministic"))
+
+        user_prompt = None
+        haystack = None
+        for sig in self._due_judges(trig.now):
+            if user_prompt is None:
+                user_prompt = build_judge_user(trig.window, trig.summary, trig.now)
+                haystack = " ".join(u.text for u in trig.window) + " " + trig.summary
+            raw = self.provider.complete(self._judge_system[sig.id], user_prompt)
+            verdict = _extract_json_obj(raw)
+            if not verdict.get("fires"):
                 continue
-            last = self._last_fired.get(sig.id)
-            if last is not None and trig.now - last < self.dedup_cooldown_s:
-                continue  # still in cooldown — suppress the nag
+            # evidence_from: you — the quote must come from the coached user's
+            # own speech (e.g. positive_reinforcement praises YOUR move, not a
+            # participant's nice comment).
+            hay = haystack
+            if sig.params.get("evidence_from") == "you":
+                hay = " ".join(u.text for u in trig.window if u.is_you)
+                # A reinforcement nudge that names another participant is about
+                # them, not the coached user ("Great initiative, Anna") — drop.
+                nudge_l = str(verdict.get("nudge", "")).lower()
+                names = {w for u in trig.window if not u.is_you
+                         for w in u.speaker.lower().split()}
+                if any(n in nudge_l for n in names):
+                    continue
+            if not _evidence_in_transcript(str(verdict.get("evidence", "")), hay):
+                continue  # paraphrased or fabricated evidence — discard
             kept.append(Call(
-                t=trig.now, signal_id=sig.id, confidence=conf,
-                evidence=str(item.get("evidence", "")),
-                nudge=str(item.get("nudge", "")) or sig.nudge,
+                t=trig.now, signal_id=sig.id,
+                confidence=float(verdict.get("confidence", 0.0)),
+                evidence=str(verdict.get("evidence", "")),
+                nudge=str(verdict.get("nudge", "")) or sig.nudge,
                 reason=trig.reason,
             ))
 
-        kept.sort(key=lambda c: c.confidence, reverse=True)
-        kept = kept[: self.rubric.output.max_calls_per_trigger]
+        gated: list[Call] = []
         for c in kept:
+            sig = self.rubric.signal(c.signal_id)
+            if sig is None:
+                continue
+            floor = max(sig.min_confidence, self.rubric.output.min_confidence_to_show)
+            if c.confidence < floor:
+                continue
+            cooldown = float(sig.params.get("cooldown_seconds", self.dedup_cooldown_s))
+            last = self._last_fired.get(c.signal_id)
+            if last is not None and trig.now - last < cooldown:
+                continue  # still in cooldown — suppress the nag
+            cap = sig.params.get("max_per_meeting")
+            if cap is not None and self._fire_count.get(c.signal_id, 0) >= int(cap):
+                continue
+            gated.append(c)
+
+        gated.sort(key=lambda c: c.confidence, reverse=True)
+        gated = gated[: self.rubric.output.max_calls_per_trigger]
+        for c in gated:
             self._last_fired[c.signal_id] = c.t
-        return kept
+            self._fire_count[c.signal_id] = self._fire_count.get(c.signal_id, 0) + 1
+        return gated

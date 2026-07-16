@@ -28,10 +28,11 @@ python run.py --transcript samples/sample_meeting.txt \
 | File | Role |
 |---|---|
 | `rubric.py` | Loads `../rubrics/*.yaml`; resolves per-signal confidence floors from tiers. |
+| `detectors.py` | Deterministic detectors (regex/counters/clock) for signals marked `deterministic: true` — time-box, stacked asks, talk time, global negatives. No LLM. |
 | `transcript.py` | Parses `[mm:ss] SPEAKER: text`; `simulate()` yields triggers (heartbeat + long pause + speaker handoff). |
 | `prompts.py` | Injects rubric + window + running summary; constrains output to a JSON array of calls. |
 | `llm.py` | `OllamaProvider` (pinned to 127.0.0.1, **refuses non-loopback hosts**) + deterministic `MockProvider`. |
-| `coach.py` | The gates: per-tier confidence floor, dedup cooldown (nag control), per-trigger cap. |
+| `coach.py` | Hybrid engine: runs detectors + one-signal-per-call LLM judges on a staggered interval, then the gates: confidence floors, evidence-quote verification, per-signal cooldowns/caps, per-trigger cap. |
 | `backtest.py` | Scores recall, lead time, nag rate vs. ground-truth notes. |
 | `run.py` | CLI entrypoint. |
 

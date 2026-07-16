@@ -29,6 +29,7 @@ signals:
 
   - id: repetition_loop
     tier: A
+    params: { cooldown_seconds: 240 }
     description: >
       You asked the same question or made the same point 2+ times in different words,
       and the room gave the same answer each time. You're not after an answer — you're
@@ -45,6 +46,7 @@ signals:
 
   - id: resolution_capture
     tier: A
+    params: { cooldown_seconds: 300 }   # fires on a JUST-stated deliverable; once per 5 min max
     description: >
       A deliverable, owner, or next step was just stated clearly. Lock it with a name
       and date before the conversation drifts past it or you reopen it.
@@ -109,6 +111,9 @@ signals:
 
   - id: positive_reinforcement
     tier: A
+    # Reinforces YOUR good moves, not participants' nice comments — evidence
+    # must quote the coached user. Mirrors the app's positive phrase cap.
+    params: { evidence_from: you, cooldown_seconds: 300, max_per_meeting: 3 }
     description: >
       Something good just happened — a clean specific ask, a direct action-item with
       owner and date, a good close, someone naming what they need clearly. Reinforce it.

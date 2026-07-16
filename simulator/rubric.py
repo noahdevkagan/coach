@@ -30,6 +30,7 @@ class Cadence:
     heartbeat_seconds: int = 45
     extra_check_on_long_pause_seconds: int = 8
     extra_check_on_speaker_handoff: bool = True
+    judge_interval_seconds: int = 30   # how often each per-signal LLM judge runs
 
 
 @dataclass

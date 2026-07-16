@@ -1,9 +1,15 @@
-"""Prompt construction: inject the rubric + rolling window + running summary,
-and constrain the model to 0-3 short JSON calls.
+"""Prompt construction.
+
+Two modes:
+- build_system/build_user: the original all-signals-in-one-call prompt.
+- build_judge_system/build_judge_user: one signal per call, binary verdict.
+  Small local models are decent judges and poor multi-classifiers — the
+  leadership-meeting diagnosis showed 7B/14B firing at the right moments with
+  the wrong label when given the full 9-way taxonomy.
 """
 from __future__ import annotations
 
-from rubric import Rubric
+from rubric import Rubric, Signal
 from transcript import Utterance
 
 
@@ -65,6 +71,49 @@ def build_system(rubric: Rubric) -> str:
         "Return [] if nothing fires.",
     ]
     return "\n".join(lines)
+
+
+def build_judge_system(sig: Signal) -> str:
+    return "\n".join([
+        "You are watching a live meeting transcript. \"You\" is the user being",
+        "coached (their own mic); other names are other participants.",
+        "",
+        "Check the window for exactly ONE pattern:",
+        "",
+        f"  {sig.id}: {sig.description.strip()}",
+        "",
+        "Answer with ONLY a JSON object (no prose, no markdown):",
+        '  {"fires": <true|false>,',
+        '   "confidence": <float 0.0-1.0>,',
+        '   "evidence": "<VERBATIM quote from the window, empty if fires is false>",',
+        '   "nudge": "<<=12 word imperative coaching line, empty if fires is false>"}',
+        "",
+        "Most windows contain NOTHING for this pattern. Expect to answer",
+        "fires=false far more often than true — a coach that nudges every 30",
+        "seconds gets muted. Fire ONLY when you can copy an exact line from the",
+        "window that unambiguously shows the pattern. The evidence field must be",
+        "a verbatim quote — it is checked against the transcript, and a",
+        "paraphrase gets your call discarded. If you cannot point to the exact",
+        "words, fires=false.",
+        "",
+        "Confidence calibration: 0.6 clear (a colleague watching would agree),",
+        "0.8+ unmistakable. Only the coached user (\"You\") gets coached; never",
+        "fire on the other participants' behavior"
+        + (" (this signal is about reinforcing something good the user did)."
+           if "positive" in sig.id else "."),
+    ])
+
+
+def build_judge_user(window: list[Utterance], summary: str, now: float) -> str:
+    def ts(t: float) -> str:
+        return f"{int(t)//60:02d}:{int(t)%60:02d}"
+
+    win = "\n".join(f"[{ts(u.t)}] {u.speaker}: {u.text}" for u in window) or "(empty)"
+    return (
+        f"Earlier in the meeting (summary):\n{summary}\n\n"
+        f"Current window, clock={ts(now)}:\n{win}\n\n"
+        "Does the pattern fire? JSON object only."
+    )
 
 
 def build_user(window: list[Utterance], summary: str, now: float) -> str:

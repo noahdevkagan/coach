@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -70,8 +71,35 @@ class OllamaProvider:
 class MockProvider:
     """Deterministic keyword heuristic. Stand-in for offline runs only."""
 
+    JUDGE_CUES = {
+        "alignment_reached_still_talking": ["i think we agree", "sounds like we agree",
+                                            "we're aligned", "i'm on board", "same page"],
+        "reopening_closed_thread": ["circle back", "revisit", "as we discussed",
+                                    "go back to", "reopen"],
+        "hedge_not_pinned": ["by end of quarter", "sometime next", "roughly", "ballpark",
+                             "a few weeks", "ish", "should be able to", "on my radar"],
+        "buried_signal_ignored": ["churn", "missed", "down ", "risk", "behind plan",
+                                  "miss the number", "lost the deal"],
+        "no_decision_owner_date": ["who owns", "no owner", "let's decide", "what do we do",
+                                   "still open", "haven't decided"],
+    }
+
     def complete(self, system: str, user: str) -> str:
         text = user.lower()
+
+        if '"fires"' in system:  # per-signal judge prompt
+            m = re.search(r"ONE pattern:\n\n  (\w+):", system)
+            sig = m.group(1) if m else ""
+            for cue in self.JUDGE_CUES.get(sig, []):
+                idx = text.find(cue)
+                if idx >= 0:
+                    # Evidence must be a verbatim quote (the coach checks it).
+                    snippet = user[max(0, idx - 20): idx + len(cue) + 20].strip()
+                    return json.dumps({"fires": True, "confidence": 0.7,
+                                       "evidence": snippet, "nudge": ""})
+            return json.dumps({"fires": False, "confidence": 0.0,
+                               "evidence": "", "nudge": ""})
+
         calls: list[dict] = []
 
         def add(signal_id, confidence, evidence, nudge):
