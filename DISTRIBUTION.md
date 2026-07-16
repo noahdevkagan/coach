@@ -134,3 +134,16 @@ brew install --cask noahdevkagan/tap/meeting-coach
 ```
 Create a `homebrew-tap` repo with a cask pointing at the Release `.dmg` + its
 SHA256. Ask and I'll scaffold it.
+
+## Website (getmeetingcoach.com, Cloudflare Pages)
+The landing page + purchase funnel lives in `docs/` (index.html → PayPal →
+thanks.html → DMG download). Hosted on Cloudflare Pages, not GitHub Pages.
+
+Deploy after any change:
+```bash
+npx wrangler pages deploy docs --project-name meetcoach
+```
+First time: `npx wrangler login`, and attach the `getmeetingcoach.com` custom domain
+to the project in the Cloudflare dashboard (Pages → meetcoach → Custom domains).
+
+When cutting a release, update the DMG version in `docs/thanks.html`.
