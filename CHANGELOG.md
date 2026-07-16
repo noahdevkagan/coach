@@ -7,6 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## 0.4.8
+
+- Export your transcript: after a session ends, a small download button appears at the top of the transcript panel — click it to save the transcript as a text file
+
 ## 0.4.6
 
 <!-- 0.4.5 was never tagged, so its notes ship here — updaters come from 0.4.4. -->

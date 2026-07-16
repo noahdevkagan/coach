@@ -178,6 +178,17 @@ struct LiveTimelineView: View {
                     .font(.caption.bold()).foregroundStyle(.secondary)
                 Spacer()
                 TranscriptHeaderStats(liveSession: liveSession)
+                if !liveSession.isLive && liveSession.hasSession && !liveSession.turns.isEmpty {
+                    Button {
+                        exportTranscript()
+                    } label: {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help("Export transcript as a text file")
+                }
             }
             .padding(.horizontal).padding(.vertical, 8)
             Divider()
@@ -185,6 +196,19 @@ struct LiveTimelineView: View {
             LiveTranscriptPane(liveSession: liveSession)
         }
         .background(Color(.controlBackgroundColor).opacity(0.5))
+    }
+
+    private func exportTranscript() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.plainText]
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm"
+        panel.nameFieldStringValue = "transcript_\(formatter.string(from: Date())).txt"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let text = liveSession.turns
+            .map { "[\($0.formattedTime)] \($0.speaker): \($0.text)" }
+            .joined(separator: "\n")
+        try? text.write(to: url, atomically: true, encoding: .utf8)
     }
 }
 
