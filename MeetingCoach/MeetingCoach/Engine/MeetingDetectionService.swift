@@ -97,18 +97,46 @@ final class MeetingDetectionService {
             meetingDetected = false
             return
         }
-        // Candidacy requires the mic first — one cheap CoreAudio property
-        // read. Skip the NSWorkspace app enumeration for the (typical)
-        // mic-idle tick.
-        let micInUse = Self.anyInputInUse()
-        let signals = MeetingSignals(
-            micInUse: micInUse,
-            meetingAppRunning: micInUse && Self.meetingAppRunning(),
-            browserFrontmost: micInUse && Self.browserFrontmost()
-        )
+
+        let signals: MeetingSignals
+        if let micUsers = Self.micUsingBundleIDs() {
+            // Per-process attribution (macOS 14.4+): only a meeting app or a
+            // browser actually HOLDING the mic counts. This makes Slack
+            // huddles detectable (Slack runs all day; Slack-using-the-mic
+            // doesn't) and makes dictation/Siri/Voice Memos structurally
+            // invisible (Apple processes are excluded, Safari excepted).
+            let relevant = micUsers.filter { id in
+                id != Bundle.main.bundleIdentifier
+                    && (!id.hasPrefix("com.apple.") || id == "com.apple.Safari")
+            }
+            let meetingApp = relevant.first { id in
+                Self.meetingBundlePrefixes.contains { id.hasPrefix($0) }
+            }
+            let browser = relevant.first { Self.browserBundleIds.contains($0) }
+            micUserForPrompt = meetingApp ?? browser
+            signals = MeetingSignals(
+                micInUse: meetingApp != nil || browser != nil,
+                meetingAppRunning: meetingApp != nil,
+                browserFrontmost: browser != nil
+            )
+        } else {
+            // Pre-14.4 fallback: device-level mic state + app list/frontmost.
+            micUserForPrompt = nil
+            let micInUse = Self.anyInputInUse()
+            signals = MeetingSignals(
+                micInUse: micInUse,
+                meetingAppRunning: micInUse && Self.meetingAppRunning(),
+                browserFrontmost: micInUse && Self.browserFrontmost()
+            )
+        }
         let event = detector.tick(signals, now: Date().timeIntervalSinceReferenceDate)
         if event == .prompt {
-            if signals.meetingAppRunning, let (name, icon) = Self.meetingAppInfo() {
+            if let id = micUserForPrompt,
+               let app = NSRunningApplication.runningApplications(withBundleIdentifier: id).first {
+                // Attribution path: name/icon of the process holding the mic.
+                detectedSource = Self.displayName(forBundleID: id) ?? app.localizedName ?? "Meeting"
+                detectedIcon = app.icon
+            } else if signals.meetingAppRunning, let (name, icon) = Self.meetingAppInfo() {
                 detectedSource = name
                 detectedIcon = icon
             } else if signals.meetingAppRunning {
@@ -130,12 +158,78 @@ final class MeetingDetectionService {
 
     // MARK: - Signal adapters
 
-    /// Known meeting app bundle-id prefixes.
+    /// The mic-holding bundle id backing the current candidacy (attribution
+    /// path only) — names the prompt precisely ("Slack", not "Meeting app").
+    @ObservationIgnored private var micUserForPrompt: String?
+
+    /// Known meeting app bundle-id prefixes. Slack is only safe here because
+    /// the attribution path requires it to be USING the mic (a huddle) —
+    /// on the pre-14.4 fallback, Slack merely running would false-positive,
+    /// which is acceptable for the small pre-14.4 population.
     private static let meetingBundlePrefixes = [
         "us.zoom.xos", "com.microsoft.teams", "com.cisco.webex",
         "com.webex.meetingmanager", "com.ringcentral", "com.skype.skype",
-        "com.hnc.Discord", "com.loom.desktop",
+        "com.hnc.Discord", "com.loom.desktop", "com.tinyspeck.slackmacgap",
     ]
+
+    /// Friendly names for the prompt, keyed by bundle-id prefix.
+    private static let displayNames: [(prefix: String, display: String)] = [
+        ("us.zoom.xos", "Zoom"), ("com.microsoft.teams", "Microsoft Teams"),
+        ("com.cisco.webex", "Webex"), ("com.webex.meetingmanager", "Webex"),
+        ("com.ringcentral", "RingCentral"), ("com.skype.skype", "Skype"),
+        ("com.hnc.Discord", "Discord"), ("com.loom.desktop", "Loom"),
+        ("com.tinyspeck.slackmacgap", "Slack huddle"),
+    ]
+
+    static func displayName(forBundleID id: String) -> String? {
+        displayNames.first { id.hasPrefix($0.prefix) }?.display
+    }
+
+    /// Bundle IDs of processes currently recording from any input device
+    /// (macOS 14.4+ AudioHardware process objects). nil when the API is
+    /// unavailable — callers fall back to device-level detection.
+    static func micUsingBundleIDs() -> Set<String>? {
+        guard #available(macOS 14.4, *) else { return nil }
+        var listAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyProcessObjectList,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var listSize: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject),
+                                             &listAddress, 0, nil, &listSize) == noErr,
+              listSize > 0 else { return nil }
+        var processes = [AudioObjectID](repeating: 0,
+                                        count: Int(listSize) / MemoryLayout<AudioObjectID>.size)
+        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject),
+                                         &listAddress, 0, nil, &listSize, &processes) == noErr
+        else { return nil }
+
+        var users: Set<String> = []
+        for proc in processes {
+            var runningAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioProcessPropertyIsRunningInput,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain)
+            var running: UInt32 = 0
+            var runningSize = UInt32(MemoryLayout<UInt32>.size)
+            guard AudioObjectGetPropertyData(proc, &runningAddress, 0, nil,
+                                             &runningSize, &running) == noErr,
+                  running != 0 else { continue }
+
+            var bundleAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioProcessPropertyBundleID,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain)
+            var bundleRef: Unmanaged<CFString>?
+            var bundleSize = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+            guard AudioObjectGetPropertyData(proc, &bundleAddress, 0, nil,
+                                             &bundleSize, &bundleRef) == noErr,
+                  let id = bundleRef?.takeRetainedValue() as String?, !id.isEmpty
+            else { continue }
+            users.insert(id)
+        }
+        return users
+    }
 
     /// Browsers that might host Google Meet / web Zoom.
     private static let browserBundleIds: Set<String> = [
@@ -242,7 +336,14 @@ final class MeetingDetectionService {
     // MARK: - Notifications (optional, lazily authorized)
 
     private func requestNotificationPermission() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { granted, _ in
+        // Async form on purpose: the callback variant runs its completion on
+        // the notification service's private queue, and a closure formed in
+        // this @MainActor context tripped the Swift executor assertion there
+        // (dispatch_assert_queue_fail crash on UNUserNotificationService
+        // call-out, seen in the wild on 0.5.4).
+        Task {
+            let granted = (try? await UNUserNotificationCenter.current()
+                .requestAuthorization(options: [.alert])) ?? false
             mclog("[Detect] notification permission: \(granted)")
         }
     }
