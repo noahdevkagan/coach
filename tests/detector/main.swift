@@ -58,11 +58,13 @@ d5.dismissed(now: 6)
 let p5 = run([(0, app)], detector: &d5, from: 7, to: 700)
 check(p5 == [611], "dismiss quiets for 600s, re-prompts at 606+5", "got \(p5)")
 
-// 6. A started session suppresses prompting until signals fully drop.
+// 6. A live session never prompts; after a manual stop, prompting stays
+//    suppressed until signals fully drop, then rearms.
 var d6 = MeetingDetector()
 d6.sessionStarted()
 let p6 = run([(0, app)], detector: &d6, to: 120)
-check(p6.isEmpty, "no prompt while session-suppressed", "got \(p6)")
+check(p6.isEmpty, "no prompt while session live", "got \(p6)")
+d6.sessionEnded()
 let p6b = run([(121, quiet), (151, app)], detector: &d6, from: 121, to: 200)
 check(p6b == [156], "rearms after signals drop (prompt at 151+5)", "got \(p6b)")
 
@@ -78,5 +80,47 @@ check(p7 == [5], "browser→app upgrade keeps candidacy start", "got \(p7)")
 var d8 = MeetingDetector()
 let p8 = run([(0, browser), (5, mic)], detector: &d8, to: 60)
 check(p8 == [20], "browser candidacy survives frontmost loss (prompt at 20s)", "got \(p8)")
+
+/// Tick 1s steps over a timeline; return times of .ended events.
+func runEnded(_ timeline: [(Double, MeetingSignals)], detector: inout MeetingDetector,
+              from start: Double = 0, to end: Double) -> [Double] {
+    var ends: [Double] = []
+    var t = start
+    while t <= end {
+        let signals = timeline.last(where: { $0.0 <= t })?.1 ?? quiet
+        if detector.tick(signals, now: t) == .ended { ends.append(t) }
+        t += 1
+    }
+    return ends
+}
+
+// 9. Armed live session: the meeting's mic hold released → ended exactly
+//    once, after the 60s end debounce, leaving the detector idle.
+var d9 = MeetingDetector()
+d9.sessionStarted()
+let e9 = runEnded([(0, app), (100, quiet)], detector: &d9, to: 300)
+check(e9 == [160], "meeting end fires 60s after mic release", "got \(e9)")
+check(d9.state == .idle, "ended leaves detector idle", "got \(d9.state)")
+
+// 10. A session with no meeting signals (in-person coaching) never arms,
+//     so it never auto-ends no matter how long it runs.
+var d10 = MeetingDetector()
+d10.sessionStarted()
+let e10 = runEnded([(0, quiet)], detector: &d10, to: 600)
+check(e10.isEmpty, "unarmed session never auto-ends", "got \(e10)")
+
+// 11. Brief mic-hold drops (device switch, reconnect) under the end
+//     debounce don't end the session.
+var d11 = MeetingDetector()
+d11.sessionStarted()
+let e11 = runEnded([(0, app), (100, quiet), (130, app)], detector: &d11, to: 400)
+check(e11.isEmpty, "sub-debounce mic drop doesn't end the session", "got \(e11)")
+
+// 12. After an auto-end the detector prompts again for the next meeting.
+var d12 = MeetingDetector()
+d12.sessionStarted()
+_ = runEnded([(0, app), (100, quiet)], detector: &d12, to: 200)
+let p12 = run([(300, app)], detector: &d12, from: 300, to: 330)
+check(p12 == [305], "prompts again for the next meeting", "got \(p12)")
 
 exit(fail ? 1 : 0)

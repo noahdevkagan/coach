@@ -23,16 +23,24 @@ struct MeetingDetector: Sendable {
     var browserDebounce: TimeInterval = 20
     /// Quiet period after the user dismisses a prompt.
     var dismissCooldown: TimeInterval = 600
+    /// Once a session is live, the meeting's mic hold must stay released
+    /// this long before the meeting counts as over — brief drops (device
+    /// switch, reconnect) must not end a live session.
+    var endDebounce: TimeInterval = 60
 
     enum State: Equatable, Sendable {
         case idle
         case candidate(since: TimeInterval, viaApp: Bool)
-        /// Prompt raised (or a session is running) — no further prompts
-        /// until the meeting signals fully drop.
+        /// Prompt raised — no further prompts until the meeting signals
+        /// fully drop.
         case prompted
+        /// A coaching session is running. `armed` flips true once a meeting
+        /// app/browser is seen holding the mic; only an armed session can
+        /// auto-end (in-person sessions with no meeting signals never arm).
+        case live(armed: Bool, quietSince: TimeInterval?)
         case cooldown(until: TimeInterval)
     }
-    enum Event: Equatable, Sendable { case none, prompt }
+    enum Event: Equatable, Sendable { case none, prompt, ended }
 
     private(set) var state: State = .idle
 
@@ -64,6 +72,17 @@ struct MeetingDetector: Sendable {
         case .prompted:
             // Meeting over (mic released) → rearm for the next one.
             if !signals.micInUse { state = .idle }
+        case .live(let armed, let quietSince):
+            if candidate {
+                state = .live(armed: true, quietSince: nil)
+            } else if armed {
+                let since = quietSince ?? now
+                if now - since >= endDebounce {
+                    state = .idle
+                    return .ended
+                }
+                state = .live(armed: true, quietSince: since)
+            }
         case .cooldown(let until):
             if now >= until {
                 state = .idle
@@ -79,10 +98,21 @@ struct MeetingDetector: Sendable {
         state = .cooldown(until: now + dismissCooldown)
     }
 
-    /// A session started (from the prompt or manually) — suppress prompting
-    /// until the meeting signals drop after it ends.
+    /// A session started (from the prompt or manually) — watch the meeting
+    /// signals so a sustained mic release can end it.
     mutating func sessionStarted() {
+        state = .live(armed: false, quietSince: nil)
+    }
+
+    /// The session was stopped by the user — suppress prompting until the
+    /// meeting signals fully drop, then rearm for the next meeting.
+    mutating func sessionEnded() {
         state = .prompted
+    }
+
+    var isLive: Bool {
+        if case .live = state { return true }
+        return false
     }
 
     mutating func reset() {

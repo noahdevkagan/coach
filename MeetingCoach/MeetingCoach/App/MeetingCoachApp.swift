@@ -34,7 +34,10 @@ struct MeetingCoachApp: App {
     }
 
     var body: some Scene {
-        WindowGroup(id: "main") {
+        // Window, not WindowGroup: openWindow(id:) on a WindowGroup mints a
+        // fresh window per call (the detection pill + menu bar both open it),
+        // while Window raises the one existing instance.
+        Window("Meeting Coach", id: "main") {
             ContentView(ollamaManager: ollamaManager,
                         liveSession: liveSession,
                         settings: settings)

@@ -59,7 +59,26 @@ final class MeetingDetectionService {
 
     func bind(liveSession: LiveSessionViewModel) {
         isSessionLive = { [weak liveSession] in liveSession?.isLive ?? false }
+        onMeetingEnded = { [weak liveSession, weak self] in
+            guard let session = liveSession, session.isLive, !session.isDemo else { return }
+            // A released mic can lie (some browsers drop the hold while
+            // muted) — only stop when the room has also gone quiet. If
+            // people are still talking, skip; the detector rearms and
+            // fires again on the next sustained release.
+            let lastHeard = session.utterances.last?.t ?? 0
+            guard session.elapsedTime - lastHeard >= 20 else {
+                mclog("[Detect] Mic released but speech within 20s — not auto-stopping")
+                return
+            }
+            mclog("[Detect] Meeting ended — auto-stopping session")
+            session.stopLive()
+            self?.postMeetingEndedNotification()
+        }
     }
+
+    /// Fired (on the main actor) when a live session's meeting looks over:
+    /// the meeting app/browser released the mic for a sustained window.
+    @ObservationIgnored private var onMeetingEnded: (() -> Void)?
 
     /// User clicked "Not now" — quiet for the cooldown window.
     func dismissPrompt() {
@@ -92,12 +111,56 @@ final class MeetingDetectionService {
     }
 
     private func tick() {
+        let now = Date().timeIntervalSinceReferenceDate
+        let (signals, attributed) = sampleSignals()
+
         if isSessionLive() {
-            detector.sessionStarted()
             meetingDetected = false
+            // Starts that didn't route through us (main window button)
+            // still put the detector in live mode.
+            if !detector.isLive { detector.sessionStarted() }
+            // End-of-meeting watch needs per-process attribution — the
+            // fallback's device-level mic bit is always on while WE hold
+            // the mic to record, so it can never see the meeting end.
+            if attributed, detector.tick(signals, now: now) == .ended {
+                onMeetingEnded?()
+            }
             return
         }
+        // The session stopped without the detector hearing about it —
+        // suppress re-prompting until this meeting's signals drop.
+        if detector.isLive { detector.sessionEnded() }
 
+        let event = detector.tick(signals, now: now)
+        if event == .prompt {
+            if let id = micUserForPrompt,
+               let app = NSRunningApplication.runningApplications(withBundleIdentifier: id).first {
+                // Attribution path: name/icon of the process holding the mic.
+                detectedSource = Self.displayName(forBundleID: id) ?? app.localizedName ?? "Meeting"
+                detectedIcon = app.icon
+            } else if signals.meetingAppRunning, let (name, icon) = Self.meetingAppInfo() {
+                detectedSource = name
+                detectedIcon = icon
+            } else if signals.meetingAppRunning {
+                detectedSource = "Meeting app"
+                detectedIcon = nil
+            } else {
+                detectedSource = "Browser meeting"
+                detectedIcon = NSWorkspace.shared.frontmostApplication?.icon
+            }
+            meetingDetected = true
+            mclog("[Detect] Meeting detected (\(signals.meetingAppRunning ? "app" : "browser") + mic)")
+            playChirp()
+            postNotification()
+        } else if meetingDetected, case .idle = detector.state {
+            // Signals dropped before the user acted — clear the prompt.
+            meetingDetected = false
+        }
+    }
+
+    /// Sample the environment: who is holding the mic, which meeting apps
+    /// are around. `attributed` is true on the per-process path (14.4+).
+    private func sampleSignals() -> (MeetingSignals, attributed: Bool) {
         let signals: MeetingSignals
         if let micUsers = Self.micUsingBundleIDs() {
             // Per-process attribution (macOS 14.4+): only a meeting app or a
@@ -123,6 +186,7 @@ final class MeetingDetectionService {
                 meetingAppRunning: meetingApp != nil,
                 browserFrontmost: browser != nil
             )
+            return (signals, attributed: true)
         } else {
             // Pre-14.4 fallback: device-level mic state + app list/frontmost.
             micUserForPrompt = nil
@@ -132,31 +196,7 @@ final class MeetingDetectionService {
                 meetingAppRunning: micInUse && Self.meetingAppRunning(),
                 browserFrontmost: micInUse && Self.browserFrontmost()
             )
-        }
-        let event = detector.tick(signals, now: Date().timeIntervalSinceReferenceDate)
-        if event == .prompt {
-            if let id = micUserForPrompt,
-               let app = NSRunningApplication.runningApplications(withBundleIdentifier: id).first {
-                // Attribution path: name/icon of the process holding the mic.
-                detectedSource = Self.displayName(forBundleID: id) ?? app.localizedName ?? "Meeting"
-                detectedIcon = app.icon
-            } else if signals.meetingAppRunning, let (name, icon) = Self.meetingAppInfo() {
-                detectedSource = name
-                detectedIcon = icon
-            } else if signals.meetingAppRunning {
-                detectedSource = "Meeting app"
-                detectedIcon = nil
-            } else {
-                detectedSource = "Browser meeting"
-                detectedIcon = NSWorkspace.shared.frontmostApplication?.icon
-            }
-            meetingDetected = true
-            mclog("[Detect] Meeting detected (\(signals.meetingAppRunning ? "app" : "browser") + mic)")
-            playChirp()
-            postNotification()
-        } else if meetingDetected, case .idle = detector.state {
-            // Signals dropped before the user acted — clear the prompt.
-            meetingDetected = false
+            return (signals, attributed: false)
         }
     }
 
@@ -363,6 +403,15 @@ final class MeetingDetectionService {
         content.title = "Meeting detected"
         content.body = "Start coaching? Open the Meeting Coach menu bar icon."
         let request = UNNotificationRequest(identifier: "meeting-detected-\(UUID().uuidString)",
+                                            content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    private func postMeetingEndedNotification() {
+        let content = UNMutableNotificationContent()
+        content.title = "Meeting ended"
+        content.body = "Coaching stopped — your session recap is ready."
+        let request = UNNotificationRequest(identifier: "meeting-ended-\(UUID().uuidString)",
                                             content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
     }
