@@ -265,9 +265,24 @@ struct LiveTimelineView: View {
         formatter.dateFormat = "yyyy-MM-dd_HH-mm"
         panel.nameFieldStringValue = "transcript_\(formatter.string(from: Date())).txt"
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        let text = liveSession.turns
-            .map { "[\($0.formattedTime)] \($0.speaker): \($0.text)" }
-            .joined(separator: "\n")
+
+        // Per-utterance blocks with real time-of-day ranges — reads like a
+        // Zoom transcript, not a wall of coalesced turns.
+        let clock = DateFormatter()
+        clock.dateFormat = "HH:mm:ss"
+        let start = liveSession.sessionStartDate
+        func stamp(_ offset: TimeInterval) -> String {
+            if let start {
+                return clock.string(from: start.addingTimeInterval(offset))
+            }
+            let s = Int(offset)
+            return String(format: "%02d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
+        }
+        let text = liveSession.utterances
+            .map { u in
+                "\(stamp(u.t)) --> \(stamp(max(u.endT, u.t + 1)))\n\(u.speaker): \(u.text)"
+            }
+            .joined(separator: "\n\n")
         try? text.write(to: url, atomically: true, encoding: .utf8)
     }
 }
