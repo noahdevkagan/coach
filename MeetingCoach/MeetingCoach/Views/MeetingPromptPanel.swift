@@ -24,7 +24,10 @@ final class MeetingPromptPanel: NSPanel {
         isOpaque = false
         backgroundColor = .clear
         hasShadow = true
-        sharingType = .none  // invisible in screen shares
+        // Unlike the coaching overlay (which must stay out of screen shares),
+        // the pill is pre-meeting and users screenshot it to share — leave it
+        // capturable.
+        sharingType = .readOnly
         acceptsMouseMovedEvents = true  // hover-reveal close button
 
         if let screen = NSScreen.main {
