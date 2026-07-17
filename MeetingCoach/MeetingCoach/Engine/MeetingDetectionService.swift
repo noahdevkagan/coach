@@ -36,6 +36,9 @@ final class MeetingDetectionService {
     /// Human-readable source shown in the prompt ("Zoom", "Browser meeting").
     private(set) var detectedSource = ""
 
+    /// Real icon of the detected meeting app (or the browser hosting it).
+    private(set) var detectedIcon: NSImage?
+
     /// Wired to the live session so detection pauses during coaching.
     @ObservationIgnored private var isSessionLive: () -> Bool = { false }
     private var detector = MeetingDetector()
@@ -97,9 +100,16 @@ final class MeetingDetectionService {
         )
         let event = detector.tick(signals, now: Date().timeIntervalSinceReferenceDate)
         if event == .prompt {
-            detectedSource = signals.meetingAppRunning
-                ? (Self.meetingAppName() ?? "Meeting app")
-                : "Browser meeting"
+            if signals.meetingAppRunning, let (name, icon) = Self.meetingAppInfo() {
+                detectedSource = name
+                detectedIcon = icon
+            } else if signals.meetingAppRunning {
+                detectedSource = "Meeting app"
+                detectedIcon = nil
+            } else {
+                detectedSource = "Browser meeting"
+                detectedIcon = NSWorkspace.shared.frontmostApplication?.icon
+            }
             meetingDetected = true
             mclog("[Detect] Meeting detected (\(signals.meetingAppRunning ? "app" : "browser") + mic)")
             playChirp()
@@ -158,8 +168,8 @@ final class MeetingDetectionService {
         }
     }
 
-    /// Display name of the first running known meeting app.
-    static func meetingAppName() -> String? {
+    /// Display name + real icon of the first running known meeting app.
+    static func meetingAppInfo() -> (name: String, icon: NSImage?)? {
         let names: [(prefix: String, display: String)] = [
             ("us.zoom.xos", "Zoom"), ("com.microsoft.teams", "Microsoft Teams"),
             ("com.cisco.webex", "Webex"), ("com.webex.meetingmanager", "Webex"),
@@ -169,7 +179,7 @@ final class MeetingDetectionService {
         for app in NSWorkspace.shared.runningApplications {
             guard let id = app.bundleIdentifier else { continue }
             if let match = names.first(where: { id.hasPrefix($0.prefix) }) {
-                return match.display
+                return (match.display, app.icon)
             }
         }
         return nil

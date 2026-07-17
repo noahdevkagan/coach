@@ -9,7 +9,7 @@ final class MeetingPromptPanel: NSPanel {
 
     init() {
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 380, height: 72),
+            contentRect: NSRect(x: 0, y: 0, width: 446, height: 78),
             styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView],
             backing: .buffered,
             defer: true
@@ -27,8 +27,8 @@ final class MeetingPromptPanel: NSPanel {
         sharingType = .none  // invisible in screen shares
 
         if let screen = NSScreen.main {
-            let x = screen.visibleFrame.maxX - 396
-            let y = screen.visibleFrame.maxY - 88
+            let x = screen.visibleFrame.maxX - 462
+            let y = screen.visibleFrame.maxY - 94
             setFrameOrigin(NSPoint(x: x, y: y))
         }
     }
@@ -37,58 +37,114 @@ final class MeetingPromptPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
-/// Content of the detection pill: source icon, what was detected, and the
-/// one action that matters.
+/// Content of the detection pill: pulsing accent, the detected app's real
+/// icon, and a compound action — start now, or drop down for goal/dismiss.
 struct MeetingPromptView: View {
     let source: String
+    /// Real icon of the detected meeting app (Zoom, Teams, the browser…).
+    var icon: NSImage?
     let onStart: () -> Void
+    var onStartWithGoal: (() -> Void)?
     let onDismiss: () -> Void
+
+    @State private var pulse = false
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "video.fill")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(.white)
-                .frame(width: 36, height: 36)
-                .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(LinearGradient(colors: [.green, .green.opacity(0.75)],
-                                             startPoint: .top, endPoint: .bottom))
-                )
+            // Pulsing waveform accent — alive, not alarming.
+            HStack(spacing: 3) {
+                Capsule().fill(.green)
+                    .frame(width: 4, height: pulse ? 26 : 14)
+                Capsule().fill(.green.opacity(0.5))
+                    .frame(width: 4, height: pulse ? 13 : 22)
+            }
+            .frame(height: 28)
+            .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: pulse)
+            .onAppear { pulse = true }
+
+            if let icon {
+                Image(nsImage: icon)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: 34, height: 34)
+            } else {
+                Image(systemName: "video.fill")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(.white)
+                    .frame(width: 34, height: 34)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(LinearGradient(colors: [.green, .green.opacity(0.75)],
+                                                 startPoint: .top, endPoint: .bottom))
+                    )
+            }
 
             VStack(alignment: .leading, spacing: 1) {
                 Text("Meeting Detected")
-                    .font(.headline)
+                    .font(.system(size: 14, weight: .semibold))
+                    .fixedSize()
                 Text(source)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Spacer(minLength: 12)
+            Spacer(minLength: 10)
 
-            Button(action: onStart) {
-                Text("Start Coaching")
-                    .font(.callout.weight(.semibold))
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(.green)
-            .keyboardShortcut(.defaultAction)
+            // Compound action: big primary target + chevron dropdown.
+            HStack(spacing: 0) {
+                Button(action: onStart) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Start Coaching")
+                            .font(.callout.weight(.semibold))
+                            .fixedSize()
+                        Text("& open Meeting Coach")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .fixedSize()
+                    }
+                    .padding(.leading, 12)
+                    .padding(.trailing, 10)
+                    .padding(.vertical, 7)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
 
-            Button(action: onDismiss) {
-                Image(systemName: "xmark")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                Divider()
+                    .frame(height: 28)
+
+                Menu {
+                    if let onStartWithGoal {
+                        Button("Start with a goal…", action: onStartWithGoal)
+                        Divider()
+                    }
+                    Button("Not now", action: onDismiss)
+                } label: {
+                    Image(systemName: "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 9)
+                        .frame(maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                }
+                .menuStyle(.button)
+                .buttonStyle(.plain)
+                .menuIndicator(.hidden)
+                .fixedSize()
             }
-            .buttonStyle(.plain)
-            .help("Not now")
+            .background(Color.primary.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+            )
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .frame(width: 372)
+        .padding(.vertical, 11)
+        .frame(width: 438)
         .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
         )
         .padding(4)

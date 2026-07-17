@@ -104,13 +104,19 @@ struct MenuBarLabel: View {
         if promptPanel == nil { promptPanel = MeetingPromptPanel() }
         guard let panel = promptPanel else { return }
         // Rebuild content each detection — the source app can differ.
-        let view = MeetingPromptView(source: detection.detectedSource) {
+        let view = MeetingPromptView(source: detection.detectedSource,
+                                     icon: detection.detectedIcon) {
             detection.sessionStarted()
             openWindow(id: "main")
             NSApp.activate(ignoringOtherApps: true)
             liveSession.startLive(context: liveSession.preCallContext,
                                   settings: settings,
                                   ollamaManager: ollamaManager)
+        } onStartWithGoal: {
+            detection.sessionStarted()
+            liveSession.showPreCallForm = true
+            openWindow(id: "main")
+            NSApp.activate(ignoringOtherApps: true)
         } onDismiss: {
             detection.dismissPrompt()
         }
