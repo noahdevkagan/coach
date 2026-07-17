@@ -19,15 +19,23 @@ anything else — just click **Download model** once to fetch a local model
 (needs WiFi for that one download; everything after runs offline).
 
 ### Build from source
-Requires Xcode 16+.
+Requires Xcode 16+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 ```bash
 git clone https://github.com/noahdevkagan/coach.git meeting-coach
 cd meeting-coach/MeetingCoach
-xcodebuild -scheme MeetingCoach -configuration Debug build   # auto-copies to /Applications
+xcodegen
+xcodebuild -project MeetingCoach.xcodeproj -scheme MeetingCoach \
+  -configuration Debug -derivedDataPath build build
+open -n build/Build/Products/Debug/MeetingCoach.app
 ```
 For local LLM features when running a source build, either have
 [Ollama](https://ollama.com) running, or vendor the runtime into the bundle with
 `./scripts/vendor-ollama.sh`.
+
+**Working with an AI coding agent?** Point it at [`AGENTS.md`](./AGENTS.md) —
+setup, build, test, and repo-specific gotchas in one file (Codex reads it
+automatically; Claude Code loads it via `CLAUDE.md`; an optional `.mcp.json`
+adds Xcode build tooling over MCP).
 
 Maintainers: see [`DISTRIBUTION.md`](./DISTRIBUTION.md) for cutting signed releases.
 
