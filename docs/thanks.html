@@ -38,7 +38,18 @@
 <main>
   <h1>Thanks for buying MeetingCoach 🎉</h1>
   <p>Your download is ready. Open the DMG and drag Meeting Coach to Applications.</p>
-  <a class="dl-btn" href="https://github.com/noahdevkagan/meeting-coach-releases/releases/download/v0.4.8/MeetingCoach-0.4.8.dmg">Download MeetingCoach for Mac</a>
+  <a class="dl-btn" id="dl" href="https://github.com/noahdevkagan/meeting-coach-releases/releases/latest">Download MeetingCoach for Mac</a>
+  <script>
+  // Resolve the newest DMG so this page never goes stale (it was pinned to
+  // v0.4.8 while v0.5.5 was current). Fallback href is the releases page.
+  fetch("https://api.github.com/repos/noahdevkagan/meeting-coach-releases/releases/latest")
+    .then(r => r.json())
+    .then(rel => {
+      const dmg = (rel.assets || []).find(a => a.name.endsWith(".dmg"));
+      if (dmg) document.getElementById("dl").href = dmg.browser_download_url;
+    })
+    .catch(() => {});
+  </script>
   <p class="steps">On first launch, click <strong>Download Model</strong> once (needs WiFi that one time) — everything after runs fully offline.<br><br>Need help? Email <a href="mailto:noahkagan@gmail.com">noahkagan@gmail.com</a> · <a href="https://github.com/noahdevkagan/meeting-coach-releases/releases">All releases</a></p>
 </main>
 </body>

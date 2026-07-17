@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Redeem your AppSumo code — MeetingCoach</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="/icon.png">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: #fff;
+    color: #1a1a1a;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 620px; margin: 0 auto; padding: 96px 24px; text-align: center; }
+  h1 { font-size: 34px; letter-spacing: -0.02em; }
+  p { color: #555; margin-top: 16px; }
+  .code-input {
+    width: 100%;
+    max-width: 380px;
+    font-size: 18px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-align: center;
+    text-transform: uppercase;
+    padding: 14px 16px;
+    margin-top: 32px;
+    border: 2px solid #ddd;
+    border-radius: 10px;
+    outline: none;
+  }
+  .code-input:focus { border-color: #111; }
+  .dl-btn {
+    display: inline-block;
+    background: #111;
+    color: #fff;
+    font-size: 17px;
+    font-weight: 600;
+    text-decoration: none;
+    border: none;
+    border-radius: 10px;
+    padding: 14px 28px;
+    margin-top: 20px;
+    cursor: pointer;
+  }
+  .dl-btn:hover { background: #333; }
+  .error { color: #c0392b; margin-top: 16px; display: none; }
+  .steps { font-size: 14px; color: #888; margin-top: 24px; }
+  a { color: #555; }
+  #success { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <div id="redeem">
+    <h1>Redeem your AppSumo code</h1>
+    <p>Enter the code from your AppSumo purchase to download MeetingCoach for Mac.</p>
+    <form id="form">
+      <input class="code-input" id="code" placeholder="AS-XXXX-XXXX-XXXX"
+             autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <br>
+      <button type="submit" class="dl-btn">Redeem</button>
+    </form>
+    <p class="error" id="error">That code doesn't look right — check for typos and try again.</p>
+    <p class="steps">Trouble redeeming? Email <a href="mailto:noahkagan@gmail.com">noahkagan@gmail.com</a></p>
+  </div>
+
+  <div id="success">
+    <h1>You're in 🎉</h1>
+    <p>Your download is ready. Open the DMG and drag Meeting Coach to Applications.</p>
+    <a class="dl-btn" id="dl" href="https://github.com/noahdevkagan/meeting-coach-releases/releases/latest">Download MeetingCoach for Mac</a>
+    <p class="steps">On first launch, click <strong>Download Model</strong> once (needs WiFi that one time) — everything after runs fully offline.<br><br>Need help? Email <a href="mailto:noahkagan@gmail.com">noahkagan@gmail.com</a></p>
+  </div>
+</main>
+<script>
+// Codes are validated against SHA-256 hashes — plaintext codes never ship
+// with the page. The download itself is the public latest release.
+let hashes = null;
+fetch("appsumo-hashes.json").then(r => r.json()).then(h => { hashes = h; });
+
+// Resolve the newest DMG asset so this page never goes stale.
+fetch("https://api.github.com/repos/noahdevkagan/meeting-coach-releases/releases/latest")
+  .then(r => r.json())
+  .then(rel => {
+    const dmg = (rel.assets || []).find(a => a.name.endsWith(".dmg"));
+    if (dmg) document.getElementById("dl").href = dmg.browser_download_url;
+  })
+  .catch(() => {});  // fallback href already points at the releases page
+
+async function sha256(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+document.getElementById("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const code = document.getElementById("code").value.trim().toUpperCase().replace(/\s+/g, "");
+  if (!code || !hashes) return;
+  const hex = await sha256(code);
+  if (hashes.includes(hex)) {
+    document.getElementById("redeem").style.display = "none";
+    document.getElementById("success").style.display = "block";
+  } else {
+    document.getElementById("error").style.display = "block";
+  }
+});
+</script>
+</body>
+</html>
