@@ -5,6 +5,11 @@ import Sparkle
 @main
 struct MeetingCoachApp: App {
     @State private var ollamaManager = OllamaManager()
+    // Session + settings live at app scope so the menu bar scene and the
+    // main window drive the same coaching session.
+    @State private var liveSession = LiveSessionViewModel()
+    @State private var settings = SettingsViewModel()
+    @State private var detection = MeetingDetectionService()
 
     // Sparkle auto-updater. startingUpdater: true schedules the background
     // check (respects SUEnableAutomaticChecks in Info.plist); the standard
@@ -15,7 +20,9 @@ struct MeetingCoachApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(ollamaManager: ollamaManager)
+            ContentView(ollamaManager: ollamaManager,
+                        liveSession: liveSession,
+                        settings: settings)
             // Ollama is no longer auto-started on launch.
             // It will be started lazily when post-call review is requested
             // or when running the legacy LLM-based simulation.
@@ -27,6 +34,17 @@ struct MeetingCoachApp: App {
             }
         }
 
+        // Menu bar: session status, the auto-detect prompt ("Meeting
+        // detected — start coaching?"), and quick start/stop. Detection only
+        // ever prompts; capture starts exclusively from an explicit click.
+        MenuBarExtra {
+            MenuBarView(liveSession: liveSession, settings: settings,
+                        ollamaManager: ollamaManager, detection: detection)
+        } label: {
+            Image(systemName: menuBarSymbol)
+                .onAppear { detection.bind(liveSession: liveSession) }
+        }
+
         // Preferences (⌘,). Progress moved to the main window's idle pane;
         // this keeps the learned-sensitivity details reachable.
         Settings {
@@ -36,6 +54,65 @@ struct MeetingCoachApp: App {
             }
             .frame(width: 420, height: 480)
         }
+    }
+
+    private var menuBarSymbol: String {
+        if liveSession.isLive { return "waveform.circle.fill" }
+        if detection.meetingDetected { return "waveform.badge.exclamationmark" }
+        return "waveform.circle"
+    }
+}
+
+// MARK: - Menu bar content
+
+struct MenuBarView: View {
+    @Bindable var liveSession: LiveSessionViewModel
+    @Bindable var settings: SettingsViewModel
+    @Bindable var ollamaManager: OllamaManager
+    @Bindable var detection: MeetingDetectionService
+
+    var body: some View {
+        if detection.meetingDetected && !liveSession.isLive {
+            Button("Meeting detected — Start coaching") {
+                startCoaching()
+            }
+            Button("Start with context…") {
+                detection.sessionStarted()
+                liveSession.showPreCallForm = true
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            Button("Not now") {
+                detection.dismissPrompt()
+            }
+            Divider()
+        }
+
+        if liveSession.isLive {
+            Button(liveSession.isDemo
+                   ? "Stop demo"
+                   : "Stop coaching (\(liveSession.elapsedFormatted))") {
+                liveSession.stopLive()
+            }
+        } else if !detection.meetingDetected {
+            Button("Start coaching") {
+                startCoaching()
+            }
+        }
+
+        Divider()
+        Toggle("Auto-detect meetings", isOn: $detection.isEnabled)
+        Button("Open Meeting Coach") {
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
+    /// Start with the last-used (or default) pre-call context — the setup
+    /// ritual is optional from here.
+    private func startCoaching() {
+        detection.sessionStarted()
+        liveSession.startLive(context: liveSession.preCallContext,
+                              settings: settings,
+                              ollamaManager: ollamaManager)
     }
 }
 

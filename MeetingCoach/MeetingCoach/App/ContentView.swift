@@ -3,9 +3,10 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @Bindable var ollamaManager: OllamaManager
+    // Owned by the App so the menu bar scene drives the same session.
+    @Bindable var liveSession: LiveSessionViewModel
+    @Bindable var settings: SettingsViewModel
     @State private var simulation = SimulationViewModel()
-    @State private var settings = SettingsViewModel()
-    @State private var liveSession = LiveSessionViewModel()
     @State private var overlayPanel: CoachingOverlayPanel?
     @AppStorage("hasSeenDemo") private var hasSeenDemo = false
     @State private var showWelcome = false

@@ -46,6 +46,7 @@ bash tests/echo/run.sh || { echo "ECHO FILTER GATE FAILED"; exit 1; }
 echo "--- [3/4] nudges"
 bash tests/nudges/run.sh || { echo "NUDGE GATE FAILED"; exit 1; }
 bash tests/rubric/run.sh || { echo "RUBRIC GATE FAILED"; exit 1; }
+bash tests/detector/run.sh || { echo "DETECTOR GATE FAILED"; exit 1; }
 
 echo "--- [4/4] benchmark trend (informational)"
 if ls "$HOME/Documents/MeetingCoach"/session_*.md >/dev/null 2>&1; then

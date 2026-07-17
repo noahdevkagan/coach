@@ -40,6 +40,7 @@ tests/asr/audio/
 tests/asr/.build/
 tests/rubric/.build/
 tests/rubric/yamlcheck/.build/
+tests/detector/.build/
 tests/asr/.out/
 tests/nudges/.build/
 tests/echo/.build/
