@@ -83,9 +83,15 @@ struct MenuBarLabel: View {
     }
 
     private var symbol: String {
+        // Debug builds get a hammer so a dev copy is never confused with
+        // the installed release when both menu bar icons are up.
+        #if DEBUG
+        return liveSession.isLive ? "hammer.circle.fill" : "hammer.circle"
+        #else
         if liveSession.isLive { return "waveform.circle.fill" }
         if detection.meetingDetected { return "waveform.badge.exclamationmark" }
         return "waveform.circle"
+        #endif
     }
 
     private func showPrompt() {
