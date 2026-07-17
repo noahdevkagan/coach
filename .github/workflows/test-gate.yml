@@ -37,11 +37,14 @@ jobs:
           set -o pipefail
           # No signing on the gate — the runner has no identity; the release
           # job signs separately (same flags as scripts/package-release.sh).
+          # Preserve xcodebuild's real exit code (a piped grep hid a compile
+          # failure once — the .app skeleton exists before Swift compiles).
           xcodebuild -project MeetingCoach.xcodeproj -scheme MeetingCoach \
             -configuration Debug -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            build 2>&1 | grep -E "error|warning: Run script|BUILD" || true
-          test -d build/Build/Products/Debug/MeetingCoach.app
+            build > build.log 2>&1 || { grep -E "error" build.log | head -20; exit 1; }
+          grep -m1 "BUILD SUCCEEDED" build.log
+          test -x build/Build/Products/Debug/MeetingCoach.app/Contents/MacOS/MeetingCoach
 
       # The real-time ASR transcript + echo suites are NOT run here: on
       # virtualized CI runners Parakeet underruns and scores ~35% WER vs the

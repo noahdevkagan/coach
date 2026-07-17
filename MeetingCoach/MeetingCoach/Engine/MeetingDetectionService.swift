@@ -116,7 +116,7 @@ final class MeetingDetectionService {
             // .helper" holds the mic for a Meet, not Chrome itself) — match
             // the base browser id or any of its helpers, and report the
             // BASE app so the prompt shows "Google Chrome", not the helper.
-            let browser = relevant.compactMap(Self.browserBase(for:)).first
+            let browser = relevant.compactMap { Self.browserBase(for: $0) }.first
             micUserForPrompt = meetingApp ?? browser
             signals = MeetingSignals(
                 micInUse: meetingApp != nil || browser != nil,
