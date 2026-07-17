@@ -26,5 +26,7 @@
 	<string>https://raw.githubusercontent.com/noahdevkagan/meeting-coach-releases/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>AAD6OqEDMP6l/7gMFXBY8knuVAZWigp77zuYSSAS8CE=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>3600</integer>
 </dict>
 </plist>
