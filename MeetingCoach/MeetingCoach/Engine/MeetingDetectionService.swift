@@ -112,7 +112,11 @@ final class MeetingDetectionService {
             let meetingApp = relevant.first { id in
                 Self.meetingBundlePrefixes.contains { id.hasPrefix($0) }
             }
-            let browser = relevant.first { Self.browserBundleIds.contains($0) }
+            // Browser audio lives in helper processes ("com.google.Chrome
+            // .helper" holds the mic for a Meet, not Chrome itself) — match
+            // the base browser id or any of its helpers, and report the
+            // BASE app so the prompt shows "Google Chrome", not the helper.
+            let browser = relevant.compactMap(Self.browserBase(for:)).first
             micUserForPrompt = meetingApp ?? browser
             signals = MeetingSignals(
                 micInUse: meetingApp != nil || browser != nil,
@@ -183,6 +187,12 @@ final class MeetingDetectionService {
 
     static func displayName(forBundleID id: String) -> String? {
         displayNames.first { id.hasPrefix($0.prefix) }?.display
+    }
+
+    /// The known browser id that `id` belongs to — itself or one of its
+    /// helper processes (Chromium audio runs in "<browser>.helper").
+    static func browserBase(for id: String) -> String? {
+        browserBundleIds.first { id == $0 || id.hasPrefix($0 + ".") }
     }
 
     /// Bundle IDs of processes currently recording from any input device

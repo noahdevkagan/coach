@@ -185,13 +185,6 @@ struct MenuBarView: View {
 
         Divider()
         Toggle("Auto-detect meetings", isOn: $detection.isEnabled)
-        Toggle("Start at Login", isOn: Binding(
-            get: { SMAppService.mainApp.status == .enabled },
-            set: { on in
-                if on { try? SMAppService.mainApp.register() }
-                else { try? SMAppService.mainApp.unregister() }
-            }
-        ))
         Button("Open Meeting Coach") {
             openWindow(id: "main")
             NSApp.activate(ignoringOtherApps: true)
