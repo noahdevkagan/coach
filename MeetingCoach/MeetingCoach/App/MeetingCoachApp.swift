@@ -180,6 +180,12 @@ struct MenuBarView: View {
             NSApp.activate(ignoringOtherApps: true)
         }
         CheckForUpdatesView(updater: updater)
+        Divider()
+        // Stops everything: live session teardown and the embedded AI
+        // engine both hook app termination.
+        Button("Quit Meeting Coach") {
+            NSApp.terminate(nil)
+        }
     }
 
     /// Start with the last-used (or default) pre-call context — the setup
