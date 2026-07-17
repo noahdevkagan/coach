@@ -52,6 +52,9 @@ final class LiveSessionViewModel {
     private var semanticCoach: SemanticCoach?
     private var semanticTask: Task<Void, Never>?
 
+    /// Signal types sharpened by the active focus goals (set per session).
+    private var focusTypes: Set<NudgeType> = []
+
     var elapsedFormatted: String {
         let mm = Int(elapsedTime) / 60
         let ss = Int(elapsedTime) % 60
@@ -85,7 +88,18 @@ final class LiveSessionViewModel {
         // The active rubric tunes the deterministic monitors and defines any
         // custom semantic signals. Missing/invalid rubric = stock behavior.
         let rubric = (try? settings?.loadRubricOrDefault()) ?? .builtInDefault
-        signalEngine = SignalEngine(context: context, tuning: rubric.builtins)
+
+        // Focus goals: focused signals get modestly more sensitive (merged
+        // into the tuning here so the engine stays rubric-agnostic) and win
+        // overlay contention below.
+        focusTypes = FocusGoals.activeTypes()
+        var tuning = rubric.builtins
+        for type in focusTypes {
+            var t = tuning[type.rawValue] ?? SignalTuning()
+            t.thresholdMultiplier *= FocusGoals.sensitivityBoost
+            tuning[type.rawValue] = t
+        }
+        signalEngine = SignalEngine(context: context, tuning: tuning)
 
         // Tier-2 semantic coaching: local LLM heartbeat (optional, toggleable)
         if let settings, let ollamaManager, settings.semanticCoachEnabled {
@@ -204,6 +218,7 @@ final class LiveSessionViewModel {
         preCallContext = PreCallContext()   // neutral context → general type
         signalEngine = SignalEngine(context: preCallContext)
         semanticCoach = nil
+        focusTypes = []   // demo choreography must not depend on user goals
 
         utterances = []
         turns = []
@@ -499,6 +514,12 @@ final class LiveSessionViewModel {
     }
 
     private func setActiveNudge(_ nudge: Nudge) {
+        // Overlay contention: a nudge for the user's focus goal is not
+        // replaced by an off-focus one — it still lands in the feed.
+        if let current = activeNudge,
+           focusTypes.contains(current.type), !focusTypes.contains(nudge.type) {
+            return
+        }
         activeNudge = nudge
         // Auto-dismiss after 6 seconds
         dismissTask?.cancel()

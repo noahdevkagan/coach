@@ -20,12 +20,15 @@ struct ContentView: View {
             }
             .frame(minWidth: 280, idealWidth: 300, maxWidth: 340)
 
-            // Main content — live or simulation
+            // Main content — live session, loaded transcript, or progress
             if liveSession.isLive || liveSession.hasSession {
                 LiveTimelineView(liveSession: liveSession)
                     .frame(minWidth: 400)
-            } else {
+            } else if simulation.transcriptFileName != nil {
                 SimulationTimelineView(simulation: simulation)
+                    .frame(minWidth: 400)
+            } else {
+                ProgressDashboardView(liveSession: liveSession)
                     .frame(minWidth: 400)
             }
         }

@@ -9,6 +9,18 @@ struct SessionSummary: Identifiable {
     let nudgeCounts: [NudgeType: Int]
     let totalNudges: Int
     let feedbackCounts: [NudgeFeedback: Int]
+    /// Session talk ratio (0…1 you), when the session recorded one.
+    let talkShare: Double?
+    /// Nudge counts by stable signal key — rawValue or "custom:<id>".
+    let nudgeKeyCounts: [String: Int]
+    /// Feedback broken down per signal key (the advisor's evidence).
+    let feedbackByKey: [String: [NudgeFeedback: Int]]
+
+    var durationMinutes: Double {
+        let parts = durationFormatted.split(separator: ":").compactMap { Double($0) }
+        guard parts.count == 2 else { return 0 }
+        return parts[0] + parts[1] / 60
+    }
 }
 
 /// Reads and parses all saved session files for trend analysis.
@@ -56,6 +68,74 @@ enum SessionTrends {
         case improving, neutral, worsening
     }
 
+    // MARK: - Streaks & weekly stats
+
+    /// Consecutive-day streaks: `current` counts back from today (a streak
+    /// survives until a full day is missed), `best` is the longest run ever.
+    static func streaks(_ sessions: [SessionSummary], today: Date = Date()) -> (current: Int, best: Int) {
+        let calendar = Calendar.current
+        let days = Set(sessions.map { calendar.startOfDay(for: $0.date) }).sorted()
+        guard !days.isEmpty else { return (0, 0) }
+
+        var best = 1, run = 1
+        for i in 1..<days.count {
+            let gap = calendar.dateComponents([.day], from: days[i - 1], to: days[i]).day ?? 0
+            run = gap == 1 ? run + 1 : 1
+            best = max(best, run)
+        }
+
+        var current = 0
+        var cursor = calendar.startOfDay(for: today)
+        if !days.contains(cursor) {
+            // No session yet today — the streak may still be alive from yesterday.
+            cursor = calendar.date(byAdding: .day, value: -1, to: cursor)!
+        }
+        while days.contains(cursor) {
+            current += 1
+            cursor = calendar.date(byAdding: .day, value: -1, to: cursor)!
+        }
+        return (current, best)
+    }
+
+    struct WeekStats {
+        var sessionCount = 0
+        var nudgesPer10Min: Double?
+        var avgTalkShare: Double?
+        /// Corrective nudges per 10 min for a focused subset of types.
+        var focusPer10Min: Double?
+    }
+
+    /// Stats for the 7-day window ending `weeksAgo` weeks before now
+    /// (0 = the last 7 days, 1 = the 7 days before that). Rolling windows
+    /// beat calendar weeks here: "this week vs last" always compares equal
+    /// spans, even on a Monday.
+    static func weekStats(_ sessions: [SessionSummary], weeksAgo: Int,
+                          focusTypes: Set<NudgeType> = [], now: Date = Date()) -> WeekStats {
+        let end = now.addingTimeInterval(Double(-weeksAgo) * 7 * 86_400)
+        let start = end.addingTimeInterval(-7 * 86_400)
+        let window = sessions.filter { $0.date > start && $0.date <= end }
+
+        var stats = WeekStats()
+        stats.sessionCount = window.count
+        let minutes = window.map(\.durationMinutes).reduce(0, +)
+        if minutes >= 5 {
+            let nudges = window.map(\.totalNudges).reduce(0, +)
+            stats.nudgesPer10Min = Double(nudges) / (minutes / 10)
+            if !focusTypes.isEmpty {
+                let focused = window
+                    .flatMap { $0.nudgeCounts }
+                    .filter { focusTypes.contains($0.key) }
+                    .map(\.value).reduce(0, +)
+                stats.focusPer10Min = Double(focused) / (minutes / 10)
+            }
+        }
+        let shares = window.compactMap(\.talkShare)
+        if !shares.isEmpty {
+            stats.avgTalkShare = shares.reduce(0, +) / Double(shares.count)
+        }
+        return stats
+    }
+
     // MARK: - Parsing
 
     private static func parseSession(at url: URL) -> SessionSummary? {
@@ -72,18 +152,25 @@ enum SessionTrends {
         // Parse header fields
         var duration = ""
         var utteranceCount = 0
+        var talkShare: Double?
 
         for line in lines {
             if line.hasPrefix("**Duration:**") {
                 duration = line.replacingOccurrences(of: "**Duration:** ", with: "")
             } else if line.hasPrefix("**Utterances:**") {
                 utteranceCount = Int(line.replacingOccurrences(of: "**Utterances:** ", with: "")) ?? 0
+            } else if line.hasPrefix("**Talk ratio:**") {
+                // "**Talk ratio:** 62% you"
+                let digits = line.drop(while: { !$0.isNumber }).prefix(while: \.isNumber)
+                if let pct = Double(digits) { talkShare = pct / 100 }
             }
         }
 
         // Parse nudges section
         var nudgeCounts: [NudgeType: Int] = [:]
+        var nudgeKeyCounts: [String: Int] = [:]
         var feedbackCounts: [NudgeFeedback: Int] = [:]
+        var feedbackByKey: [String: [NudgeFeedback: Int]] = [:]
         var inNudges = false
         var totalNudges = 0
 
@@ -94,18 +181,30 @@ enum SessionTrends {
 
             totalNudges += 1
 
-            // Parse type: **talkTime**
-            if let typeMatch = line.range(of: #"\*\*(\w+)\*\*"#, options: .regularExpression) {
+            // Parse signal key: **talkTime** or **custom:my_signal**
+            var key: String?
+            if let typeMatch = line.range(of: #"\*\*[\w:]+\*\*"#, options: .regularExpression) {
                 let raw = String(line[typeMatch]).replacingOccurrences(of: "*", with: "")
-                if let type = NudgeType(rawValue: raw) {
+                key = raw
+                nudgeKeyCounts[raw, default: 0] += 1
+                let type = NudgeType(rawValue: raw)
+                    ?? (raw.hasPrefix("custom:") ? .custom : nil)
+                if let type {
                     nudgeCounts[type, default: 0] += 1
                 }
             }
 
             // Parse feedback: feedback: useful
-            if line.contains("feedback: useful") { feedbackCounts[.useful, default: 0] += 1 }
-            else if line.contains("feedback: annoying") { feedbackCounts[.annoying, default: 0] += 1 }
-            else if line.contains("feedback: wrong") { feedbackCounts[.wrong, default: 0] += 1 }
+            var feedback: NudgeFeedback?
+            if line.contains("feedback: useful") { feedback = .useful }
+            else if line.contains("feedback: annoying") { feedback = .annoying }
+            else if line.contains("feedback: wrong") { feedback = .wrong }
+            if let feedback {
+                feedbackCounts[feedback, default: 0] += 1
+                if let key {
+                    feedbackByKey[key, default: [:]][feedback, default: 0] += 1
+                }
+            }
         }
 
         return SessionSummary(
@@ -114,7 +213,10 @@ enum SessionTrends {
             utteranceCount: utteranceCount,
             nudgeCounts: nudgeCounts,
             totalNudges: totalNudges,
-            feedbackCounts: feedbackCounts
+            feedbackCounts: feedbackCounts,
+            talkShare: talkShare,
+            nudgeKeyCounts: nudgeKeyCounts,
+            feedbackByKey: feedbackByKey
         )
     }
 }

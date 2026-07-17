@@ -27,8 +27,8 @@ struct MeetingCoachApp: App {
             }
         }
 
-        // Preferences (⌘,) — houses the less-used panels to keep the main
-        // window minimal. Session trends moved here from the sidebar.
+        // Preferences (⌘,). Progress moved to the main window's idle pane;
+        // this keeps the learned-sensitivity details reachable.
         Settings {
             ScrollView {
                 SessionTrendsView()
