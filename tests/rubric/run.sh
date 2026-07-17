@@ -1,5 +1,5 @@
 #!/bin/bash
-# Rubric gate, two parts:
+# Rubric gate, three parts:
 #
 # 1. tuningcheck — compiles the real SignalEngine + monitors (no Yams) and
 #    proves rubric tuning plumbs through: a disabled signal never fires,
@@ -7,7 +7,11 @@
 #    keeps the golden replay meaningful), and threshold multipliers shift
 #    fire timing.
 #
-# 2. yamlcheck — SPM rig compiling the app's real Rubric.swift against the
+# 2. advisorcheck — RubricAdvisor's deterministic rules on fixture evidence:
+#    exact expected proposals, evidence floors, custom-signal handling,
+#    pinned-adaptive escalation, cross-session aggregation.
+#
+# 3. yamlcheck — SPM rig compiling the app's real Rubric.swift against the
 #    same pinned Yams: default-rubric parse, builtins parse, builder
 #    round-trip (quoting-hostile text included), custom-signal derivation.
 set -euo pipefail
@@ -27,6 +31,15 @@ swiftc -O -o "$OUT/tuningcheck" \
   "$SRC/Models/PreCallContext.swift" \
   "$SRC"/Engine/Signals/*.swift
 "$OUT/tuningcheck"
+
+swiftc -O -o "$OUT/advisorcheck" \
+  tests/rubric/advisorcheck/main.swift \
+  "$SRC/Engine/RubricAdvisor.swift" \
+  "$SRC/Engine/AdaptiveThresholds.swift" \
+  "$SRC/Models/SessionTrends.swift" \
+  "$SRC/Models/AppSupport.swift" \
+  "$SRC/Models/Nudge.swift"
+"$OUT/advisorcheck"
 
 echo "-- building yamlcheck rig (compiles the app's Rubric.swift)"
 (

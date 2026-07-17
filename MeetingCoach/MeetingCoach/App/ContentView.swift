@@ -28,7 +28,7 @@ struct ContentView: View {
                 SimulationTimelineView(simulation: simulation)
                     .frame(minWidth: 400)
             } else {
-                ProgressDashboardView(liveSession: liveSession)
+                ProgressDashboardView(liveSession: liveSession, settings: settings)
                     .frame(minWidth: 400)
             }
         }

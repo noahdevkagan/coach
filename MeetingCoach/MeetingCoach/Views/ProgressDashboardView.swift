@@ -5,9 +5,11 @@ import SwiftUI
 /// not buried in Settings. Everything reads from the saved session files.
 struct ProgressDashboardView: View {
     var liveSession: LiveSessionViewModel?
+    var settings: SettingsViewModel?
 
     @State private var sessions: [SessionSummary] = []
     @State private var activeGoalIds: [String] = []
+    @State private var suggestions: [RubricSuggestion] = []
 
     private var focusTypes: Set<NudgeType> {
         Set(activeGoalIds.compactMap(FocusGoals.definition(for:)).flatMap(\.types))
@@ -33,6 +35,7 @@ struct ProgressDashboardView: View {
                     emptyState
                 } else {
                     statTiles
+                    suggestionSection
                     focusSection
                     topPatterns
                     talkTrend
@@ -50,6 +53,8 @@ struct ProgressDashboardView: View {
     private func reload() {
         sessions = SessionTrends.loadAll()
         activeGoalIds = FocusGoals.loadActiveIds()
+        RubricAdvisor.refresh(sessions: sessions)
+        suggestions = RubricAdvisor.pending()
     }
 
     // MARK: - Sections
@@ -111,6 +116,71 @@ struct ProgressDashboardView: View {
         guard abs(delta) >= 0.05 else { return "same as last week" }
         let arrow = delta < 0 ? "↓" : "↑"
         return "\(arrow) \(String(format: format, abs(delta)))\(suffix) vs last week"
+    }
+
+    /// The advisor's proposals: approve rewrites the rubric (with backup),
+    /// dismiss suppresses until the evidence genuinely grows. Bounded
+    /// auto-tuning stays automatic; structural changes always come through
+    /// here — nothing changes silently.
+    private var suggestionSection: some View {
+        Group {
+            if !suggestions.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Coach suggestions", systemImage: "lightbulb")
+                        .font(.headline)
+                    ForEach(suggestions) { suggestion in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                Text(suggestion.displayName).font(.callout.bold())
+                                Text(kindLabel(suggestion.kind))
+                                    .font(.caption2)
+                                    .padding(.horizontal, 6).padding(.vertical, 1)
+                                    .background(Color.blue.opacity(0.1))
+                                    .foregroundStyle(.blue)
+                                    .clipShape(Capsule())
+                                Spacer()
+                            }
+                            Text(suggestion.rationale).font(.caption)
+                            Text(suggestion.evidence)
+                                .font(.caption2).foregroundStyle(.secondary)
+                            HStack(spacing: 8) {
+                                Button("Apply") {
+                                    if let settings {
+                                        RubricAdvisor.approve(suggestion, settings: settings)
+                                        suggestions = RubricAdvisor.pending()
+                                    }
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                                .disabled(settings == nil)
+
+                                Button("Dismiss") {
+                                    RubricAdvisor.dismiss(suggestion, sessionCount: sessions.count)
+                                    suggestions = RubricAdvisor.pending()
+                                }
+                                .buttonStyle(.plain)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            }
+                            .padding(.top, 2)
+                        }
+                        .padding(10)
+                        .background(Color.blue.opacity(0.05))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    Text("Small sensitivity adjustments happen automatically from your feedback; changes to what the coach watches always ask first.")
+                        .font(.caption2).foregroundStyle(.tertiary)
+                }
+            }
+        }
+    }
+
+    private func kindLabel(_ kind: RubricSuggestion.Kind) -> String {
+        switch kind {
+        case .disable: return "turn off"
+        case .raiseCooldown: return "fire less often"
+        case .moreSensitive: return "fire sooner"
+        }
     }
 
     private var focusSection: some View {
