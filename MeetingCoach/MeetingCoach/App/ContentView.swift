@@ -613,13 +613,23 @@ struct SidebarView: View {
             Divider()
             // Real bundle version (stamped from the release tag by CI) — never
             // hardcode here again; a stale footer in an auto-updating app is
-            // worse than none.
-            Text("v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")")
+            // worse than none. Debug builds are marked so a dev copy is never
+            // mistaken for the installed release.
+            Text(Self.versionLabel)
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(.quaternary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 4)
         }
+    }
+
+    static var versionLabel: String {
+        let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+        #if DEBUG
+        return "v\(v) · dev"
+        #else
+        return "v\(v)"
+        #endif
     }
 
     private func handleDrop(_ providers: [NSItemProvider], simulation: SimulationViewModel) -> Bool {
@@ -1236,8 +1246,14 @@ struct LiveSection: View {
                     .help("Toggle floating overlay")
                 }
             } else {
+                // One click, no ritual — starts with the last-used context.
+                // The goal/participants form is opt-in below.
                 Button {
-                    liveSession.showPreCallForm = true
+                    liveSession.startLive(
+                        context: liveSession.preCallContext,
+                        settings: settings,
+                        ollamaManager: ollamaManager
+                    )
                 } label: {
                     Label("Go Live", systemImage: "antenna.radiowaves.left.and.right")
                         .frame(maxWidth: .infinity)
@@ -1255,6 +1271,14 @@ struct LiveSection: View {
                         )
                     }
                 }
+
+                Button("Set a goal first…") {
+                    liveSession.showPreCallForm = true
+                }
+                .font(.caption)
+                .buttonStyle(.plain)
+                .foregroundStyle(.blue)
+                .help("Optional: tell the coach the meeting goal, length, and who's in the room")
 
                 Toggle("AI nudges", isOn: $settings.semanticCoachEnabled)
                     .font(.caption)
