@@ -35,9 +35,8 @@ targets:
         # (secret SPARKLE_ED_PRIVATE_KEY). Placeholder replaced by generate_keys.
         SUPublicEDKey: "AAD6OqEDMP6l/7gMFXBY8knuVAZWigp77zuYSSAS8CE="
         SUEnableAutomaticChecks: true
-        # Check hourly (Sparkle's minimum), not the 24h default — releases
-        # should reach running apps the same day they ship.
-        SUScheduledCheckInterval: 3600
+        # Daily is enough (and it also checks at every launch).
+        SUScheduledCheckInterval: 86400
     sources:
       - path: MeetingCoach
         excludes:

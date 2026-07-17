@@ -15,7 +15,10 @@ import UserNotifications
 final class MeetingDetectionService {
     static let enabledKey = "autoDetectMeetings"
 
-    /// Default OFF — existing users opt in from the menu bar.
+    /// Default ON for fresh installs — detection is permissionless (mic
+    /// state + app list, no TCC prompts) and the "Meeting detected" pill is
+    /// the product's front door; a new user who never finds the menu bar
+    /// toggle would otherwise never see it. An explicit off is respected.
     var isEnabled: Bool {
         didSet {
             UserDefaults.standard.set(isEnabled, forKey: Self.enabledKey)
@@ -45,7 +48,12 @@ final class MeetingDetectionService {
     private var pollTask: Task<Void, Never>?
 
     init() {
-        isEnabled = UserDefaults.standard.bool(forKey: Self.enabledKey)
+        if UserDefaults.standard.object(forKey: Self.enabledKey) == nil {
+            isEnabled = true
+        } else {
+            isEnabled = UserDefaults.standard.bool(forKey: Self.enabledKey)
+        }
+        mclog("[Detect] auto-detect enabled=\(isEnabled)")
         if isEnabled { startPolling() }
     }
 
@@ -133,7 +141,9 @@ final class MeetingDetectionService {
     private static let browserBundleIds: Set<String> = [
         "com.apple.Safari", "com.google.Chrome", "org.mozilla.firefox",
         "com.microsoft.edgemac", "com.brave.Browser", "company.thebrowser.Browser",
-        "com.vivaldi.Vivaldi",
+        "com.vivaldi.Vivaldi", "com.operasoftware.Opera",
+        "com.google.Chrome.beta", "com.google.Chrome.canary", "org.chromium.Chromium",
+        "company.thebrowser.dia", "ai.perplexity.comet", "com.kagi.kagimacOS",
     ]
 
     /// Some process (not us — detection pauses while live) holds the
