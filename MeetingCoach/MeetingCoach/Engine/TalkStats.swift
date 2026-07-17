@@ -5,6 +5,10 @@ import Foundation
 /// over turns, "Meeting" turns skipped — a mixed stream has no you/them
 /// split until diarization labels it).
 struct TalkStats: Sendable {
+    /// The share level every surface (overlay meter, sparkline, dashboard)
+    /// treats as "too much floor" — coaching notes converge on ~65%.
+    static let warnShare = 0.65
+
     /// Your share over the whole session (0…1). nil until there is enough
     /// labeled speech to be meaningful.
     var sessionShare: Double?

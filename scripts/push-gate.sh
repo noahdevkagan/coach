@@ -47,10 +47,45 @@ echo "--- [3/4] nudges"
 bash tests/nudges/run.sh || { echo "NUDGE GATE FAILED"; exit 1; }
 bash tests/rubric/run.sh || { echo "RUBRIC GATE FAILED"; exit 1; }
 bash tests/detector/run.sh || { echo "DETECTOR GATE FAILED"; exit 1; }
+bash tests/demo/run.sh || { echo "DEMO GATE FAILED"; exit 1; }
 
 echo "--- [4/4] benchmark trend (informational)"
 if ls "$HOME/Documents/MeetingCoach"/session_*.md >/dev/null 2>&1; then
     bash bench/run.sh --label "push-gate" 2>/dev/null | tail -4
+    # Release-over-release guard: compare against the previous record with
+    # the SAME session corpus (fingerprinted), so engine changes — not new
+    # meetings — explain any movement. Informational, but loud.
+    python3 - <<'PY'
+import json
+records = []
+with open("bench/history.jsonl") as f:
+    for line in f:
+        line = line.strip()
+        if line:
+            records.append(json.loads(line))
+if len(records) >= 2:
+    curr = records[-1]
+    prev = next((r for r in reversed(records[:-1])
+                 if r.get("corpus") == curr.get("corpus")), None)
+    if curr.get("corpus") is None or prev is None:
+        print("trend: no earlier record with this session corpus — nothing to compare")
+    else:
+        def rate(r, m, t):
+            return (r[m] / r[t]) if r.get(t) else None
+        d_nag10 = curr["per10min"] - prev["per10min"]
+        print(f"trend vs {prev['commit']}: nudges/10min {prev['per10min']} -> {curr['per10min']} ({d_nag10:+.1f})")
+        u_prev, u_curr = rate(prev, "usefulMatched", "usefulTotal"), rate(curr, "usefulMatched", "usefulTotal")
+        n_prev, n_curr = rate(prev, "nagMatched", "nagTotal"), rate(curr, "nagMatched", "nagTotal")
+        if u_prev is not None and u_curr is not None:
+            print(f"trend: useful agreement {u_prev:.0%} -> {u_curr:.0%} (higher is better)")
+        if n_prev is not None and n_curr is not None:
+            print(f"trend: nag agreement {n_prev:.0%} -> {n_curr:.0%} (lower is better)")
+        regressed = d_nag10 > 0.5 \
+            or (u_prev is not None and u_curr is not None and u_curr < u_prev) \
+            or (n_prev is not None and n_curr is not None and n_curr > n_prev)
+        if regressed:
+            print("WARN: benchmark regressed vs previous same-corpus record — review before release")
+PY
     echo "history: bench/history.jsonl (compare per10min / perType across commits)"
 else
     echo "no saved sessions on this machine — skipped"

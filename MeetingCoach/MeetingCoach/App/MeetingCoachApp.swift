@@ -19,7 +19,7 @@ struct MeetingCoachApp: App {
         startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: "main") {
             ContentView(ollamaManager: ollamaManager,
                         liveSession: liveSession,
                         settings: settings)
@@ -70,6 +70,7 @@ struct MenuBarView: View {
     @Bindable var settings: SettingsViewModel
     @Bindable var ollamaManager: OllamaManager
     @Bindable var detection: MeetingDetectionService
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         if detection.meetingDetected && !liveSession.isLive {
@@ -79,6 +80,7 @@ struct MenuBarView: View {
             Button("Start with context…") {
                 detection.sessionStarted()
                 liveSession.showPreCallForm = true
+                openWindow(id: "main")
                 NSApp.activate(ignoringOtherApps: true)
             }
             Button("Not now") {
@@ -102,14 +104,18 @@ struct MenuBarView: View {
         Divider()
         Toggle("Auto-detect meetings", isOn: $detection.isEnabled)
         Button("Open Meeting Coach") {
+            openWindow(id: "main")
             NSApp.activate(ignoringOtherApps: true)
         }
     }
 
     /// Start with the last-used (or default) pre-call context — the setup
-    /// ritual is optional from here.
+    /// ritual is optional from here. The main window is (re)opened first:
+    /// ContentView owns the floating overlay, so a session started with no
+    /// window would otherwise coach invisibly.
     private func startCoaching() {
         detection.sessionStarted()
+        openWindow(id: "main")
         liveSession.startLive(context: liveSession.preCallContext,
                               settings: settings,
                               ollamaManager: ollamaManager)

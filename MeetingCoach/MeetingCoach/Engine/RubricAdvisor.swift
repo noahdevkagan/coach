@@ -132,6 +132,7 @@ enum RubricAdvisor {
     @discardableResult
     static func refresh(sessions: [SessionSummary]) -> [RubricSuggestion] {
         var stored = loadAll()
+        var changed = false
 
         for e in evidence(from: sessions) {
             guard let (kind, rationale, evidenceText) = proposal(for: e) else { continue }
@@ -141,7 +142,8 @@ enum RubricAdvisor {
                 case .pending, .applied:
                     continue
                 case .dismissed:
-                    // Re-propose only when the evidence has genuinely grown.
+                    // Re-propose only when the evidence has genuinely grown
+                    // since the dismissal.
                     let sessionsSince = sessions.count - stored[idx].sessionCountAtCreation
                     if e.rated >= max(1, stored[idx].evidenceRatedCount) * 2 || sessionsSince >= 10 {
                         var s = stored[idx]
@@ -149,6 +151,7 @@ enum RubricAdvisor {
                         s.evidenceRatedCount = e.rated
                         s.sessionCountAtCreation = sessions.count
                         stored[idx] = s
+                        changed = true
                     }
                 }
             } else {
@@ -157,10 +160,13 @@ enum RubricAdvisor {
                     rationale: rationale, evidence: evidenceText,
                     evidenceRatedCount: e.rated,
                     sessionCountAtCreation: sessions.count))
+                changed = true
             }
         }
 
-        saveAll(stored)
+        // The dashboard calls this on every idle appearance — only touch
+        // disk when the suggestion set actually moved.
+        if changed { saveAll(stored) }
         return stored
     }
 
@@ -168,10 +174,17 @@ enum RubricAdvisor {
         loadAll().filter { $0.status == .pending }
     }
 
-    static func dismiss(_ suggestion: RubricSuggestion, sessionCount: Int) {
+    /// Dismiss and record the evidence baseline AT DISMISSAL — the doubling
+    /// rule in refresh() measures growth from here, not from creation
+    /// (otherwise evidence accumulated before the click re-proposes the
+    /// suggestion on the very next reload).
+    static func dismiss(_ suggestion: RubricSuggestion, sessions: [SessionSummary]) {
+        let ratedNow = evidence(from: sessions)
+            .first { $0.key == suggestion.signalKey }?.rated ?? suggestion.evidenceRatedCount
         update(suggestion) {
             $0.status = .dismissed
-            $0.sessionCountAtCreation = sessionCount
+            $0.evidenceRatedCount = ratedNow
+            $0.sessionCountAtCreation = sessions.count
         }
     }
 

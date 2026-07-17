@@ -13,6 +13,12 @@ final class RubricBuilderViewModel {
         let blurb: String
         var enabled: Bool = true
         var level: Level = .normal
+        /// The tuning as loaded, plus the level it quantized to. When the
+        /// user doesn't move the level, the original multipliers pass
+        /// through untouched — the coarse More/Normal/Fewer buckets must
+        /// never clobber precise values (e.g. an advisor cooldown patch).
+        var loadedTuning: SignalTuning?
+        var loadedLevel: Level = .normal
         var id: String { type.rawValue }
 
         enum Level: String, CaseIterable, Identifiable {
@@ -43,6 +49,11 @@ final class RubricBuilderViewModel {
         var signalId: String
         var description: String
         var nudge: String
+        /// Source-signal fields the editor doesn't surface — carried through
+        /// saves so a hand-authored rubric round-trips faithfully.
+        var tier: String = "B"
+        var needsDiarization = false
+        var minConfidence = 0.8
     }
 
     var request = ""
@@ -104,25 +115,38 @@ final class RubricBuilderViewModel {
             if let tuning = rubric.builtins[type.rawValue] {
                 row.enabled = tuning.enabled
                 row.level = .from(multiplier: tuning.thresholdMultiplier)
+                row.loadedTuning = tuning
+                row.loadedLevel = row.level
             }
             return row
         }
-        customRows = rubric.customSemanticSignals.map {
-            CustomRow(signalId: $0.id, description: $0.description,
-                      nudge: rubric.signal(byId: $0.id)?.nudge ?? "")
-        }
+        // Every non-builtin-alias signal becomes a row — the live coach caps
+        // how many it watches, but the editor must never drop any on save.
+        customRows = rubric.signals
+            .filter { !Rubric.builtinSignalIds.contains($0.id) }
+            .map {
+                CustomRow(signalId: $0.id, description: $0.description,
+                          nudge: $0.nudge, tier: $0.tier,
+                          needsDiarization: $0.needsDiarization,
+                          minConfidence: $0.minConfidence)
+            }
     }
 
     /// Assemble a Rubric from the current rows, carrying base fields through.
     func currentRubric() -> Rubric {
         var builtins: RubricTuning = [:]
         for row in builtinRows {
-            var tuning = SignalTuning()
+            // Untouched level → the loaded multipliers pass through exactly
+            // (an advisor cooldown patch quantizes to .normal; re-emitting
+            // the bucket value would silently revert it).
+            var tuning = row.loadedTuning ?? SignalTuning()
+            if row.level != row.loadedLevel {
+                tuning.thresholdMultiplier = row.level.multiplier
+                tuning.cooldownMultiplier = row.level.multiplier
+            }
             tuning.enabled = row.enabled
-            tuning.thresholdMultiplier = row.level.multiplier
-            tuning.cooldownMultiplier = row.level.multiplier
             // Only keep entries that differ from stock.
-            if !tuning.enabled || tuning.thresholdMultiplier != 1.0 {
+            if !tuning.enabled || tuning.thresholdMultiplier != 1.0 || tuning.cooldownMultiplier != 1.0 {
                 builtins[row.type.rawValue] = tuning
             }
         }
@@ -135,8 +159,9 @@ final class RubricBuilderViewModel {
             let id = Self.snakeCase(row.signalId)
             guard !id.isEmpty, !row.description.trimmingCharacters(in: .whitespaces).isEmpty
             else { return nil }
-            return Signal(id: id, tier: "B", description: row.description,
-                          nudge: row.nudge, needsDiarization: false, minConfidence: 0.8)
+            return Signal(id: id, tier: row.tier, description: row.description,
+                          nudge: row.nudge, needsDiarization: row.needsDiarization,
+                          minConfidence: row.minConfidence)
         }
 
         let name = rubricName.trimmingCharacters(in: .whitespaces)

@@ -90,7 +90,7 @@ struct ProgressDashboardView: View {
 
         return HStack(spacing: 10) {
             StatTile(value: "\(current)",
-                     label: current == 1 ? "day streak" : "day streak",
+                     label: "day streak",
                      sub: best > current ? "best \(best)" : nil)
             StatTile(value: "\(thisWeek.sessionCount)",
                      label: "sessions this week",
@@ -155,7 +155,7 @@ struct ProgressDashboardView: View {
                                 .disabled(settings == nil)
 
                                 Button("Dismiss") {
-                                    RubricAdvisor.dismiss(suggestion, sessionCount: sessions.count)
+                                    RubricAdvisor.dismiss(suggestion, sessions: sessions)
                                     suggestions = RubricAdvisor.pending()
                                 }
                                 .buttonStyle(.plain)
@@ -240,12 +240,14 @@ struct ProgressDashboardView: View {
     }
 
     private var talkTrend: some View {
-        let points = sessions.compactMap { s in s.talkShare.map { (s.date, $0) } }
+        let points = sessions.compactMap { s in
+            s.talkShare.map { (x: s.date.timeIntervalSinceReferenceDate, share: $0) }
+        }
         return Group {
             if points.count >= 3 {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Talk share by session").font(.headline)
-                    SessionShareChart(points: points)
+                    ShareTrendLine(points: points, showDots: true)
                         .frame(height: 60)
                 }
             }
@@ -264,7 +266,7 @@ struct ProgressDashboardView: View {
                     if let share = session.talkShare {
                         Text("you \(Int(share * 100))%")
                             .font(.caption2)
-                            .foregroundStyle(share > 0.65 ? .orange : .secondary)
+                            .foregroundStyle(share > TalkStats.warnShare ? .orange : .secondary)
                     }
                     Spacer()
                     Text("\(session.totalNudges) nudges")
@@ -351,44 +353,3 @@ private struct FlowChips: View {
     }
 }
 
-/// Dots + line of session talk shares over time, 65% reference line.
-private struct SessionShareChart: View {
-    let points: [(Date, Double)]
-    var warnAt: Double = 0.65
-
-    var body: some View {
-        GeometryReader { geo in
-            let xs = points.map(\.0.timeIntervalSinceReferenceDate)
-            let minX = xs.min() ?? 0
-            let maxX = max(xs.max() ?? 1, minX + 1)
-            let cgPoints = points.map { point in
-                CGPoint(
-                    x: geo.size.width * (point.0.timeIntervalSinceReferenceDate - minX) / (maxX - minX),
-                    y: geo.size.height * (1 - point.1)
-                )
-            }
-            ZStack {
-                Path { p in
-                    let y = geo.size.height * (1 - warnAt)
-                    p.move(to: CGPoint(x: 0, y: y))
-                    p.addLine(to: CGPoint(x: geo.size.width, y: y))
-                }
-                .stroke(Color.orange.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
-
-                Path { p in
-                    guard let first = cgPoints.first else { return }
-                    p.move(to: first)
-                    for pt in cgPoints.dropFirst() { p.addLine(to: pt) }
-                }
-                .stroke(Color.blue.opacity(0.6), lineWidth: 1.5)
-
-                ForEach(Array(cgPoints.enumerated()), id: \.offset) { _, pt in
-                    Circle()
-                        .fill(Color.blue)
-                        .frame(width: 4, height: 4)
-                        .position(pt)
-                }
-            }
-        }
-    }
-}

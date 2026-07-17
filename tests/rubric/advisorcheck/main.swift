@@ -65,7 +65,8 @@ func session(keyCounts: [String: Int], feedback: [String: [NudgeFeedback: Int]])
                    durationFormatted: "30:00", utteranceCount: 100,
                    nudgeCounts: [:], totalNudges: keyCounts.values.reduce(0, +),
                    feedbackCounts: [:], talkShare: 0.5,
-                   nudgeKeyCounts: keyCounts, feedbackByKey: feedback)
+                   nudgeKeyCounts: keyCounts, feedbackByKey: feedback,
+                   durationMinutes: 30)
 }
 let sessions = [
     session(keyCounts: ["talkTime": 2], feedback: ["talkTime": [.wrong: 2]]),

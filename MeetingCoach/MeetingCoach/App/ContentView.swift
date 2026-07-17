@@ -56,6 +56,11 @@ struct ContentView: View {
         .onChange(of: liveSession.isLive) { _, isLive in
             if isLive { showOverlay() } else { hideOverlay() }
         }
+        .onAppear {
+            // The window can open into an already-live session (started from
+            // the menu bar with no window) — onChange never fires for that.
+            if liveSession.isLive { showOverlay() }
+        }
     }
 
     private func toggleOverlay() {
@@ -70,22 +75,22 @@ struct ContentView: View {
         if overlayPanel == nil {
             overlayPanel = CoachingOverlayPanel()
         }
-        updateOverlay()
-        overlayPanel?.orderFront(nil)
+        guard let panel = overlayPanel else { return }
+        // Install content BEFORE ordering front (NSPanel ships a placeholder
+        // contentView, so assign unconditionally). The view observes the
+        // session (@Observable), so one hosting view tracks nudges and the
+        // talk meter for the whole session without being rebuilt.
+        if !(panel.contentView is NSHostingView<CoachingOverlayView>) {
+            let view = CoachingOverlayView(liveSession: liveSession) { [weak panel] in
+                panel?.orderOut(nil)
+            }
+            panel.contentView = NSHostingView(rootView: view)
+        }
+        panel.orderFront(nil)
     }
 
     private func hideOverlay() {
         overlayPanel?.orderOut(nil)
-    }
-
-    private func updateOverlay() {
-        guard let panel = overlayPanel, panel.isVisible else { return }
-        // The view observes the session (@Observable), so one hosting view
-        // tracks nudges and the talk meter without being rebuilt.
-        let view = CoachingOverlayView(liveSession: liveSession) { [weak panel = overlayPanel] in
-            panel?.orderOut(nil)
-        }
-        panel.contentView = NSHostingView(rootView: view)
     }
 }
 
@@ -206,11 +211,10 @@ struct LiveTimelineView: View {
             }
             .padding(.horizontal).padding(.vertical, 8)
 
-            // Talk balance: rolling share bar + session sparkline
-            if let share = liveSession.talkStats.recentShare ?? liveSession.talkStats.sessionShare {
-                TalkBalanceHeader(share: share, history: liveSession.talkStats.history)
-                    .padding(.horizontal).padding(.bottom, 6)
-            }
+            // Talk balance: rolling share bar + session sparkline.
+            // Isolated in a child view so per-utterance talkStats mutations
+            // re-render only this strip, not the whole timeline.
+            TalkBalanceSection(liveSession: liveSession)
             Divider()
 
             LiveTranscriptPane(liveSession: liveSession)
@@ -242,53 +246,22 @@ struct LiveTimelineView: View {
 }
 
 /// Talk balance strip for the transcript panel: the meter bar plus a small
-/// sparkline of how the share moved across the session.
-private struct TalkBalanceHeader: View {
-    let share: Double
-    let history: [TalkStats.Sample]
+/// sparkline of how the share moved across the session. Reads talkStats
+/// itself so its ~per-second updates don't re-render the parent panel.
+private struct TalkBalanceSection: View {
+    var liveSession: LiveSessionViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            TalkMeterBar(share: share)
-            if history.count >= 4 {
-                TalkShareSparkline(history: history)
-                    .frame(height: 14)
-            }
-        }
-    }
-}
-
-/// Minimal line sparkline of talk share over time; the 65% warn level is a
-/// faint reference line.
-private struct TalkShareSparkline: View {
-    let history: [TalkStats.Sample]
-    var warnAt: Double = 0.65
-
-    var body: some View {
-        GeometryReader { geo in
-            let minT = history.first?.t ?? 0
-            let maxT = max(history.last?.t ?? 1, minT + 1)
-            let points = history.map { sample in
-                CGPoint(
-                    x: geo.size.width * (sample.t - minT) / (maxT - minT),
-                    y: geo.size.height * (1 - sample.share)
-                )
-            }
-            ZStack {
-                Path { p in
-                    let y = geo.size.height * (1 - warnAt)
-                    p.move(to: CGPoint(x: 0, y: y))
-                    p.addLine(to: CGPoint(x: geo.size.width, y: y))
+        if let share = liveSession.talkStats.recentShare ?? liveSession.talkStats.sessionShare {
+            VStack(alignment: .leading, spacing: 3) {
+                TalkMeterBar(share: share)
+                let history = liveSession.talkStats.history
+                if history.count >= 4 {
+                    ShareTrendLine(points: history.map { (x: $0.t, share: $0.share) })
+                        .frame(height: 14)
                 }
-                .stroke(Color.orange.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
-
-                Path { p in
-                    guard let first = points.first else { return }
-                    p.move(to: first)
-                    for pt in points.dropFirst() { p.addLine(to: pt) }
-                }
-                .stroke(Color.blue.opacity(0.7), lineWidth: 1.5)
             }
+            .padding(.horizontal).padding(.bottom, 6)
         }
     }
 }
@@ -676,10 +649,9 @@ struct CoachingStyleSection: View {
     @Bindable var settings: SettingsViewModel
     @Bindable var ollamaManager: OllamaManager
     @State private var showBuilder = false
-
-    private var activeName: String {
-        ((try? settings.loadRubricOrDefault()) ?? .builtInDefault).name
-    }
+    // Cached: reading + parsing the rubric YAML in a body path would run on
+    // every sidebar re-render. The name only changes when a rubric is saved.
+    @State private var activeName = ""
 
     var body: some View {
         HStack(spacing: 6) {
@@ -697,9 +669,15 @@ struct CoachingStyleSection: View {
             .buttonStyle(.plain)
             .foregroundStyle(.blue)
         }
-        .sheet(isPresented: $showBuilder) {
+        .onAppear(perform: refreshName)
+        .onChange(of: settings.rubricPath) { _, _ in refreshName() }
+        .sheet(isPresented: $showBuilder, onDismiss: refreshName) {
             RubricBuilderView(settings: settings, ollamaManager: ollamaManager)
         }
+    }
+
+    private func refreshName() {
+        activeName = ((try? settings.loadRubricOrDefault()) ?? .builtInDefault).name
     }
 }
 

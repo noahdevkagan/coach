@@ -1,14 +1,5 @@
 import Foundation
 
-/// A rubric-defined signal the semantic coach watches beyond its built-in
-/// set. Plain type (not Rubric) so bench/test harnesses can compile this
-/// file standalone, without the YAML layer.
-struct CustomSemanticSignal: Sendable {
-    let id: String            // snake_case rubric id, e.g. "rambling_intro"
-    let name: String          // display name, e.g. "Rambling Intro"
-    let description: String   // what the model should look for
-}
-
 /// Tier-2 semantic coaching: a low-frequency local-LLM pass over the recent
 /// conversation, catching rubric signals that keyword heuristics can't —
 /// alignment reached, buried signal, hedge not pinned, no decision named.
@@ -65,6 +56,9 @@ final class SemanticCoach {
     private let activeDefs: [SignalDef]
     /// Rubric-defined signals, keyed by their snake_case id.
     private let customSignals: [String: CustomSemanticSignal]
+    /// Per-signal cooldown multipliers from the rubric/focus tuning — the
+    /// one knob the builder's More/Fewer levels drive on semantic signals.
+    private let cooldownMultipliers: [String: Double]
     private var lastFiredByKey: [String: TimeInterval] = [:]
     private var firesByKey: [String: Int] = [:]
     /// Everything already nudged, echoed back to the (stateless) model so it
@@ -77,7 +71,11 @@ final class SemanticCoach {
         // stale coaching. Better to skip a beat than nudge about the past.
         client = OllamaClient(model: model, timeout: 45)
         activeDefs = Self.builtinDefs.filter { tuning[$0.type.rawValue]?.enabled ?? true }
-        self.customSignals = Dictionary(uniqueKeysWithValues: customSignals.map { ($0.id, $0) })
+        // First entry wins on duplicate ids — rubrics are user/LLM-authored,
+        // so a repeated id must degrade gracefully, never trap.
+        self.customSignals = Dictionary(customSignals.map { ($0.id, $0) },
+                                        uniquingKeysWith: { first, _ in first })
+        cooldownMultipliers = tuning.mapValues(\.cooldownMultiplier)
     }
 
     /// Analyze the recent window. Returns at most one high-confidence nudge.
@@ -121,7 +119,8 @@ final class SemanticCoach {
             .filter { $0.confidence >= Self.confidenceThreshold }
             .filter { call in
                 let last = lastFiredByKey[call.key] ?? -.infinity
-                return elapsed - last >= Self.perTypeCooldown
+                let multiplier = cooldownMultipliers[call.key] ?? 1.0
+                return elapsed - last >= Self.perTypeCooldown * multiplier
             }
             .filter { call in
                 firesByKey[call.key, default: 0] < maxFires(for: call)

@@ -16,8 +16,11 @@ struct SessionSummary: Identifiable {
     /// Feedback broken down per signal key (the advisor's evidence).
     let feedbackByKey: [String: [NudgeFeedback: Int]]
 
-    var durationMinutes: Double {
-        let parts = durationFormatted.split(separator: ":").compactMap { Double($0) }
+    /// Parsed once at load — weekStats walks this per session per call.
+    let durationMinutes: Double
+
+    static func minutes(from formatted: String) -> Double {
+        let parts = formatted.split(separator: ":").compactMap { Double($0) }
         guard parts.count == 2 else { return 0 }
         return parts[0] + parts[1] / 60
     }
@@ -216,7 +219,8 @@ enum SessionTrends {
             feedbackCounts: feedbackCounts,
             talkShare: talkShare,
             nudgeKeyCounts: nudgeKeyCounts,
-            feedbackByKey: feedbackByKey
+            feedbackByKey: feedbackByKey,
+            durationMinutes: SessionSummary.minutes(from: duration)
         )
     }
 }

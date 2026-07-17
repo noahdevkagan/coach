@@ -91,12 +91,15 @@ final class LiveSessionViewModel {
 
         // Focus goals: focused signals get modestly more sensitive (merged
         // into the tuning here so the engine stays rubric-agnostic) and win
-        // overlay contention below.
+        // overlay contention below. Both multipliers are boosted — most
+        // monitors expose only a cooldown knob, and the semantic coach
+        // scales its per-signal cooldowns from the same value.
         focusTypes = FocusGoals.activeTypes()
         var tuning = rubric.builtins
         for type in focusTypes {
             var t = tuning[type.rawValue] ?? SignalTuning()
             t.thresholdMultiplier *= FocusGoals.sensitivityBoost
+            t.cooldownMultiplier *= FocusGoals.sensitivityBoost
             tuning[type.rawValue] = t
         }
         signalEngine = SignalEngine(context: context, tuning: tuning)
@@ -104,7 +107,7 @@ final class LiveSessionViewModel {
         // Tier-2 semantic coaching: local LLM heartbeat (optional, toggleable)
         if let settings, let ollamaManager, settings.semanticCoachEnabled {
             semanticCoach = SemanticCoach(model: settings.selectedModel,
-                                          tuning: rubric.builtins,
+                                          tuning: tuning,
                                           customSignals: rubric.customSemanticSignals)
             if ollamaManager.status == .stopped {
                 ollamaManager.start()
@@ -114,16 +117,8 @@ final class LiveSessionViewModel {
             semanticCoach = nil
         }
 
-        utterances = []
-        turns = []
-        livePartials = [:]
-        nudges = []
-        activeNudge = nil
-        talkStats.reset()
-        error = nil
+        resetSessionState()
         status = "Starting — 10 coaching signals loaded"
-        elapsedTime = 0
-        meetingSummary = nil
         isLive = true
 
         let manager = AudioCaptureManager()
@@ -220,17 +215,9 @@ final class LiveSessionViewModel {
         semanticCoach = nil
         focusTypes = []   // demo choreography must not depend on user goals
 
-        utterances = []
-        turns = []
-        livePartials = [:]
-        nudges = []
-        activeNudge = nil
-        talkStats.reset()
-        error = nil
-        meetingSummary = nil
+        resetSessionState()
         savedPath = nil
         showPostSession = false
-        elapsedTime = 0
         isDemo = true
         isLive = true
         status = "Demo — replaying a sample meeting"
@@ -288,14 +275,23 @@ final class LiveSessionViewModel {
             try? FileManager.default.removeItem(atPath: path)
             savedPath = nil
         }
+        resetSessionState()
+        showPostSession = false
+        status = ""
+    }
+
+    /// Clear all per-session UI state. Shared by live start, demo start,
+    /// and delete — a new per-session field must reset here, in one place.
+    private func resetSessionState() {
         utterances = []
         turns = []
+        livePartials = [:]
         nudges = []
         activeNudge = nil
         talkStats.reset()
+        error = nil
         meetingSummary = nil
-        showPostSession = false
-        status = ""
+        elapsedTime = 0
     }
 
     func dismissPostSession() {
@@ -375,13 +371,13 @@ final class LiveSessionViewModel {
 
         let durationMin = max(1, Int(elapsedTime) / 60)
 
-        // No model installed (or mock mode): render the instant on-device
-        // review instead of spinning up an engine that has nothing to run.
-        if settings.useMock ||
+        // Demo sessions never reach the LLM: reviewing a scripted meeting as
+        // if it were real would be the user's first review experience.
+        // Mock mode and known-empty model lists get the instant review too,
+        // instead of spinning up an engine that has nothing to run.
+        if isDemo || settings.useMock ||
             (settings.hasCheckedModels && settings.ollamaReachable && settings.availableModels.isEmpty) {
-            meetingSummary = instantReview(durationMinutes: durationMin)
-            isGeneratingSummary = false
-            persistReview()
+            finishReview(instantReview(durationMinutes: durationMin))
             return
         }
 
@@ -407,26 +403,32 @@ final class LiveSessionViewModel {
                 }
             }
 
-            guard ollamaManager.status == .running else {
-                meetingSummary = instantReview(durationMinutes: durationMin)
-                isGeneratingSummary = false
-                persistReview()
-                return
+            var summary: String?
+            if ollamaManager.status == .running {
+                // Engine is up — but a fresh install may have no models (the
+                // earlier check couldn't reach it); skip the doomed request
+                // instead of waiting out a model-not-found error.
+                await settings.refreshModels()
+                if !settings.availableModels.isEmpty {
+                    do {
+                        summary = try await OllamaClient(model: model).complete(system: system, user: user)
+                    } catch {
+                        // The LLM path failed (engine died, timeout) — the
+                        // instant review is still better than an error string.
+                        mclog("[Review] LLM review failed, using instant review: \(error.localizedDescription)")
+                    }
+                }
             }
-
-            let client = OllamaClient(model: model)
-            do {
-                let result = try await client.complete(system: system, user: user)
-                meetingSummary = result
-            } catch {
-                // The LLM path failed (no model pulled, engine died) — the
-                // instant review is still better than an error string.
-                mclog("[Review] LLM review failed, using instant review: \(error.localizedDescription)")
-                meetingSummary = instantReview(durationMinutes: durationMin)
-            }
-            isGeneratingSummary = false
-            persistReview()
+            finishReview(summary ?? instantReview(durationMinutes: durationMin))
         }
+    }
+
+    /// Single epilogue for every review path: publish, stop the spinner,
+    /// and persist into the session file.
+    private func finishReview(_ summary: String) {
+        meetingSummary = summary
+        isGeneratingSummary = false
+        persistReview()
     }
 
     /// Write the review into the saved session file under "## Review" so
@@ -447,7 +449,8 @@ final class LiveSessionViewModel {
         DeterministicReview.generate(nudges: nudges,
                                      utterances: utterances,
                                      context: preCallContext,
-                                     durationMinutes: durationMinutes)
+                                     durationMinutes: durationMinutes,
+                                     talkShare: talkStats.sessionShare)
     }
 
     // MARK: - Semantic heartbeat (tier 2)
@@ -515,9 +518,11 @@ final class LiveSessionViewModel {
 
     private func setActiveNudge(_ nudge: Nudge) {
         // Overlay contention: a nudge for the user's focus goal is not
-        // replaced by an off-focus one — it still lands in the feed.
+        // replaced by an off-focus one of equal or lower urgency — it still
+        // lands in the feed. High-stakes corrections always break through.
         if let current = activeNudge,
-           focusTypes.contains(current.type), !focusTypes.contains(nudge.type) {
+           focusTypes.contains(current.type), !focusTypes.contains(nudge.type),
+           Self.urgencyRank(nudge.urgency) <= Self.urgencyRank(current.urgency) {
             return
         }
         activeNudge = nudge
@@ -527,6 +532,14 @@ final class LiveSessionViewModel {
             try? await Task.sleep(for: .seconds(6))
             guard let self, self.activeNudge?.id == nudge.id else { return }
             self.dismissActiveNudge()
+        }
+    }
+
+    private static func urgencyRank(_ urgency: NudgeUrgency) -> Int {
+        switch urgency {
+        case .low: return 0
+        case .med: return 1
+        case .high: return 2
         }
     }
 

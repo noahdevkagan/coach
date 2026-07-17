@@ -40,7 +40,9 @@ func parseSession(_ url: URL) -> BenchSession? {
     let lines = text.components(separatedBy: .newlines)
 
     let transcriptLine = try! NSRegularExpression(pattern: #"^- \[(\d+):(\d{2})\] ([^:]+): (.*)$"#)
-    let nudgeLine = try! NSRegularExpression(pattern: #"^- \[(\d+):(\d{2})\] \*\*(\w+)\*\* \(\w+\): .*?(?:\| feedback: (\w+))?$"#)
+    // Type key is \w or "custom:<id>" — sessions written since the rubric
+    // unification use the key form for rubric-defined signals.
+    let nudgeLine = try! NSRegularExpression(pattern: #"^- \[(\d+):(\d{2})\] \*\*([\w:]+)\*\* \(\w+\): .*?(?:\| feedback: (\w+))?$"#)
 
     var utterances: [Utterance] = []
     var rated: [RatedNudge] = []
@@ -238,10 +240,22 @@ let commit = { () -> String in
     return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown"
 }()
 
+// Corpus fingerprint: scores are only comparable across commits when they
+// replay the SAME sessions. New meetings on the machine change the corpus,
+// which moves the numbers for non-engine reasons — the fingerprint lets
+// consumers (push gate, humans) compare like with like.
+let corpus = { () -> String in
+    let names = scores.map(\.name).sorted().joined(separator: ",")
+    var hash: UInt64 = 5381
+    for byte in names.utf8 { hash = hash &* 33 &+ UInt64(byte) }
+    return String(format: "%08x", hash & 0xFFFF_FFFF)
+}()
+
 let record: [String: Any] = [
     "date": ISO8601DateFormatter().string(from: Date()),
     "commit": commit,
     "label": label,
+    "corpus": corpus,
     "sessions": scores.count,
     "minutes": Int(totalMinutes),
     "nudges": totalNudges,

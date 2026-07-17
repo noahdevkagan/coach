@@ -83,10 +83,14 @@ final class MeetingDetectionService {
             meetingDetected = false
             return
         }
+        // Candidacy requires the mic first — one cheap CoreAudio property
+        // read. Skip the NSWorkspace app enumeration for the (typical)
+        // mic-idle tick.
+        let micInUse = Self.defaultInputInUse()
         let signals = MeetingSignals(
-            micInUse: Self.defaultInputInUse(),
-            meetingAppRunning: Self.meetingAppRunning(),
-            browserFrontmost: Self.browserFrontmost()
+            micInUse: micInUse,
+            meetingAppRunning: micInUse && Self.meetingAppRunning(),
+            browserFrontmost: micInUse && Self.browserFrontmost()
         )
         let event = detector.tick(signals, now: Date().timeIntervalSinceReferenceDate)
         if event == .prompt {

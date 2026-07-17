@@ -11,6 +11,7 @@ mkdir -p "$OUT"
 swiftc -O -o "$OUT/mc-backtest" \
   bench/backtest.swift \
   "$SRC/Engine/SignalEngine.swift" \
+  "$SRC/Engine/TuningTypes.swift" \
   "$SRC/Engine/AdaptiveThresholds.swift" \
   "$SRC/Engine/TranscriptAnalysis.swift" \
   "$SRC/Engine/TranscriptParser.swift" \

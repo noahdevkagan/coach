@@ -7,14 +7,20 @@ import Foundation
 /// always an explicit user action (copy button / share sheet).
 enum RecapExporter {
 
+    /// DateFormatter construction is expensive and this runs in view bodies.
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
     static func markdown(summary: String,
                          context: PreCallContext,
                          durationMinutes: Int,
                          talkShare: Double?,
                          date: Date = Date()) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
+        let formatter = Self.dateFormatter
 
         var lines: [String] = []
         lines.append("# Meeting recap — \(formatter.string(from: date))")

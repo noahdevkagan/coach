@@ -145,7 +145,7 @@ struct CoachingOverlayView: View {
 /// the point where coaching notes consistently call the floor hogged.
 struct TalkMeterBar: View {
     let share: Double
-    var warnAt: Double = 0.65
+    var warnAt: Double = TalkStats.warnShare
 
     var body: some View {
         HStack(spacing: 6) {

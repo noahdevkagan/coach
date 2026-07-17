@@ -25,20 +25,6 @@ protocol SignalMonitor {
     mutating func reset()
 }
 
-/// Per-signal tuning from the active rubric, keyed by NudgeType.rawValue.
-/// Deliberately a plain type (not Rubric) so the bench/test harnesses keep
-/// compiling the engine standalone, without the YAML layer or Yams.
-/// Defaults are neutral: an empty map is byte-identical to today's behavior.
-struct SignalTuning: Sendable {
-    var enabled: Bool = true
-    /// >1 relaxes the trigger (fewer nudges), <1 tightens it — the same
-    /// convention as the meeting-type and adaptive multipliers.
-    var thresholdMultiplier: Double = 1.0
-    var cooldownMultiplier: Double = 1.0
-}
-
-typealias RubricTuning = [String: SignalTuning]
-
 /// Orchestrator for deterministic signals. Runs all monitors on each tick
 /// and collects nudges for the live session and post-call review.
 struct SignalEngine {

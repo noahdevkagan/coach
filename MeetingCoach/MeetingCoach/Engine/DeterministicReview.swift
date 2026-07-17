@@ -9,14 +9,17 @@ enum DeterministicReview {
     static func generate(nudges: [Nudge],
                          utterances: [Utterance],
                          context: PreCallContext,
-                         durationMinutes: Int) -> String {
+                         durationMinutes: Int,
+                         talkShare: Double?) -> String {
         var lines: [String] = []
         lines.append("**Instant review** — generated on-device from this session's signals (add a local model in Settings for a deeper AI review).")
         lines.append("")
 
-        // Summary line
+        // Summary line. Talk share comes from the caller's TalkStats — the
+        // same number the meter, session header, and recap show; a second
+        // formula here would let one session display two different ratios.
         var summary = "\(durationMinutes) min \(context.effectiveMeetingType.displayName.lowercased()) meeting · \(utterances.count) utterances"
-        if let share = youTalkShare(utterances) {
+        if let share = talkShare {
             summary += " · you spoke \(Int(share * 100))% of the time"
         }
         lines.append("**Summary:** \(summary).")
@@ -61,24 +64,6 @@ enum DeterministicReview {
         return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Fraction of spoken time that was you. Only meaningful in dual-channel
-    /// mode (You/Them); mic-only sessions have no "You" and return nil.
-    static func youTalkShare(_ utterances: [Utterance]) -> Double? {
-        var you: TimeInterval = 0
-        var them: TimeInterval = 0
-        for u in utterances {
-            let weight = max(u.duration, wordTime(u.text))
-            if u.isYou { you += weight } else { them += weight }
-        }
-        guard you > 0, you + them > 30 else { return nil }
-        return you / (you + them)
-    }
-
-    /// Fallback duration estimate when endT is unknown: ~150 words/min.
-    private static func wordTime(_ text: String) -> TimeInterval {
-        Double(text.split(separator: " ").count) * 0.4
-    }
-
     private static func countsByType(_ nudges: [Nudge]) -> [(NudgeType, Int)] {
         var counts: [NudgeType: Int] = [:]
         for n in nudges { counts[n.type, default: 0] += 1 }
@@ -92,8 +77,11 @@ enum DeterministicReview {
     private static func commitmentLines(_ utterances: [Utterance]) -> [String] {
         var result: [String] = []
         for u in utterances {
-            let range = NSRange(u.text.startIndex..., in: u.text)
-            guard commitmentPattern.firstMatch(in: u.text, range: range) != nil else { continue }
+            // Transcripts carry smart apostrophes ("I’ll") — fold before
+            // matching, but quote the original text.
+            let matchable = TextAnalysis.normalize(u.text)
+            let range = NSRange(matchable.startIndex..., in: matchable)
+            guard commitmentPattern.firstMatch(in: matchable, range: range) != nil else { continue }
             let quote = u.text.count > 120 ? String(u.text.prefix(117)) + "..." : u.text
             result.append("- \"\(quote)\" (\(u.formattedTime), \(u.speaker))")
             if result.count == 5 { break }

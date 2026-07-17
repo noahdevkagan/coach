@@ -63,6 +63,13 @@ enum AdaptiveThresholds {
         return result
     }
 
+    /// Every learned multiplier by signal key, custom signals included —
+    /// what the Learned Sensitivity panel shows (allMultipliers can't carry
+    /// "custom:<id>" entries).
+    static func allMultipliersByKey() -> [String: Double] {
+        load()
+    }
+
     /// Reset all multipliers to default.
     static func resetAll() {
         UserDefaults.standard.removeObject(forKey: key)

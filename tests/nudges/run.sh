@@ -45,6 +45,7 @@ swiftc -O -o "$OUT/sigcheck" \
   tests/nudges/sigcheck/main.swift \
   "$SRC/Engine/TranscriptAnalysis.swift" \
   "$SRC/Engine/SignalEngine.swift" \
+  "$SRC/Engine/TuningTypes.swift" \
   "$SRC/Engine/AdaptiveThresholds.swift" \
   "$SRC/Models/Utterance.swift" \
   "$SRC/Models/Nudge.swift" \

@@ -51,15 +51,15 @@ struct SessionTrendsView: View {
                     }
                 }
 
-                // Adaptive thresholds
-                let multipliers = AdaptiveThresholds.allMultipliers()
+                // Adaptive thresholds (custom rubric signals included)
+                let multipliers = AdaptiveThresholds.allMultipliersByKey()
                     .filter { $0.value != 1.0 }
                 if !multipliers.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Learned Sensitivity").font(.caption.bold())
-                        ForEach(multipliers.sorted(by: { $0.key.rawValue < $1.key.rawValue }), id: \.key) { type, mult in
+                        ForEach(multipliers.sorted(by: { $0.key < $1.key }), id: \.key) { key, mult in
                             HStack(spacing: 6) {
-                                Text(type.displayName)
+                                Text(displayName(forKey: key))
                                     .font(.caption)
                                 Spacer()
                                 Text(mult < 1.0 ? "more sensitive" : "less sensitive")
@@ -98,6 +98,14 @@ struct SessionTrendsView: View {
                 isLoaded = true
             }
         }
+    }
+
+    private func displayName(forKey key: String) -> String {
+        if key.hasPrefix("custom:") {
+            return key.dropFirst("custom:".count)
+                .split(separator: "_").map(\.capitalized).joined(separator: " ")
+        }
+        return NudgeType(rawValue: key)?.displayName ?? key
     }
 
     private func trendIcon(for type: NudgeType) -> some View {

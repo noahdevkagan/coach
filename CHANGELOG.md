@@ -7,6 +7,18 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- Sessions start instantly — no more waiting on the transcription-model download; the higher-accuracy engine fetches in the background and takes over next session
+- New to Meeting Coach? A 30-second demo replays a sample meeting with real nudges on first launch — no mic, no permissions, no downloads
+- Live talk meter: a thin You/Them bar in the overlay and transcript shows your share of the conversation as it happens (orange past 65%)
+- Reviews work without an AI model: an instant on-device review appears after every session; the AI review remains when a model is installed
+- Share your recap: copy or share the post-meeting review (summary, talk ratio, commitments) straight to Slack or email
+- Make the coach yours: the new Coaching Style panel turns a plain-English description ("coach me to stop rambling") into your own rubric — toggle any signal, tune how eagerly it fires, add custom signals the AI watches live
+- The coach now improves itself, with your approval: it proposes rubric changes backed by your feedback ("you rated this Wrong 8 of 10 times — turn it off?"); nothing changes silently
+- Your progress lives in the main window: day streaks, week-over-week nudge and talk-share trends, top patterns, and up to two focus goals that sharpen the signals you care about
+- Meeting auto-detect (off by default): a menu bar icon offers "Start coaching?" when a meeting app and your mic go live — recording never starts without your click
+
 ## 0.4.8
 
 - Export your transcript: after a session ends, a small download button appears at the top of the transcript panel — click it to save the transcript as a text file
