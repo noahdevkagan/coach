@@ -39,8 +39,27 @@ if ! xcodebuild -project MeetingCoach/MeetingCoach.xcodeproj -scheme MeetingCoac
 fi
 echo "build: PASS"
 
-echo "--- [2/4] transcript (real-time audio, ~2-3 min)"
-bash tests/asr/run.sh || { echo "TRANSCRIPT GATE FAILED"; exit 1; }
+echo "--- [2/4] transcript (real-time audio)"
+# The audio suite feeds the recognizer in real time, so it IS the gate's
+# wall clock. Default to the short set (~1 min warm); run the full set only
+# when ASR-adjacent code changed (or FULL=1 forces it). FAST=1 still forces
+# the short set regardless.
+asr_touched=0
+if [ -n "$upstream" ]; then
+    if git diff --name-only "$upstream"..HEAD \
+        | grep -qE "AudioCapture|Parakeet|Transcriber|Echo|Diariz|tests/asr|tests/echo"; then
+        asr_touched=1
+    fi
+else
+    asr_touched=1   # no upstream to diff against — be safe, run everything
+fi
+if [ "${FULL:-0}" = "1" ] || { [ "$asr_touched" = "1" ] && [ "${FAST:-0}" != "1" ]; }; then
+    echo "(full audio set — ASR code changed or FULL=1)"
+    bash tests/asr/run.sh || { echo "TRANSCRIPT GATE FAILED"; exit 1; }
+else
+    echo "(short audio set — ASR code untouched; FULL=1 for everything)"
+    FAST=1 bash tests/asr/run.sh || { echo "TRANSCRIPT GATE FAILED"; exit 1; }
+fi
 bash tests/echo/run.sh || { echo "ECHO FILTER GATE FAILED"; exit 1; }
 
 echo "--- [3/4] nudges"
