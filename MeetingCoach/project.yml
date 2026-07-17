@@ -42,6 +42,10 @@ targets:
       - path: MeetingCoach/Resources/ollama
         type: folder
         buildPhase: resources
+        # The folder is gitignored (binaries too large for GitHub), so a
+        # fresh clone doesn't have it — without this, xcodegen fails spec
+        # validation before the preBuildScript below can stub it.
+        optional: true
     preBuildScripts:
       # Resources/ollama is gitignored (binaries too large for GitHub), but the
       # resources build phase references it — stub it so a fresh clone builds.
