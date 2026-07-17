@@ -1,0 +1,35 @@
+# Meeting Coach — bundled demo meeting (synthetic, no real people).
+# Replayed through the real signal pipeline at first launch. Timings are
+# tuned so the deterministic signals fire on schedule:
+#   talkTime ~0:41 · interruption ~1:09 · stackedQuestions ~1:20
+#   unansweredQuestion ~1:45 · questionLanded (green) ~2:18
+# Edit with care — the nudge choreography depends on turn gaps and word counts.
+
+[00:00] Them: Hey, thanks for making time today.
+[00:03] Them: Before we dive in — our CFO flagged the migration cost again this morning, she's pretty worried about the number.
+[00:09] You: Good to see you. So I wanted to walk you through where the rollout stands, because there's a lot of progress to share.
+[00:14] You: We finished the data layer work last week, and honestly the team moved faster than I expected on it.
+[00:20] You: The next piece is the reporting dashboard, which I think is where most of the value shows up for your side.
+[00:27] You: We're also reworking the onboarding flow, the permissions model, and the audit logging while we're in there.
+[00:34] You: And on top of that I've been thinking we should revisit the integration roadmap for next quarter too.
+[00:41] You: There's the API versioning question, the webhook redesign, and honestly a bunch of smaller cleanup items I want to get to.
+[00:48] Them: But what about the—
+[00:49] You: And one more thing on timing, we're aiming to have the staging environment ready before the end of the month.
+[00:56] Them: Right. So on the migration piece, we're mostly concerned about the cutover window and how much downtime we should plan for.
+[01:03] You: Totally fair. The cutover itself should be under an hour.
+[01:08] Them: An hour is what worried our—
+[01:09] You: But we can schedule it for a weekend so nobody even notices it happened.
+[01:16] Them: Okay. That could work for us.
+[01:20] You: Before I forget — what's your timeline for the annual renewal? Who else needs to sign off on it? And did you have a budget range in mind?
+[01:26] Them: Timeline's flexible on our end. Actually, how does pricing work for the annual plan?
+[01:31] You: So the way I usually frame it is that the annual plan really depends on which modules you end up adopting across the team.
+[01:38] You: There's the core platform piece, then the analytics add-on, and the support tier obviously changes the number as well.
+[01:45] You: We also do implementation credits when teams commit early, which most of our customers end up using in the first quarter anyway.
+[01:52] Them: Okay, that makes sense. When could we see a proposal?
+[01:56] You: I can probably get you something by the end of next week, maybe sooner if the pricing team moves quickly.
+[02:00] Them: We'd need numbers before our board meeting on the twelfth.
+[02:04] You: Actually, let me flip it around — what should I know about how your team works that I haven't asked about?
+[02:10] Them: Honestly, the biggest thing is that our ops group is stretched thin right now, so anything that needs training time is going to be a hard sell internally.
+[02:18] Them: The other piece is that we tried a rollout like this two years ago and it stalled because nobody owned the internal comms, so having a named owner on our side would genuinely change how this lands.
+[02:26] You: That's really useful. So for next steps — I'll send the proposal by Friday, and you'll confirm the pilot group by Tuesday. Sound good?
+[02:32] Them: Perfect. Talk soon.

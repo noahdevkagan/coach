@@ -7,6 +7,8 @@ struct ContentView: View {
     @State private var settings = SettingsViewModel()
     @State private var liveSession = LiveSessionViewModel()
     @State private var overlayPanel: CoachingOverlayPanel?
+    @AppStorage("hasSeenDemo") private var hasSeenDemo = false
+    @State private var showWelcome = false
 
     var body: some View {
         HSplitView {
@@ -34,7 +36,18 @@ struct ContentView: View {
             // Fetch the transcription model off the critical path so the
             // first real session starts on Parakeet instead of the fallback.
             ParakeetEngine.prefetchInBackground()
+            if !hasSeenDemo { showWelcome = true }
             await settings.refreshModels()
+        }
+        .sheet(isPresented: $showWelcome) {
+            WelcomeSheet {
+                hasSeenDemo = true
+                showWelcome = false
+                liveSession.startDemo()
+            } onSkip: {
+                hasSeenDemo = true
+                showWelcome = false
+            }
         }
         .onChange(of: liveSession.activeNudge?.id) { _, _ in
             updateOverlay()
@@ -1002,7 +1015,8 @@ struct LiveSection: View {
                     Circle()
                         .fill(.green)
                         .frame(width: 8, height: 8)
-                    Text("Live").font(.caption.bold()).foregroundStyle(.green)
+                    Text(liveSession.isDemo ? "Demo" : "Live")
+                        .font(.caption.bold()).foregroundStyle(.green)
                     Spacer()
                     Text(liveSession.elapsedFormatted)
                         .font(.system(.caption, design: .monospaced))
@@ -1093,6 +1107,16 @@ struct LiveSection: View {
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
+
+                Button {
+                    liveSession.startDemo()
+                } label: {
+                    Label("Watch demo", systemImage: "play.rectangle")
+                }
+                .font(.caption)
+                .buttonStyle(.plain)
+                .foregroundStyle(.blue)
+                .help("Replay a sample meeting to see the coaching in action — no mic, no setup")
             }
 
             // Post-session: save/delete + review
@@ -1260,6 +1284,42 @@ struct FeedbackSection: View {
         TrainingStore.append(example)
         simulation.feedbackSaved = true
         mclog("[Training] Saved example with \(signals.count) parsed signals, source=\(sourceLabel)")
+    }
+}
+
+// MARK: - Welcome Sheet
+
+/// First-launch welcome: one paragraph of what the app is, and the demo as
+/// the default action — the aha moment should come before any setup.
+struct WelcomeSheet: View {
+    var onDemo: () -> Void
+    var onSkip: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "waveform.badge.mic")
+                .font(.system(size: 40))
+                .foregroundStyle(.green)
+            Text("Welcome to Meeting Coach")
+                .font(.title2.bold())
+            Text("It listens to your meetings and nudges you in the moment — talk less, land your point, lock decisions. Everything runs on your Mac; audio never leaves it.")
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: 400)
+            HStack(spacing: 12) {
+                Button("Skip") { onSkip() }
+                Button {
+                    onDemo()
+                } label: {
+                    Label("Watch a 30-second demo", systemImage: "play.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+            }
+            .padding(.top, 4)
+        }
+        .padding(28)
+        .frame(width: 480)
     }
 }
 

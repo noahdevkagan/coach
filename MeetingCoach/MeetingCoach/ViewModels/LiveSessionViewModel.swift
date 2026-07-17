@@ -29,6 +29,11 @@ final class LiveSessionViewModel {
     /// Pre-call form
     var showPreCallForm = false
 
+    /// Demo replay: the bundled sample meeting playing through the real
+    /// pipeline. Demo sessions are never saved and never train adaptation.
+    private(set) var isDemo = false
+    private var demoTask: Task<Void, Never>?
+
     /// Silence detection — nudge user to stop if meeting seems over
     var showSilenceWarning = false
     private var silenceCheckTask: Task<Void, Never>?
@@ -71,6 +76,7 @@ final class LiveSessionViewModel {
     func startLive(context: PreCallContext, settings: SettingsViewModel? = nil, ollamaManager: OllamaManager? = nil) {
         guard !isLive else { return }
 
+        isDemo = false
         preCallContext = context
         signalEngine = SignalEngine(context: context)
 
@@ -146,6 +152,8 @@ final class LiveSessionViewModel {
         isLive = false
         captureManager?.stop()
         captureManager = nil
+        demoTask?.cancel()
+        demoTask = nil
         signalTickTask?.cancel()
         signalTickTask = nil
         semanticTask?.cancel()
@@ -161,11 +169,92 @@ final class LiveSessionViewModel {
         livePartials = [:]
         status = "Stopped"
 
+        // Demo sessions leave no trace: no save, no threshold adaptation.
+        if isDemo {
+            status = "Demo stopped"
+            return
+        }
+
         // Process feedback to adapt thresholds for next session
         AdaptiveThresholds.processSessionFeedback(nudges)
 
         saveSession()
         showPostSession = true
+    }
+
+    // MARK: - Demo replay
+
+    /// Replay the bundled sample meeting through the real signal pipeline at
+    /// several times real speed — no mic, no permissions, no downloads. The
+    /// nudge feed, overlay, and transcript behave exactly as in a live
+    /// session; scripted "AI" nudges are injected at fixed timestamps.
+    func startDemo(speed: Double = 7) {
+        guard !isLive, let script = DemoScript.loadBundled() else { return }
+
+        preCallContext = PreCallContext()   // neutral context → general type
+        signalEngine = SignalEngine(context: preCallContext)
+        semanticCoach = nil
+
+        utterances = []
+        turns = []
+        livePartials = [:]
+        nudges = []
+        activeNudge = nil
+        error = nil
+        meetingSummary = nil
+        savedPath = nil
+        showPostSession = false
+        elapsedTime = 0
+        isDemo = true
+        isLive = true
+        status = "Demo — replaying a sample meeting"
+
+        demoTask = Task { @MainActor [weak self] in
+            var pendingNudges = script.scriptedNudges
+            var index = 0
+            var clock: TimeInterval = 0
+
+            while !Task.isCancelled {
+                guard let self, self.isLive else { return }
+                let nextUtterance = index < script.utterances.count
+                    ? script.utterances[index].t : .infinity
+                let nextNudge = pendingNudges.first?.t ?? .infinity
+                let next = min(nextUtterance, nextNudge)
+                guard next.isFinite else { break }
+
+                try? await Task.sleep(for: .seconds(max(0, next - clock) / speed))
+                guard !Task.isCancelled, self.isLive else { return }
+                clock = next
+                self.elapsedTime = clock
+
+                if nextNudge <= nextUtterance {
+                    let scripted = pendingNudges.removeFirst()
+                    if let nudge = scripted.nudge {
+                        self.nudges.append(nudge)
+                        self.setActiveNudge(nudge)
+                        mclog("[Demo] scripted nudge: \(nudge.type.rawValue)")
+                    }
+                } else {
+                    self.insertUtterance(script.utterances[index])
+                    index += 1
+                    self.runSignalEvaluation()
+                }
+            }
+
+            guard !Task.isCancelled, let self, self.isLive else { return }
+            // Let the last moment land, then wrap with the instant review.
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled, self.isLive else { return }
+            self.elapsedTime = script.duration
+            self.finishDemo()
+        }
+    }
+
+    private func finishDemo() {
+        isLive = false
+        demoTask = nil
+        status = "Demo finished — a real session looks just like this"
+        meetingSummary = instantReview(durationMinutes: max(1, Int(elapsedTime / 60)))
     }
 
     func deleteSession() {
