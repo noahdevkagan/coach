@@ -33,6 +33,9 @@ final class MeetingDetectionService {
     /// True when a meeting looks live and the user hasn't started/dismissed.
     private(set) var meetingDetected = false
 
+    /// Human-readable source shown in the prompt ("Zoom", "Browser meeting").
+    private(set) var detectedSource = ""
+
     /// Wired to the live session so detection pauses during coaching.
     @ObservationIgnored private var isSessionLive: () -> Bool = { false }
     private var detector = MeetingDetector()
@@ -94,8 +97,12 @@ final class MeetingDetectionService {
         )
         let event = detector.tick(signals, now: Date().timeIntervalSinceReferenceDate)
         if event == .prompt {
+            detectedSource = signals.meetingAppRunning
+                ? (Self.meetingAppName() ?? "Meeting app")
+                : "Browser meeting"
             meetingDetected = true
             mclog("[Detect] Meeting detected (\(signals.meetingAppRunning ? "app" : "browser") + mic)")
+            playChirp()
             postNotification()
         } else if meetingDetected, case .idle = detector.state {
             // Signals dropped before the user acted — clear the prompt.
@@ -151,9 +158,41 @@ final class MeetingDetectionService {
         }
     }
 
+    /// Display name of the first running known meeting app.
+    static func meetingAppName() -> String? {
+        let names: [(prefix: String, display: String)] = [
+            ("us.zoom.xos", "Zoom"), ("com.microsoft.teams", "Microsoft Teams"),
+            ("com.cisco.webex", "Webex"), ("com.webex.meetingmanager", "Webex"),
+            ("com.ringcentral", "RingCentral"), ("com.skype.skype", "Skype"),
+            ("com.hnc.Discord", "Discord"), ("com.loom.desktop", "Loom"),
+        ]
+        for app in NSWorkspace.shared.runningApplications {
+            guard let id = app.bundleIdentifier else { continue }
+            if let match = names.first(where: { id.hasPrefix($0.prefix) }) {
+                return match.display
+            }
+        }
+        return nil
+    }
+
     static func browserFrontmost() -> Bool {
         guard let id = NSWorkspace.shared.frontmostApplication?.bundleIdentifier else { return false }
         return browserBundleIds.contains(id)
+    }
+
+    // MARK: - Chirp
+
+    /// Retained while playing — a local NSSound can deallocate mid-chirp.
+    @ObservationIgnored private var chirp: NSSound?
+
+    /// A cute bird chirp announces the detection pill. Quiet on purpose —
+    /// the user is about to be on a call.
+    private func playChirp() {
+        guard let url = Bundle.main.url(forResource: "bird_chirp", withExtension: "wav") else { return }
+        let sound = NSSound(contentsOf: url, byReference: true)
+        sound?.volume = 0.5
+        chirp = sound
+        sound?.play()
     }
 
     // MARK: - Notifications (optional, lazily authorized)

@@ -207,8 +207,10 @@ final class LiveSessionViewModel {
     /// several times real speed — no mic, no permissions, no downloads. The
     /// nudge feed, overlay, and transcript behave exactly as in a live
     /// session; scripted "AI" nudges are injected at fixed timestamps.
-    func startDemo(speed: Double = 7) {
+    /// Default pacing compresses the whole script into ~15 seconds.
+    func startDemo(speed: Double? = nil) {
         guard !isLive, let script = DemoScript.loadBundled() else { return }
+        let speed = speed ?? max(1, script.duration / 15)
 
         preCallContext = PreCallContext()   // neutral context → general type
         signalEngine = SignalEngine(context: preCallContext)

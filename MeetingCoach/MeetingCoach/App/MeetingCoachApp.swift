@@ -39,10 +39,13 @@ struct MeetingCoachApp: App {
         // ever prompts; capture starts exclusively from an explicit click.
         MenuBarExtra {
             MenuBarView(liveSession: liveSession, settings: settings,
-                        ollamaManager: ollamaManager, detection: detection)
+                        ollamaManager: ollamaManager, detection: detection,
+                        updater: updaterController.updater)
         } label: {
-            Image(systemName: menuBarSymbol)
-                .onAppear { detection.bind(liveSession: liveSession) }
+            // The label view is the app's only always-alive SwiftUI view, so
+            // it also owns the floating "Meeting Detected" prompt panel.
+            MenuBarLabel(liveSession: liveSession, settings: settings,
+                         ollamaManager: ollamaManager, detection: detection)
         }
 
         // Preferences (⌘,). Progress moved to the main window's idle pane;
@@ -56,10 +59,55 @@ struct MeetingCoachApp: App {
         }
     }
 
-    private var menuBarSymbol: String {
+}
+
+// MARK: - Menu bar label + detection prompt
+
+/// The menu bar icon. Lives for the whole app lifetime (unlike the menu
+/// content, which only exists while open), so it also drives the floating
+/// "Meeting Detected — Start Coaching" pill.
+struct MenuBarLabel: View {
+    @Bindable var liveSession: LiveSessionViewModel
+    @Bindable var settings: SettingsViewModel
+    @Bindable var ollamaManager: OllamaManager
+    @Bindable var detection: MeetingDetectionService
+    @Environment(\.openWindow) private var openWindow
+    @State private var promptPanel: MeetingPromptPanel?
+
+    var body: some View {
+        Image(systemName: symbol)
+            .onAppear { detection.bind(liveSession: liveSession) }
+            .onChange(of: detection.meetingDetected) { _, detected in
+                if detected { showPrompt() } else { hidePrompt() }
+            }
+    }
+
+    private var symbol: String {
         if liveSession.isLive { return "waveform.circle.fill" }
         if detection.meetingDetected { return "waveform.badge.exclamationmark" }
         return "waveform.circle"
+    }
+
+    private func showPrompt() {
+        if promptPanel == nil { promptPanel = MeetingPromptPanel() }
+        guard let panel = promptPanel else { return }
+        // Rebuild content each detection — the source app can differ.
+        let view = MeetingPromptView(source: detection.detectedSource) {
+            detection.sessionStarted()
+            openWindow(id: "main")
+            NSApp.activate(ignoringOtherApps: true)
+            liveSession.startLive(context: liveSession.preCallContext,
+                                  settings: settings,
+                                  ollamaManager: ollamaManager)
+        } onDismiss: {
+            detection.dismissPrompt()
+        }
+        panel.contentView = NSHostingView(rootView: view)
+        panel.orderFront(nil)
+    }
+
+    private func hidePrompt() {
+        promptPanel?.orderOut(nil)
     }
 }
 
@@ -70,6 +118,7 @@ struct MenuBarView: View {
     @Bindable var settings: SettingsViewModel
     @Bindable var ollamaManager: OllamaManager
     @Bindable var detection: MeetingDetectionService
+    let updater: SPUUpdater
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -107,6 +156,8 @@ struct MenuBarView: View {
             openWindow(id: "main")
             NSApp.activate(ignoringOtherApps: true)
         }
+        Divider()
+        CheckForUpdatesView(updater: updater)
     }
 
     /// Start with the last-used (or default) pre-call context — the setup

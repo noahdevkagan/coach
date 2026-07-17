@@ -47,53 +47,47 @@ struct RubricBuilderView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            TextField("Rubric name", text: $vm.rubricName)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 140)
         }
         .padding()
     }
 
     private var describeSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Describe it in your own words", systemImage: "wand.and.stars")
+            Label("What's your job or role?", systemImage: "person.crop.circle")
                 .font(.headline)
             Text(hasModel
-                 ? "e.g. \"Coach me to stop rambling and always lock next steps. I don't care about time warnings.\""
-                 : "Install a local model in Settings to generate a rubric from a description — the toggles below always work.")
+                 ? "The coach tunes itself to the meetings your role runs — and keeps learning from your feedback on nudges."
+                 : "Install a local model to auto-tune for your role — the toggles below always work.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            TextEditor(text: $vm.request)
-                .font(.body)
-                .frame(minHeight: 54, maxHeight: 90)
-                .scrollContentBackground(.hidden)
-                .padding(6)
-                .background(RoundedRectangle(cornerRadius: 8).fill(.background))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.2)))
-                .disabled(!hasModel)
-
             HStack {
+                TextField("e.g. Founder doing sales calls, Engineering manager",
+                          text: $vm.role)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit {
+                        vm.generate(settings: settings, ollamaManager: ollamaManager)
+                    }
+
                 Button {
                     vm.generate(settings: settings, ollamaManager: ollamaManager)
                 } label: {
                     if vm.isGenerating {
                         HStack(spacing: 6) {
                             ProgressView().controlSize(.small)
-                            Text("Rewriting rubric…")
+                            Text("Tuning…")
                         }
                     } else {
-                        Label("Generate", systemImage: "sparkles")
+                        Label("Tune for me", systemImage: "sparkles")
                     }
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!hasModel || vm.isGenerating
-                          || vm.request.trimmingCharacters(in: .whitespaces).isEmpty)
+                          || vm.role.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
 
-                if let error = vm.error {
-                    Text(error).font(.caption).foregroundStyle(.red)
-                }
-                Spacer()
+            if let error = vm.error {
+                Text(error).font(.caption).foregroundStyle(.red)
             }
         }
     }

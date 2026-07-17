@@ -5,6 +5,8 @@
 *.transcript
 *.wav
 *.m4a
+# ...but bundled app sounds ship with the repo
+!MeetingCoach/MeetingCoach/Resources/*.wav
 data/
 transcripts/
 **/private/

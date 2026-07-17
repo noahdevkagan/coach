@@ -102,6 +102,8 @@ enum SessionTrends {
 
     struct WeekStats {
         var sessionCount = 0
+        /// Total minutes spent in coached meetings this window.
+        var totalMinutes: Double = 0
         var nudgesPer10Min: Double?
         var avgTalkShare: Double?
         /// Corrective nudges per 10 min for a focused subset of types.
@@ -121,6 +123,7 @@ enum SessionTrends {
         var stats = WeekStats()
         stats.sessionCount = window.count
         let minutes = window.map(\.durationMinutes).reduce(0, +)
+        stats.totalMinutes = minutes
         if minutes >= 5 {
             let nudges = window.map(\.totalNudges).reduce(0, +)
             stats.nudgesPer10Min = Double(nudges) / (minutes / 10)

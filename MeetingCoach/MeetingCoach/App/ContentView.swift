@@ -425,9 +425,8 @@ struct NudgeCardView: View {
 
             Spacer()
         }
-        .padding(10)
-        .background(Color(.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(12)
+        .cardStyle()
     }
 
     private func feedbackButton(_ feedback: NudgeFeedback, label: String, icon: String, color: Color) -> some View {
@@ -636,8 +635,7 @@ struct OllamaStatusBar: View {
             }
         }
         .padding(8)
-        .background(Color(.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .cardStyle(cornerRadius: 8)
     }
 }
 
@@ -649,19 +647,12 @@ struct CoachingStyleSection: View {
     @Bindable var settings: SettingsViewModel
     @Bindable var ollamaManager: OllamaManager
     @State private var showBuilder = false
-    // Cached: reading + parsing the rubric YAML in a body path would run on
-    // every sidebar re-render. The name only changes when a rubric is saved.
-    @State private var activeName = ""
 
     var body: some View {
         HStack(spacing: 6) {
             Label("Coaching Style", systemImage: "slider.horizontal.3")
                 .font(.headline)
             Spacer()
-            Text(activeName)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
             Button("Customize…") {
                 showBuilder = true
             }
@@ -669,15 +660,33 @@ struct CoachingStyleSection: View {
             .buttonStyle(.plain)
             .foregroundStyle(.blue)
         }
-        .onAppear(perform: refreshName)
-        .onChange(of: settings.rubricPath) { _, _ in refreshName() }
-        .sheet(isPresented: $showBuilder, onDismiss: refreshName) {
+        .sheet(isPresented: $showBuilder) {
             RubricBuilderView(settings: settings, ollamaManager: ollamaManager)
         }
     }
+}
 
-    private func refreshName() {
-        activeName = ((try? settings.loadRubricOrDefault()) ?? .builtInDefault).name
+/// Tiny (?) that reveals a one-paragraph explanation on click.
+struct HelpDot: View {
+    let text: String
+    @State private var showing = false
+
+    var body: some View {
+        Button {
+            showing.toggle()
+        } label: {
+            Image(systemName: "questionmark.circle")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $showing, arrowEdge: .bottom) {
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: 230, alignment: .leading)
+                .padding(12)
+        }
     }
 }
 
@@ -696,6 +705,7 @@ struct TranscriptSection: View {
             HStack(spacing: 6) {
                 Label("Transcript", systemImage: "doc.text")
                     .font(.headline)
+                HelpDot(text: "Drop in a transcript from another tool (Zoom, Meet, Otter) to replay it through the coach and train it on your real meetings. It never leaves your Mac.")
                 if simulation.transcriptFileName != nil {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.caption)
@@ -813,7 +823,7 @@ struct ModelSection: View {
                             settings.save()
                         }
 
-                        Toggle("Use mock (no model)", isOn: $settings.useMock)
+                        Toggle("Use sample coach (no download)", isOn: $settings.useMock)
                             .font(.caption)
 
                         Button("Browse all models...") {
@@ -879,7 +889,7 @@ struct ModelSection: View {
                             Button {
                                 settings.downloadModel(recommended)
                             } label: {
-                                Label("Download \(recommended.parameterSize) Model", systemImage: "arrow.down.circle.fill")
+                                Label("Download Model", systemImage: "arrow.down.circle.fill")
                                     .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.borderedProminent)
@@ -902,7 +912,7 @@ struct ModelSection: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(.blue)
 
-                    Toggle("Use mock (no model needed)", isOn: $settings.useMock)
+                    Toggle("Use sample coach (no download)", isOn: $settings.useMock)
                         .font(.caption)
                 }
             }
@@ -931,8 +941,7 @@ struct ModelSection: View {
                     }
                 }
                 .padding(10)
-                .background(Color(.controlBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .cardStyle(cornerRadius: 8)
             }
 
             if let error = settings.downloadError {
@@ -1201,6 +1210,7 @@ struct LiveSection: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
                 .tint(.green)
                 .help("Listens to your meeting audio and coaches you in real time. Instant nudges (talk time, interruptions, unanswered questions) are always on.")
                 .sheet(isPresented: $liveSession.showPreCallForm) {
@@ -1224,16 +1234,6 @@ struct LiveSection: View {
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
-
-                Button {
-                    liveSession.startDemo()
-                } label: {
-                    Label("Watch demo", systemImage: "play.rectangle")
-                }
-                .font(.caption)
-                .buttonStyle(.plain)
-                .foregroundStyle(.blue)
-                .help("Replay a sample meeting to see the coaching in action — no mic, no setup")
             }
 
             // Post-session: save/delete + review
@@ -1327,9 +1327,11 @@ struct FeedbackSection: View {
             sectionContent
                 .padding(.top, 8)
         } label: {
-            Label("Coaching Notes", systemImage: "text.badge.checkmark")
-                .font(.headline)
-                .help("Paste coaching feedback to improve future detection")
+            HStack(spacing: 6) {
+                Label("Coaching Notes", systemImage: "text.badge.checkmark")
+                    .font(.headline)
+                HelpDot(text: "Your own notes — or feedback pasted from your favorite AI tool — teach Meeting Coach what good looks like for you. Everything stays private on your Mac.")
+            }
         }
     }
 
@@ -1413,10 +1415,16 @@ struct WelcomeSheet: View {
     var onSkip: () -> Void
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 18) {
             Image(systemName: "waveform.badge.mic")
-                .font(.system(size: 40))
-                .foregroundStyle(.green)
+                .font(.system(size: 34, weight: .medium))
+                .foregroundStyle(.white)
+                .frame(width: 72, height: 72)
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(LinearGradient(colors: [.green, .green.opacity(0.75)],
+                                             startPoint: .top, endPoint: .bottom))
+                )
             Text("Welcome to Meeting Coach")
                 .font(.title2.bold())
             Text("It listens to your meetings and nudges you in the moment — talk less, land your point, lock decisions. Everything runs on your Mac; audio never leaves it.")
@@ -1425,18 +1433,44 @@ struct WelcomeSheet: View {
                 .frame(maxWidth: 400)
             HStack(spacing: 12) {
                 Button("Skip") { onSkip() }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
                 Button {
                     onDemo()
                 } label: {
-                    Label("Watch a 30-second demo", systemImage: "play.fill")
+                    Label("Watch a 15-second demo", systemImage: "play.fill")
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
                 .keyboardShortcut(.defaultAction)
             }
-            .padding(.top, 4)
+            .padding(.top, 6)
         }
-        .padding(28)
+        .padding(32)
         .frame(width: 480)
+    }
+}
+
+// MARK: - Shared card style
+
+/// One card language for the whole app: adaptive surface, continuous
+/// corners, hairline border — quiet CleanShot-style polish, no shadows.
+struct CardStyle: ViewModifier {
+    var cornerRadius: CGFloat = 10
+    func body(content: Content) -> some View {
+        content
+            .background(Color(.controlBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
+            )
+    }
+}
+
+extension View {
+    func cardStyle(cornerRadius: CGFloat = 10) -> some View {
+        modifier(CardStyle(cornerRadius: cornerRadius))
     }
 }
 

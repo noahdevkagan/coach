@@ -56,13 +56,16 @@ final class RubricBuilderViewModel {
         var minConfidence = 0.8
     }
 
-    var request = ""
+    /// The user's job/role — the only thing we ask for. The LLM turns it
+    /// into rubric tuning; nudge feedback keeps refining from there.
+    var role = UserDefaults.standard.string(forKey: "userRole") ?? ""
     var builtinRows: [BuiltinRow] = []
     var customRows: [CustomRow] = []
     var isGenerating = false
     var error: String?
     var saved = false
-    var rubricName = "my-rubric"
+    /// Internal only — users never name their style.
+    var rubricName = "personal"
 
     /// Non-row rubric fields (cadence/window/output and legacy signals)
     /// carried through saves untouched.
@@ -165,7 +168,7 @@ final class RubricBuilderViewModel {
         }
 
         let name = rubricName.trimmingCharacters(in: .whitespaces)
-        return Rubric(name: name.isEmpty ? "my-rubric" : name,
+        return Rubric(name: name.isEmpty ? "personal" : name,
                       version: base.version,
                       cadence: base.cadence,
                       window: base.window,
@@ -184,8 +187,16 @@ final class RubricBuilderViewModel {
     // MARK: - Generate (local LLM)
 
     func generate(settings: SettingsViewModel, ollamaManager: OllamaManager) {
-        let ask = request.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !ask.isEmpty, !isGenerating else { return }
+        let role = role.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !role.isEmpty, !isGenerating else { return }
+        UserDefaults.standard.set(role, forKey: "userRole")
+        let ask = """
+        The user's job/role: \(role). Tune the rubric for the meetings this \
+        role actually runs — make the built-in signals that matter most for a \
+        \(role) more sensitive, relax or disable ones that don't apply, and \
+        add at most 2 custom signals only if something important for this \
+        role isn't already covered.
+        """
         isGenerating = true
         error = nil
         saved = false

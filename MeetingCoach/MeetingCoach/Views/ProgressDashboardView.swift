@@ -96,6 +96,11 @@ struct ProgressDashboardView: View {
                      label: "sessions this week",
                      sub: deltaLabel(now: Double(thisWeek.sessionCount),
                                      before: Double(lastWeek.sessionCount), format: "%.0f"))
+            StatTile(value: Self.hoursLabel(minutes: thisWeek.totalMinutes),
+                     label: "in meetings this week",
+                     sub: lastWeek.totalMinutes > 0
+                        ? "last week \(Self.hoursLabel(minutes: lastWeek.totalMinutes))"
+                        : nil)
             StatTile(value: thisWeek.nudgesPer10Min.map { String(format: "%.1f", $0) } ?? "—",
                      label: "nudges / 10 min",
                      sub: deltaLabel(now: thisWeek.nudgesPer10Min,
@@ -107,6 +112,14 @@ struct ProgressDashboardView: View {
                                      before: lastWeek.avgTalkShare.map { $0 * 100 },
                                      format: "%.0f", suffix: "pt", lowerIsBetter: true))
         }
+    }
+
+    /// "47m" under an hour, "3h 12m" above — zero-minute hours stay clean ("2h").
+    static func hoursLabel(minutes: Double) -> String {
+        let total = Int(minutes.rounded())
+        if total < 60 { return "\(total)m" }
+        let (h, m) = (total / 60, total % 60)
+        return m == 0 ? "\(h)h" : "\(h)h \(m)m"
     }
 
     private func deltaLabel(now: Double?, before: Double?, format: String,
@@ -312,9 +325,13 @@ private struct StatTile: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .background(Color.primary.opacity(0.04))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(.vertical, 12)
+        .background(Color(.controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
+        )
     }
 }
 
