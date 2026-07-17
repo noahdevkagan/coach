@@ -44,7 +44,9 @@ struct SignalEngine {
         // the active rubric applies the user's chosen tuning, and adaptive
         // multipliers from feedback fine-tune within it.
         let kind = context.effectiveMeetingType
-        let m = AdaptiveThresholds.multiplier
+        // Full-name reference: multiplier(forKey:) exists too, so the bare
+        // `AdaptiveThresholds.multiplier` is ambiguous.
+        let m = AdaptiveThresholds.multiplier(for:)
         func rt(_ type: NudgeType) -> Double { tuning[type.rawValue]?.thresholdMultiplier ?? 1.0 }
         func rc(_ type: NudgeType) -> Double { tuning[type.rawValue]?.cooldownMultiplier ?? 1.0 }
 

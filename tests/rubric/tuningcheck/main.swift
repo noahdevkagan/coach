@@ -14,7 +14,7 @@ let ctx = PreCallContext(meetingGoal: "", scheduledDurationMinutes: 30)
 
 /// A monologue: You talking continuously in Parakeet-shaped commits.
 func monologue(until end: Double) -> [(arrival: Double, u: Utterance)] {
-    var result: [(Double, Utterance)] = [
+    var result: [(arrival: Double, u: Utterance)] = [
         (6.0, Utterance(t: 5, speaker: "Them", text: "Where do we stand?", endT: 5.5)),
     ]
     var t = 10.0
