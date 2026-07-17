@@ -211,6 +211,33 @@ struct LiveTimelineView: View {
             }
             .padding(.horizontal).padding(.vertical, 8)
 
+            // Degraded capture is easy to miss in the status caption — make
+            // it loud: no You/Them separation until Screen Recording is on.
+            if liveSession.isLive && liveSession.micOnly {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Can't hear the meeting — mic only")
+                            .font(.caption.bold())
+                        Text("Grant Screen Recording so the coach can tell you apart from them, then restart the session.")
+                            .font(.caption2).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    Button("Open Settings") {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                    .font(.caption)
+                }
+                .padding(8)
+                .background(Color.orange.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .padding(.horizontal).padding(.bottom, 6)
+            }
+
             // Talk balance: rolling share bar + session sparkline.
             // Isolated in a child view so per-utterance talkStats mutations
             // re-render only this strip, not the whole timeline.
@@ -320,10 +347,16 @@ private struct LiveTranscriptPane: View {
                                         .font(.caption2.bold())
                                         .foregroundStyle(speakerColor(turn.speaker))
                                 }
-                                Text(turn.text)
-                                    .font(.callout)
-                                    .textSelection(.enabled)
-                                    .fixedSize(horizontal: false, vertical: true)
+                                // Long unattributed turns (mic-only mode) read
+                                // as a wall — break into paragraphs for display
+                                // only; signal analysis still sees one turn.
+                                ForEach(Array(paragraphs(turn.text).enumerated()), id: \.offset) { _, para in
+                                    Text(para)
+                                        .font(.callout)
+                                        .textSelection(.enabled)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                        .padding(.bottom, 2)
+                                }
                             }
                         }
                         // Live pending line(s): what the recognizer hears right
@@ -1486,6 +1519,40 @@ private func speakerColor(_ speaker: String) -> Color {
         return palette[(n - 1 + palette.count) % palette.count]
     }
     return .orange
+}
+
+/// Split a long turn into readable paragraphs at sentence boundaries,
+/// roughly `maxWords` each. Short turns come back unchanged.
+private func paragraphs(_ text: String, maxWords: Int = 70) -> [String] {
+    guard text.split(separator: " ").count > maxWords + maxWords / 2 else { return [text] }
+    var sentences: [String] = []
+    var current = ""
+    for ch in text {
+        current.append(ch)
+        if ch == "." || ch == "?" || ch == "!" {
+            let s = current.trimmingCharacters(in: .whitespaces)
+            if !s.isEmpty { sentences.append(s) }
+            current = ""
+        }
+    }
+    let tail = current.trimmingCharacters(in: .whitespaces)
+    if !tail.isEmpty { sentences.append(tail) }
+
+    var paras: [String] = []
+    var chunk: [String] = []
+    var count = 0
+    for sentence in sentences {
+        let words = sentence.split(separator: " ").count
+        if count > 0, count + words > maxWords {
+            paras.append(chunk.joined(separator: " "))
+            chunk = []
+            count = 0
+        }
+        chunk.append(sentence)
+        count += words
+    }
+    if !chunk.isEmpty { paras.append(chunk.joined(separator: " ")) }
+    return paras.isEmpty ? [text] : paras
 }
 
 private func splitWords(_ text: String, perChunk: Int = 8) -> [String] {

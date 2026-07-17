@@ -13,6 +13,10 @@ final class LiveSessionViewModel {
     /// In-flight recognizer text per speaker, rendered as a live pending
     /// line under the committed transcript. Cleared on emit/stop.
     var livePartials: [String: String] = [:]
+
+    /// Capture couldn't get system audio this session (Screen Recording
+    /// declined) — the transcript can't tell You from the meeting.
+    var micOnly = false
     var nudges: [Nudge] = []
     var activeNudge: Nudge?
     /// Live word-share meter data (you vs. them), updated with each
@@ -161,6 +165,7 @@ final class LiveSessionViewModel {
                 self.isLive = false
                 return
             }
+            micOnly = manager.isMicOnly
             startSignalTick()
             startTimer(from: sessionStart)
             startSilenceCheck()
@@ -288,6 +293,7 @@ final class LiveSessionViewModel {
         utterances = []
         turns = []
         livePartials = [:]
+        micOnly = false
         nudges = []
         activeNudge = nil
         talkStats.reset()

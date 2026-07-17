@@ -52,6 +52,10 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     private let sysAudioQueue = DispatchQueue(label: "com.coach.systemAudio")
     private var hasSystemAudio = false
 
+    /// True after start() when system audio couldn't be captured (Screen
+    /// Recording declined/unavailable) — no structural You/Them separation.
+    var isMicOnly: Bool { !hasSystemAudio }
+
     // Speaker diarization (mic-only mode: split "Meeting" into Speaker 1/2/…)
     private var diarizer: SpeakerDiarizer?
 
