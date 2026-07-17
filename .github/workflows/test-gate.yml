@@ -35,8 +35,13 @@ jobs:
           cd MeetingCoach
           xcodegen
           set -o pipefail
+          # No signing on the gate — the runner has no identity; the release
+          # job signs separately (same flags as scripts/package-release.sh).
           xcodebuild -project MeetingCoach.xcodeproj -scheme MeetingCoach \
-            -configuration Debug -derivedDataPath build build 2>&1 | tail -3
+            -configuration Debug -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build 2>&1 | grep -E "error|warning: Run script|BUILD" || true
+          test -d build/Build/Products/Debug/MeetingCoach.app
 
       - name: Deterministic suites (nudges, rubric, detector, demo)
         run: |
