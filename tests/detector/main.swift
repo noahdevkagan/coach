@@ -72,4 +72,11 @@ var d7 = MeetingDetector()
 let p7 = run([(0, browser), (2, app)], detector: &d7, to: 30)
 check(p7 == [5], "browser→app upgrade keeps candidacy start", "got \(p7)")
 
+// 8. Browser candidacy survives the browser losing frontmost (screenshot
+//    tool, app switch right after joining a Meet) — the mic staying hot
+//    sustains the clock; only the mic dropping resets it.
+var d8 = MeetingDetector()
+let p8 = run([(0, browser), (5, mic)], detector: &d8, to: 60)
+check(p8 == [20], "browser candidacy survives frontmost loss (prompt at 20s)", "got \(p8)")
+
 exit(fail ? 1 : 0)

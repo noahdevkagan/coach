@@ -45,7 +45,11 @@ struct MeetingDetector: Sendable {
                 state = .candidate(since: now, viaApp: signals.meetingAppRunning)
             }
         case .candidate(let since, let viaApp):
-            if !candidate {
+            // The mic staying hot is what sustains candidacy — app/browser
+            // evidence is only needed to START it. A browser losing
+            // frontmost mid-debounce (screenshot tool, quick app switch
+            // right after joining a Meet) must not reset the clock.
+            if !signals.micInUse {
                 state = .idle
             } else {
                 // A meeting app appearing mid-candidacy upgrades to the
@@ -58,8 +62,8 @@ struct MeetingDetector: Sendable {
                 state = .candidate(since: since, viaApp: viaAppNow)
             }
         case .prompted:
-            // Meeting over (signals gone) → rearm for the next one.
-            if !candidate { state = .idle }
+            // Meeting over (mic released) → rearm for the next one.
+            if !signals.micInUse { state = .idle }
         case .cooldown(let until):
             if now >= until {
                 state = .idle
