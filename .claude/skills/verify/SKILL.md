@@ -31,8 +31,11 @@ using `CGWindowListCopyWindowInfo`, then `screencapture -x -o -l<WID> out.png`.
 - Engine binary: `Contents/Resources/ollama/ollama` (serve on 127.0.0.1:11434).
 - Models/log dir: `~/Library/Application Support/MeetingCoach/ollama/` (log: `ollama.log`).
 - The app quits WITHOUT stopping its `ollama serve` child — kill it between test runs
-  (`pkill -f "Resources/ollama/ollama serve"`), or the next run exercises the
+  (`pkill -f "Debug/MeetingCoach.app.*ollama serve"`), or the next run exercises the
   "engine already running" path instead of cold start.
+  NEVER use the broad `pkill -f "Resources/ollama/ollama serve"` — it also matches
+  the INSTALLED app's engine and killed it mid-session once (2026-07-17), surfacing
+  "Engine stopped (code 0)" to the user during a live meeting.
 - Test pulls leave `blobs/*-partial` files — delete them after aborting a pull.
 
 ## Gotchas

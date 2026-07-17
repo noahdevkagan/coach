@@ -31,6 +31,12 @@ final class OllamaManager {
     private let port: Int = 11434
     private let logger = Logger(subsystem: "com.coach.MeetingCoach", category: "OllamaManager")
 
+    /// Last time the engine was auto-restarted after dying unexpectedly.
+    /// One restart per window — external kills recover invisibly, a
+    /// crash-looping engine still surfaces to the user.
+    private var lastAutoRestart = Date.distantPast
+    private let autoRestartWindow: TimeInterval = 300
+
     /// The directory containing ollama and its dylibs inside the app bundle.
     private var ollamaDir: URL? {
         // Strategy 1: Bundle.main.resourceURL/ollama/
@@ -69,15 +75,30 @@ final class OllamaManager {
         return appSupport.appendingPathComponent("MeetingCoach/ollama")
     }
 
+    /// True when the app's own model store has at least one pulled model.
+    private var appHasLocalModels: Bool {
+        let manifests = modelsDir.appendingPathComponent("manifests")
+        let contents = (try? FileManager.default.contentsOfDirectory(atPath: manifests.path)) ?? []
+        return !contents.isEmpty
+    }
+
     /// Start the embedded Ollama server.
     func start() {
         guard status != .running && status != .starting else { return }
 
-        // Check system ollama FIRST — most common case (user has Ollama.app running)
-        if systemOllamaAvailable() {
-            logger.info("System ollama already running on port \(self.port)")
-            NSLog("[OllamaManager] System ollama detected — using it")
-            status = .running
+        // A server already on our port can be a leftover embedded engine
+        // (which serves our models) or a system Ollama (which usually
+        // doesn't). Use it only when it actually has models to offer, or
+        // when we have none of our own either. Otherwise the app would bind
+        // to an empty server and wrongly re-show model onboarding while
+        // 20+ GB of pulled models sit unused in our store.
+        if let systemModels = systemOllamaModelCount() {
+            if systemModels > 0 || !appHasLocalModels {
+                logger.info("Using ollama already on port \(self.port) (\(systemModels) models)")
+                status = .running
+                return
+            }
+            status = .error("Another Ollama is running without your models — quit Ollama.app (or `brew services stop ollama`), then Retry.")
             return
         }
 
@@ -125,15 +146,27 @@ final class OllamaManager {
             logHandle?.closeFile()
             Task { @MainActor in
                 guard let self else { return }
-                if self.status == .running || self.status == .starting {
-                    self.logger.warning("Embedded ollama terminated (code \(process.terminationStatus))")
-                    // Fall back to system ollama if available
-                    if self.systemOllamaAvailable() {
-                        self.logger.info("Falling back to system ollama")
-                        self.status = .running
-                    } else {
-                        self.status = .error("Engine stopped (code \(process.terminationStatus))")
-                    }
+                guard self.status == .running || self.status == .starting else { return }
+                self.logger.warning("Embedded ollama terminated (code \(process.terminationStatus))")
+                self.process = nil
+
+                // Unexpected death (external kill, engine blip): restart
+                // once per window before bothering the user.
+                if Date().timeIntervalSince(self.lastAutoRestart) > self.autoRestartWindow {
+                    self.lastAutoRestart = Date()
+                    self.status = .stopped
+                    self.logger.info("Auto-restarting embedded ollama")
+                    mclog("[OllamaManager] engine died (code \(process.terminationStatus)) — auto-restarting")
+                    self.start()
+                    return
+                }
+
+                // Second death inside the window — fall back or surface it.
+                if let systemModels = self.systemOllamaModelCount(), systemModels > 0 {
+                    self.logger.info("Falling back to system ollama")
+                    self.status = .running
+                } else {
+                    self.status = .error("Local AI engine stopped — instant nudges still work. Retry restores AI nudges.")
                 }
             }
         }
@@ -209,17 +242,27 @@ final class OllamaManager {
 
     /// Check if a system-installed ollama is already running.
     private func systemOllamaAvailable() -> Bool {
+        systemOllamaModelCount() != nil
+    }
+
+    /// nil when nothing answers on the port; otherwise how many models the
+    /// server there offers. Distinguishes a leftover embedded engine (has
+    /// our models) from a bare system Ollama (usually has none).
+    private func systemOllamaModelCount() -> Int? {
         // Quick synchronous check — try to connect
-        guard let url = URL(string: "http://127.0.0.1:\(port)/api/tags") else { return false }
+        guard let url = URL(string: "http://127.0.0.1:\(port)/api/tags") else { return nil }
         var request = URLRequest(url: url)
         request.timeoutInterval = 1
-        var reachable = false
+        var count: Int?
         let sem = DispatchSemaphore(value: 0)
         URLSession.shared.dataTask(with: request) { data, _, _ in
-            reachable = data != nil
+            if let data,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                count = (json["models"] as? [[String: Any]])?.count ?? 0
+            }
             sem.signal()
         }.resume()
         sem.wait()
-        return reachable
+        return count
     }
 }
