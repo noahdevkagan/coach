@@ -55,9 +55,7 @@ struct RubricBuilderView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("What's your job or role?", systemImage: "person.crop.circle")
                 .font(.headline)
-            Text(hasModel
-                 ? "The coach tunes itself to the meetings your role runs — and keeps learning from your feedback on nudges."
-                 : "Install a local model to auto-tune for your role — the toggles below always work.")
+            Text("The coach tunes itself to the meetings your role runs — and keeps learning from your feedback on nudges.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -82,10 +80,15 @@ struct RubricBuilderView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!hasModel || vm.isGenerating
+                .disabled(vm.isGenerating
                           || vm.role.trimmingCharacters(in: .whitespaces).isEmpty)
             }
 
+            if let note = vm.note {
+                Label(note, systemImage: "checkmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.green)
+            }
             if let error = vm.error {
                 Text(error).font(.caption).foregroundStyle(.red)
             }

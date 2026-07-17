@@ -64,6 +64,8 @@ final class RubricBuilderViewModel {
     var isGenerating = false
     var error: String?
     var saved = false
+    /// Feedback after tuning (which path ran, what to do next).
+    var note: String?
     /// Internal only — users never name their style.
     var rubricName = "personal"
 
@@ -184,12 +186,88 @@ final class RubricBuilderViewModel {
             .split(separator: "_").joined(separator: "_")
     }
 
-    // MARK: - Generate (local LLM)
+    // MARK: - Role presets (no model needed)
+
+    /// Deterministic tuning for common roles: which signals a role should
+    /// hear about sooner, and which to quiet down. First match wins.
+    struct RolePreset {
+        let keywords: [String]
+        let emphasize: [NudgeType]
+        let relax: [NudgeType]
+    }
+
+    static let rolePresets: [RolePreset] = [
+        // Selling: discovery, pinned commitments, always a next step.
+        .init(keywords: ["sales", "sell", "founder", "account executive", "business development", "closer"],
+              emphasize: [.talkTime, .missingDiscovery, .nextSteps, .hedgeNotPinned,
+                          .unansweredQuestion, .questionLanded],
+              relax: [.timeCheck]),
+        // Running the room: share the floor, lock decisions, listen.
+        .init(keywords: ["ceo", "cto", "coo", "cfo", "chief", "exec", "executive", "director",
+                         "vp", "head of", "manager", "lead", "president", "owner", "boss"],
+              emphasize: [.voiceShare, .interruption, .noDecision, .nextSteps,
+                          .ownershipHanded, .reflectedBack],
+              relax: []),
+        // Building: crisp questions, no circling, respect the clock.
+        .init(keywords: ["engineer", "developer", "programmer", "product", "designer", "pm"],
+              emphasize: [.stackedQuestions, .repetitionLoop, .overrun, .noDecision],
+              relax: []),
+        // Interviewing: let them talk, pin the follow-up.
+        .init(keywords: ["recruiter", "recruiting", "talent", "hr", "people ops"],
+              emphasize: [.talkTime, .vagueAnswer, .nextSteps, .goingQuiet],
+              relax: []),
+        // Helping: reflect first, watch for disengagement.
+        .init(keywords: ["support", "success", "customer", "consultant", "coach", "advisor"],
+              emphasize: [.reflectedBack, .goingQuiet, .vagueAnswer, .missingDiscovery,
+                          .questionLanded],
+              relax: []),
+    ]
+
+    /// Word-boundary match for single-word keywords ("vp" must not hit
+    /// "vpn"), substring match for phrases.
+    private static func matches(_ keyword: String, in role: String) -> Bool {
+        if keyword.contains(" ") { return role.contains(keyword) }
+        return role.split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+            .contains { $0.lowercased() == keyword }
+    }
+
+    /// Adjust the toggle rows for a recognized role. Returns false when no
+    /// preset matches (the rows stay untouched).
+    func applyPreset(for role: String) -> Bool {
+        let lower = role.lowercased()
+        guard let preset = Self.rolePresets.first(where: { p in
+            p.keywords.contains { Self.matches($0, in: lower) }
+        }) else { return false }
+        for i in builtinRows.indices {
+            if preset.emphasize.contains(builtinRows[i].type) {
+                builtinRows[i].enabled = true
+                builtinRows[i].level = .more
+            } else if preset.relax.contains(builtinRows[i].type) {
+                builtinRows[i].level = .fewer
+            }
+        }
+        return true
+    }
+
+    // MARK: - Generate (local LLM, preset fallback)
 
     func generate(settings: SettingsViewModel, ollamaManager: OllamaManager) {
         let role = role.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !role.isEmpty, !isGenerating else { return }
         UserDefaults.standard.set(role, forKey: "userRole")
+        note = nil
+
+        // No local model → deterministic presets. Instant, offline, good
+        // enough to be useful; the LLM path is the fully-custom upgrade.
+        let llmAvailable = !settings.availableModels.isEmpty && !settings.useMock
+        guard llmAvailable else {
+            if applyPreset(for: role) {
+                note = "Tuned for your role — review the toggles below, then save. A local model makes this fully custom."
+            } else {
+                note = "No preset for that role yet — adjust the toggles below, or install a local model for custom tuning."
+            }
+            return
+        }
         let ask = """
         The user's job/role: \(role). Tune the rubric for the meetings this \
         role actually runs — make the built-in signals that matter most for a \
