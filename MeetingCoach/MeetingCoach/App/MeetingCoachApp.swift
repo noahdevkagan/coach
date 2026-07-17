@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import Sparkle
+import ServiceManagement
 
 @main
 struct MeetingCoachApp: App {
@@ -17,6 +18,20 @@ struct MeetingCoachApp: App {
     // release notes, Download & Install — no custom UI needed.
     private let updaterController = SPUStandardUpdaterController(
         startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+
+    init() {
+        // An always-available meeting detector must survive "I quit it
+        // once": register as a login item on first launch (release builds
+        // only — a dev build at login would fight the installed copy).
+        // The menu bar toggle can turn it off; that choice is respected.
+        #if !DEBUG
+        let key = "didSetupLoginItem"
+        if UserDefaults.standard.object(forKey: key) == nil {
+            try? SMAppService.mainApp.register()
+            UserDefaults.standard.set(true, forKey: key)
+        }
+        #endif
+    }
 
     var body: some Scene {
         WindowGroup(id: "main") {
@@ -170,6 +185,13 @@ struct MenuBarView: View {
 
         Divider()
         Toggle("Auto-detect meetings", isOn: $detection.isEnabled)
+        Toggle("Start at Login", isOn: Binding(
+            get: { SMAppService.mainApp.status == .enabled },
+            set: { on in
+                if on { try? SMAppService.mainApp.register() }
+                else { try? SMAppService.mainApp.unregister() }
+            }
+        ))
         Button("Open Meeting Coach") {
             openWindow(id: "main")
             NSApp.activate(ignoringOtherApps: true)

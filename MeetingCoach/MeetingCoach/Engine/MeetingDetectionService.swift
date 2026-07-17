@@ -100,7 +100,7 @@ final class MeetingDetectionService {
         // Candidacy requires the mic first — one cheap CoreAudio property
         // read. Skip the NSWorkspace app enumeration for the (typical)
         // mic-idle tick.
-        let micInUse = Self.defaultInputInUse()
+        let micInUse = Self.anyInputInUse()
         let signals = MeetingSignals(
             micInUse: micInUse,
             meetingAppRunning: micInUse && Self.meetingAppRunning(),
@@ -146,29 +146,53 @@ final class MeetingDetectionService {
         "company.thebrowser.dia", "ai.perplexity.comet", "com.kagi.kagimacOS",
     ]
 
-    /// Some process (not us — detection pauses while live) holds the
-    /// default input device open. The OverSight technique: observable
+    /// Some process (not us — detection pauses while live) holds ANY input
+    /// device open — not just the default one. Meets run on AirPods or a
+    /// headset that isn't the system default input, and the default-only
+    /// check missed those entirely. The OverSight technique: observable
     /// without any permission prompt.
-    static func defaultInputInUse() -> Bool {
-        var deviceID = AudioDeviceID(kAudioObjectUnknown)
-        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+    static func anyInputInUse() -> Bool {
+        var listAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain)
+        var listSize: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject),
+                                             &listAddress, 0, nil, &listSize) == noErr else { return false }
+        var deviceIDs = [AudioDeviceID](repeating: 0,
+                                        count: Int(listSize) / MemoryLayout<AudioDeviceID>.size)
         guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject),
-                                         &address, 0, nil, &size, &deviceID) == noErr,
-              deviceID != kAudioObjectUnknown else { return false }
+                                         &listAddress, 0, nil, &listSize, &deviceIDs) == noErr else { return false }
 
-        var running: UInt32 = 0
-        var runningSize = UInt32(MemoryLayout<UInt32>.size)
-        var runningAddress = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain)
-        guard AudioObjectGetPropertyData(deviceID, &runningAddress,
-                                         0, nil, &runningSize, &running) == noErr else { return false }
-        return running != 0
+        for id in deviceIDs {
+            // Input-capable devices only (spares output-only churn).
+            var cfgAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyStreamConfiguration,
+                mScope: kAudioDevicePropertyScopeInput,
+                mElement: kAudioObjectPropertyElementMain)
+            var cfgSize: UInt32 = 0
+            guard AudioObjectGetPropertyDataSize(id, &cfgAddress, 0, nil, &cfgSize) == noErr,
+                  cfgSize > 0 else { continue }
+            let buf = UnsafeMutableRawPointer.allocate(byteCount: Int(cfgSize), alignment: 8)
+            defer { buf.deallocate() }
+            guard AudioObjectGetPropertyData(id, &cfgAddress, 0, nil, &cfgSize, buf) == noErr else { continue }
+            let abl = buf.assumingMemoryBound(to: AudioBufferList.self)
+            let channels = UnsafeMutableAudioBufferListPointer(abl)
+                .reduce(0) { $0 + Int($1.mNumberChannels) }
+            guard channels > 0 else { continue }
+
+            var running: UInt32 = 0
+            var runningSize = UInt32(MemoryLayout<UInt32>.size)
+            var runningAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain)
+            if AudioObjectGetPropertyData(id, &runningAddress, 0, nil,
+                                          &runningSize, &running) == noErr, running != 0 {
+                return true
+            }
+        }
+        return false
     }
 
     static func meetingAppRunning() -> Bool {
