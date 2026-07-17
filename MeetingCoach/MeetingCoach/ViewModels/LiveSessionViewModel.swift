@@ -258,6 +258,16 @@ final class LiveSessionViewModel {
         meetingSummary = nil
 
         let durationMin = max(1, Int(elapsedTime) / 60)
+
+        // No model installed (or mock mode): render the instant on-device
+        // review instead of spinning up an engine that has nothing to run.
+        if settings.useMock ||
+            (settings.hasCheckedModels && settings.ollamaReachable && settings.availableModels.isEmpty) {
+            meetingSummary = instantReview(durationMinutes: durationMin)
+            isGeneratingSummary = false
+            return
+        }
+
         let (system, user) = PromptBuilder.buildPostCallReviewPrompt(
             nudges: nudges,
             transcript: fullTranscript,
@@ -281,7 +291,7 @@ final class LiveSessionViewModel {
             }
 
             guard ollamaManager.status == .running else {
-                meetingSummary = "Could not generate review: Ollama is not running"
+                meetingSummary = instantReview(durationMinutes: durationMin)
                 isGeneratingSummary = false
                 return
             }
@@ -291,10 +301,20 @@ final class LiveSessionViewModel {
                 let result = try await client.complete(system: system, user: user)
                 meetingSummary = result
             } catch {
-                meetingSummary = "Could not generate review: \(error.localizedDescription)"
+                // The LLM path failed (no model pulled, engine died) — the
+                // instant review is still better than an error string.
+                mclog("[Review] LLM review failed, using instant review: \(error.localizedDescription)")
+                meetingSummary = instantReview(durationMinutes: durationMin)
             }
             isGeneratingSummary = false
         }
+    }
+
+    private func instantReview(durationMinutes: Int) -> String {
+        DeterministicReview.generate(nudges: nudges,
+                                     utterances: utterances,
+                                     context: preCallContext,
+                                     durationMinutes: durationMinutes)
     }
 
     // MARK: - Semantic heartbeat (tier 2)

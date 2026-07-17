@@ -86,8 +86,18 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
         // Prefer the Parakeet engine (far more accurate than SFSpeech on
         // meeting audio); fall back to SFSpeech if the model can't load.
-        emitStatus("Preparing transcription engine...")
-        usingParakeet = await ParakeetEngine.shared.ensureLoaded()
+        // When the model isn't on disk yet, don't hold the session hostage
+        // behind a ~600 MB download: start immediately on SFSpeech (if it can
+        // run on-device) and fetch Parakeet in the background for next time.
+        if ParakeetEngine.isCachedOnDisk || !Self.sfSpeechOnDeviceAvailable {
+            emitStatus("Preparing transcription engine...")
+            usingParakeet = await ParakeetEngine.shared.ensureLoaded()
+        } else {
+            usingParakeet = false
+            ParakeetEngine.prefetchInBackground()
+            emitStatus("Higher-accuracy transcription downloading — ready next session")
+            mclog("[Capture] Parakeet not cached — starting on SFSpeech, downloading in background")
+        }
         mclog("[Capture] Transcription engine: \(usingParakeet ? "Parakeet" : "SFSpeech")")
 
         // Mic pipeline. Without system audio there is no You/Them separation,
@@ -358,6 +368,14 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     }
 
     // MARK: - Helpers
+
+    /// Whether the SFSpeech fallback can honor the never-leaves-the-Mac
+    /// constraint. If it can't, session start waits for Parakeet instead.
+    private static var sfSpeechOnDeviceAvailable: Bool {
+        guard let recognizer = SFSpeechRecognizer(locale: .init(identifier: "en-US")),
+              recognizer.isAvailable else { return false }
+        return recognizer.supportsOnDeviceRecognition
+    }
 
     private func emitStatus(_ msg: String) {
         Task { @MainActor [onStatus] in

@@ -13,6 +13,31 @@ actor ParakeetEngine {
 
     private var manager: AsrManager?
 
+    /// True when the Parakeet model files are already on disk, so loading
+    /// needs no network. Mirrors the exact check downloadAndLoad performs
+    /// before deciding to fetch. Checked at session start so a fresh install
+    /// is never blocked behind the ~600 MB download — it starts on the
+    /// SFSpeech fallback instead while the model fetches in the background.
+    nonisolated static var isCachedOnDisk: Bool {
+        AsrModels.modelsExist(at: AsrModels.defaultCacheDirectory(for: .v2), version: .v2)
+    }
+
+    /// Fire-and-forget download of the model files (no in-memory load, so an
+    /// idle app doesn't hold ~600 MB of CoreML weights). No-op when cached.
+    /// Called at launch and when a session starts on the SFSpeech fallback,
+    /// so the next session comes up on Parakeet.
+    nonisolated static func prefetchInBackground() {
+        guard !isCachedOnDisk else { return }
+        Task.detached(priority: .utility) {
+            do {
+                _ = try await AsrModels.download(version: .v2)
+                mclog("[Parakeet] Background model download complete")
+            } catch {
+                mclog("[Parakeet] Background model download failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
     /// Load the engine, downloading models on first run (~600 MB, cached in
     /// Application Support/FluidAudio). Returns false if unavailable — the
     /// caller falls back to SFSpeechRecognizer.

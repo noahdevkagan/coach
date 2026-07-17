@@ -31,6 +31,9 @@ struct ContentView: View {
             // No longer wait for Ollama before allowing app use.
             // Refresh models in background for when post-call review is needed.
             settings.ollamaManager = ollamaManager
+            // Fetch the transcription model off the critical path so the
+            // first real session starts on Parakeet instead of the fallback.
+            ParakeetEngine.prefetchInBackground()
             await settings.refreshModels()
         }
         .onChange(of: liveSession.activeNudge?.id) { _, _ in
@@ -713,12 +716,12 @@ struct ModelSection: View {
             } else {
                 VStack(spacing: 10) {
                     VStack(spacing: 4) {
-                        Image(systemName: "arrow.down.circle")
+                        Image(systemName: "checkmark.circle")
                             .font(.system(size: 28))
-                            .foregroundStyle(.blue)
-                        Text("Download a model to get started")
+                            .foregroundStyle(.green)
+                        Text("Instant coaching is already on")
                             .font(.callout.bold())
-                        Text("Models run 100% on your Mac. Nothing leaves this computer.")
+                        Text("Add a local model for smarter AI nudges and reviews — optional. Models run 100% on your Mac; nothing leaves this computer.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -986,6 +989,11 @@ struct LiveSection: View {
     var onToggleOverlay: () -> Void
     @Bindable var ollamaManager: OllamaManager
 
+    /// The semantic coach needs a reachable local model (or mock mode).
+    private var aiNudgesUnavailable: Bool {
+        !settings.useMock && settings.hasCheckedModels && settings.availableModels.isEmpty
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if liveSession.isLive {
@@ -1078,7 +1086,13 @@ struct LiveSection: View {
                     .font(.caption)
                     .toggleStyle(.switch)
                     .controlSize(.mini)
+                    .disabled(aiNudgesUnavailable)
                     .help("AI re-reads the conversation each minute for subtle moments — undecided topics, soft commitments. Uses more battery.")
+                if aiNudgesUnavailable {
+                    Text("Needs a local model — instant nudges still work without one.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             }
 
             // Post-session: save/delete + review
