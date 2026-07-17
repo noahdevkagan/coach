@@ -81,11 +81,17 @@ final class LiveSessionViewModel {
 
         isDemo = false
         preCallContext = context
-        signalEngine = SignalEngine(context: context)
+
+        // The active rubric tunes the deterministic monitors and defines any
+        // custom semantic signals. Missing/invalid rubric = stock behavior.
+        let rubric = (try? settings?.loadRubricOrDefault()) ?? .builtInDefault
+        signalEngine = SignalEngine(context: context, tuning: rubric.builtins)
 
         // Tier-2 semantic coaching: local LLM heartbeat (optional, toggleable)
         if let settings, let ollamaManager, settings.semanticCoachEnabled {
-            semanticCoach = SemanticCoach(model: settings.selectedModel)
+            semanticCoach = SemanticCoach(model: settings.selectedModel,
+                                          tuning: rubric.builtins,
+                                          customSignals: rubric.customSemanticSignals)
             if ollamaManager.status == .stopped {
                 ollamaManager.start()
             }
@@ -599,7 +605,7 @@ final class LiveSessionViewModel {
             lines.append("## Nudges")
             for n in nudges {
                 let feedbackStr = n.feedback.map { " | feedback: \($0.rawValue)" } ?? ""
-                lines.append("- [\(n.formattedTime)] **\(n.type.rawValue)** (\(n.urgency.rawValue)): \(n.text)\(feedbackStr)")
+                lines.append("- [\(n.formattedTime)] **\(n.typeKey)** (\(n.urgency.rawValue)): \(n.text)\(feedbackStr)")
             }
             lines.append("")
         }

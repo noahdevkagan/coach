@@ -409,7 +409,7 @@ struct NudgeCardView: View {
 
                 HStack(spacing: 8) {
                     // Type badge
-                    Text(nudge.type.rawValue)
+                    Text(nudge.badgeLabel)
                         .font(.caption2)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -585,6 +585,8 @@ struct SidebarView: View {
                                 ollamaManager: ollamaManager)
 
                     Divider()
+                    CoachingStyleSection(settings: settings, ollamaManager: ollamaManager)
+                    Divider()
                     TranscriptSection(simulation: simulation, isDragOverEntireView: isDragOver)
                     Divider()
                     FeedbackSection(simulation: simulation, liveSession: liveSession)
@@ -659,6 +661,41 @@ struct OllamaStatusBar: View {
         .padding(8)
         .background(Color(.controlBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+}
+
+// MARK: - Coaching Style Section
+
+/// Sidebar entry for the rubric: which coaching style is active, and the
+/// door into the builder.
+struct CoachingStyleSection: View {
+    @Bindable var settings: SettingsViewModel
+    @Bindable var ollamaManager: OllamaManager
+    @State private var showBuilder = false
+
+    private var activeName: String {
+        ((try? settings.loadRubricOrDefault()) ?? .builtInDefault).name
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Label("Coaching Style", systemImage: "slider.horizontal.3")
+                .font(.headline)
+            Spacer()
+            Text(activeName)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Button("Customize…") {
+                showBuilder = true
+            }
+            .font(.caption)
+            .buttonStyle(.plain)
+            .foregroundStyle(.blue)
+        }
+        .sheet(isPresented: $showBuilder) {
+            RubricBuilderView(settings: settings, ollamaManager: ollamaManager)
+        }
     }
 }
 

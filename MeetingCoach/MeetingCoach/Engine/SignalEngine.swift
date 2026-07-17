@@ -25,6 +25,20 @@ protocol SignalMonitor {
     mutating func reset()
 }
 
+/// Per-signal tuning from the active rubric, keyed by NudgeType.rawValue.
+/// Deliberately a plain type (not Rubric) so the bench/test harnesses keep
+/// compiling the engine standalone, without the YAML layer or Yams.
+/// Defaults are neutral: an empty map is byte-identical to today's behavior.
+struct SignalTuning: Sendable {
+    var enabled: Bool = true
+    /// >1 relaxes the trigger (fewer nudges), <1 tightens it — the same
+    /// convention as the meeting-type and adaptive multipliers.
+    var thresholdMultiplier: Double = 1.0
+    var cooldownMultiplier: Double = 1.0
+}
+
+typealias RubricTuning = [String: SignalTuning]
+
 /// Orchestrator for deterministic signals. Runs all monitors on each tick
 /// and collects nudges for the live session and post-call review.
 struct SignalEngine {
@@ -38,64 +52,67 @@ struct SignalEngine {
 
     var turns: [Turn] { turnBuilder.turns }
 
-    init(context: PreCallContext) {
-        // Two threshold layers: the meeting type sets the baseline (long
+    init(context: PreCallContext, tuning: RubricTuning = [:]) {
+        // Three threshold layers: the meeting type sets the baseline (long
         // turns are the FORMAT of a 1:1 but a red flag on a sales call),
-        // then adaptive multipliers from user feedback fine-tune it.
+        // the active rubric applies the user's chosen tuning, and adaptive
+        // multipliers from feedback fine-tune within it.
         let kind = context.effectiveMeetingType
         let m = AdaptiveThresholds.multiplier
+        func rt(_ type: NudgeType) -> Double { tuning[type.rawValue]?.thresholdMultiplier ?? 1.0 }
+        func rc(_ type: NudgeType) -> Double { tuning[type.rawValue]?.cooldownMultiplier ?? 1.0 }
 
         var talkTime = TalkTimeSignal()
-        talkTime.threshold *= m(.talkTime) * kind.talkTimeMultiplier
-        talkTime.cooldown *= m(.talkTime) * kind.talkTimeMultiplier
+        talkTime.threshold *= m(.talkTime) * kind.talkTimeMultiplier * rt(.talkTime)
+        talkTime.cooldown *= m(.talkTime) * kind.talkTimeMultiplier * rc(.talkTime)
 
         var discovery = MissingDiscoverySignal()
-        discovery.windowSeconds *= m(.missingDiscovery) * kind.discoveryMultiplier
-        discovery.cooldown *= m(.missingDiscovery) * kind.discoveryMultiplier
+        discovery.windowSeconds *= m(.missingDiscovery) * kind.discoveryMultiplier * rt(.missingDiscovery)
+        discovery.cooldown *= m(.missingDiscovery) * kind.discoveryMultiplier * rc(.missingDiscovery)
 
         var repetition = RepetitionLoopSignal()
-        repetition.cooldown *= m(.repetitionLoop)
+        repetition.cooldown *= m(.repetitionLoop) * rc(.repetitionLoop)
 
         var stacked = StackedQuestionsSignal()
-        stacked.cooldown *= m(.stackedQuestions)
+        stacked.cooldown *= m(.stackedQuestions) * rc(.stackedQuestions)
 
         var nextSteps = NextStepsSignal(scheduledMinutes: context.scheduledDurationMinutes)
-        nextSteps.cooldown *= m(.nextSteps)
+        nextSteps.cooldown *= m(.nextSteps) * rc(.nextSteps)
 
         var goingQuiet = GoingQuietSignal()
-        goingQuiet.cooldown *= m(.goingQuiet) * kind.engagementMultiplier
-        goingQuiet.warmupSeconds *= kind.engagementMultiplier
+        goingQuiet.cooldown *= m(.goingQuiet) * kind.engagementMultiplier * rc(.goingQuiet)
+        goingQuiet.warmupSeconds *= kind.engagementMultiplier * rt(.goingQuiet)
 
         var yesMan = YesManSignal()
-        yesMan.cooldown *= m(.yesMan) * kind.engagementMultiplier
+        yesMan.cooldown *= m(.yesMan) * kind.engagementMultiplier * rc(.yesMan)
 
         var unanswered = UnansweredQuestionSignal()
-        unanswered.cooldown *= m(.unansweredQuestion)
+        unanswered.cooldown *= m(.unansweredQuestion) * rc(.unansweredQuestion)
 
         var interruption = InterruptionSignal()
-        interruption.cooldown *= m(.interruption)
+        interruption.cooldown *= m(.interruption) * rc(.interruption)
 
         var vague = VagueAnswerSignal()
-        vague.cooldown *= m(.vagueAnswer)
+        vague.cooldown *= m(.vagueAnswer) * rc(.vagueAnswer)
 
         var voiceShare = VoiceShareSignal()
-        voiceShare.shareThreshold = min(0.9, voiceShare.shareThreshold * m(.voiceShare) * kind.talkTimeMultiplier.squareRoot())
-        voiceShare.cooldown *= m(.voiceShare)
+        voiceShare.shareThreshold = min(0.9, voiceShare.shareThreshold * m(.voiceShare) * kind.talkTimeMultiplier.squareRoot() * rt(.voiceShare))
+        voiceShare.cooldown *= m(.voiceShare) * rc(.voiceShare)
 
         // Positive reinforcement — feedback adapts frequency like any other
         // signal ("useful" makes green more common, "annoying" rarer).
         var questionLanded = QuestionLandedSignal()
-        questionLanded.cooldown *= m(.questionLanded)
+        questionLanded.cooldown *= m(.questionLanded) * rc(.questionLanded)
         var ownership = PositiveSignals.ownershipHanded()
-        ownership.cooldown *= m(.ownershipHanded)
+        ownership.cooldown *= m(.ownershipHanded) * rc(.ownershipHanded)
         var refocused = PositiveSignals.refocused()
-        refocused.cooldown *= m(.refocused)
+        refocused.cooldown *= m(.refocused) * rc(.refocused)
         var locked = PositiveSignals.commitmentLocked()
-        locked.cooldown *= m(.commitmentLocked)
+        locked.cooldown *= m(.commitmentLocked) * rc(.commitmentLocked)
         var reflected = PositiveSignals.reflectedBack()
-        reflected.cooldown *= m(.reflectedBack)
+        reflected.cooldown *= m(.reflectedBack) * rc(.reflectedBack)
 
-        monitors = [
+        let all: [any SignalMonitor] = [
             talkTime,
             discovery,
             TimeCheckSignal(scheduledMinutes: context.scheduledDurationMinutes),
@@ -117,6 +134,8 @@ struct SignalEngine {
             locked,
             reflected,
         ]
+        // Rubric-disabled signals never run (absent from the map = enabled).
+        monitors = all.filter { tuning[$0.nudgeType.rawValue]?.enabled ?? true }
     }
 
     /// Force the next evaluate() to rebuild turns from scratch — used when

@@ -1,0 +1,1 @@
+../../../../../MeetingCoach/MeetingCoach/Models/Rubric.swift

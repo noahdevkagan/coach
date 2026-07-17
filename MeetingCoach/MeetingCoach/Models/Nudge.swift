@@ -7,11 +7,28 @@ struct Nudge: Identifiable, Codable {
     let urgency: NudgeUrgency
     let timestamp: TimeInterval   // call-relative
     var feedback: NudgeFeedback?
+    /// Set only for type == .custom: the rubric signal id (snake_case) and
+    /// its display name. Optional so old encoded data still decodes.
+    var customId: String?
+    var customName: String?
 
     var formattedTime: String {
         let mm = Int(timestamp) / 60
         let ss = Int(timestamp) % 60
         return String(format: "%02d:%02d", mm, ss)
+    }
+
+    /// Stable per-signal key for persistence and adaptive thresholds:
+    /// the rawValue for built-ins, "custom:<id>" for rubric-defined signals.
+    var typeKey: String {
+        if type == .custom, let customId { return "custom:\(customId)" }
+        return type.rawValue
+    }
+
+    /// What the UI badges show — rubric display name for custom signals.
+    var badgeLabel: String {
+        if type == .custom { return customName ?? "Custom" }
+        return type.rawValue
     }
 }
 
@@ -26,7 +43,9 @@ enum NudgeType: String, Codable, CaseIterable {
          questionLanded, ownershipHanded, refocused,
          commitmentLocked, reflectedBack,
          // Tier-2 semantic signals (local LLM heartbeat)
-         noDecision, alignmentReached, buriedSignal, hedgeNotPinned
+         noDecision, alignmentReached, buriedSignal, hedgeNotPinned,
+         // Rubric-defined semantic signal (see Nudge.customId/customName)
+         custom
 
     var displayName: String {
         switch self {
@@ -56,6 +75,7 @@ enum NudgeType: String, Codable, CaseIterable {
         case .alignmentReached: return "Converged"
         case .buriedSignal: return "Buried Signal"
         case .hedgeNotPinned: return "Pin the Date"
+        case .custom: return "Custom"
         }
     }
 

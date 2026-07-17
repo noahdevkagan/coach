@@ -33,6 +33,11 @@ struct Rubric: Sendable {
     let window: TranscriptWindow
     let output: OutputConfig
     let signals: [Signal]
+    /// Tuning for the built-in signals (deterministic monitors and the
+    /// semantic six), keyed by NudgeType.rawValue. Missing keys mean
+    /// "enabled, stock thresholds" — a rubric without this section behaves
+    /// exactly like today's hardcoded engine.
+    var builtins: RubricTuning = [:]
 
     func signal(byId id: String) -> Signal? {
         signals.first { $0.id == id }
@@ -72,7 +77,10 @@ extension Rubric {
 }
 
 func loadRubric(from url: URL) throws -> Rubric {
-    let text = try String(contentsOf: url, encoding: .utf8)
+    try parseRubric(try String(contentsOf: url, encoding: .utf8))
+}
+
+func parseRubric(_ text: String) throws -> Rubric {
     guard let yaml = try Yams.load(yaml: text) as? [String: Any] else {
         throw RubricError.invalidFormat
     }
@@ -122,11 +130,135 @@ func loadRubric(from url: URL) throws -> Rubric {
                       needsDiarization: needsDia, minConfidence: floor)
     }
 
+    // Built-in signal tuning
+    var builtins: RubricTuning = [:]
+    if let builtinsDict = yaml["builtins"] as? [String: Any] {
+        for (key, raw) in builtinsDict {
+            guard let conf = raw as? [String: Any] else { continue }
+            var tuning = SignalTuning()
+            tuning.enabled = conf["enabled"] as? Bool ?? true
+            tuning.thresholdMultiplier = doubleValue(conf["threshold_multiplier"]) ?? 1.0
+            tuning.cooldownMultiplier = doubleValue(conf["cooldown_multiplier"]) ?? 1.0
+            builtins[key] = tuning
+        }
+    }
+
     return Rubric(name: name, version: version, cadence: cadence,
-                  window: window, output: output, signals: signals)
+                  window: window, output: output, signals: signals,
+                  builtins: builtins)
+}
+
+/// YAML numbers arrive as Int when whole ("1" vs "1.0") — accept both.
+private func doubleValue(_ any: Any?) -> Double? {
+    if let d = any as? Double { return d }
+    if let i = any as? Int { return Double(i) }
+    return nil
 }
 
 enum RubricError: Error, LocalizedError {
     case invalidFormat
     var errorDescription: String? { "Invalid rubric YAML format" }
+}
+
+// MARK: - Custom semantic signals
+
+extension Rubric {
+    /// Rubric signal ids already covered by built-in detectors — the semantic
+    /// six by their prompt ids, plus legacy ids from shipped rubrics that
+    /// alias deterministic or semantic built-ins. Anything else in a rubric's
+    /// signal list becomes a custom signal watched by the live LLM coach.
+    static let builtinSignalIds: Set<String> = [
+        // Semantic six (SemanticCoach prompt ids)
+        "no_decision", "alignment_reached", "buried_signal",
+        "hedge_not_pinned", "commitment_escalation", "question_parked",
+        // Legacy aliases from shipped rubrics, covered by built-ins
+        "no_decision_owner_date", "alignment_reached_still_talking",
+        "buried_signal_ignored", "repetition_loop", "escalation_rising",
+        "resolution_capture", "unaddressed_objection", "stacked_asks",
+        "global_negative", "positive_reinforcement", "talk_time_imbalance",
+        "promise_vs_clock",
+    ]
+
+    /// Signals the live semantic coach should watch beyond its built-in set.
+    /// Capped so the prompt stays disciplined — precision beats coverage.
+    var customSemanticSignals: [CustomSemanticSignal] {
+        Array(signals
+            .filter { !Self.builtinSignalIds.contains($0.id) }
+            .prefix(6))
+            .map {
+                CustomSemanticSignal(id: $0.id,
+                                     name: Self.displayName(fromId: $0.id),
+                                     description: $0.description)
+            }
+    }
+
+    static func displayName(fromId id: String) -> String {
+        id.split(separator: "_").map(\.capitalized).joined(separator: " ")
+    }
+}
+
+// MARK: - Serialization (rubric builder)
+
+extension Rubric {
+    /// Serialize to the YAML format parseRubric reads. Only the sections the
+    /// builder edits are written; neutral builtins entries are omitted so a
+    /// stock rubric round-trips to a clean file.
+    func toYAML() -> String {
+        var lines: [String] = []
+        lines.append("# Meeting Coach rubric — edited by the in-app builder.")
+        lines.append("version: \(version)")
+        lines.append("name: \(yamlQuote(name))")
+        lines.append("")
+        lines.append("cadence:")
+        lines.append("  heartbeat_seconds: \(cadence.heartbeatSeconds)")
+        lines.append("  extra_check_on_long_pause_seconds: \(cadence.extraCheckOnLongPauseSeconds)")
+        lines.append("  extra_check_on_speaker_handoff: \(cadence.extraCheckOnSpeakerHandoff)")
+        lines.append("")
+        lines.append("window:")
+        lines.append("  transcript_seconds: \(window.transcriptSeconds)")
+        lines.append("  keep_running_summary: \(window.keepRunningSummary)")
+        lines.append("")
+        lines.append("output:")
+        lines.append("  max_calls_per_trigger: \(output.maxCallsPerTrigger)")
+        lines.append("  min_confidence_to_show: \(output.minConfidenceToShow)")
+        lines.append("")
+        lines.append("tiers:")
+        lines.append("  A: { min_confidence: 0.6 }")
+        lines.append("  B: { min_confidence: 0.8 }")
+
+        let tuned = builtins
+            .filter { !$0.value.enabled || $0.value.thresholdMultiplier != 1.0 || $0.value.cooldownMultiplier != 1.0 }
+            .sorted { $0.key < $1.key }
+        if !tuned.isEmpty {
+            lines.append("")
+            lines.append("builtins:")
+            for (key, t) in tuned {
+                lines.append("  \(key): { enabled: \(t.enabled), threshold_multiplier: \(t.thresholdMultiplier), cooldown_multiplier: \(t.cooldownMultiplier) }")
+            }
+        }
+
+        if !signals.isEmpty {
+            lines.append("")
+            lines.append("signals:")
+            for s in signals {
+                lines.append("  - id: \(s.id)")
+                lines.append("    tier: \(s.tier)")
+                lines.append("    description: \(yamlQuote(s.description))")
+                lines.append("    nudge: \(yamlQuote(s.nudge))")
+                if s.needsDiarization {
+                    lines.append("    needs_diarization: true")
+                }
+            }
+        }
+        lines.append("")
+        return lines.joined(separator: "\n")
+    }
+}
+
+private func yamlQuote(_ s: String) -> String {
+    "\"" + s
+        .replacingOccurrences(of: "\\", with: "\\\\")
+        .replacingOccurrences(of: "\"", with: "\\\"")
+        .replacingOccurrences(of: "\n", with: " ")
+    + "\""
 }

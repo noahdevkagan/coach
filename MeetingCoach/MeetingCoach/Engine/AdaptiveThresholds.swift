@@ -9,17 +9,22 @@ enum AdaptiveThresholds {
 
     /// Load the multiplier for a given signal type. Returns 1.0 if not set.
     static func multiplier(for type: NudgeType) -> Double {
+        multiplier(forKey: type.rawValue)
+    }
+
+    /// Keyed variant — custom rubric signals use "custom:<id>" keys.
+    static func multiplier(forKey key: String) -> Double {
         let dict = load()
-        return dict[type.rawValue] ?? 1.0
+        return dict[key] ?? 1.0
     }
 
     /// Process end-of-session feedback and update multipliers.
     static func processSessionFeedback(_ nudges: [Nudge]) {
         var dict = load()
 
-        // Group nudges by type
-        let grouped = Dictionary(grouping: nudges, by: \.type)
-        for (type, typeNudges) in grouped {
+        // Group nudges by signal key (rawValue; "custom:<id>" for customs)
+        let grouped = Dictionary(grouping: nudges, by: \.typeKey)
+        for (key, typeNudges) in grouped {
             let feedbacks = typeNudges.compactMap(\.feedback)
             guard !feedbacks.isEmpty else { continue }
 
@@ -28,7 +33,7 @@ enum AdaptiveThresholds {
             let wrongCount = feedbacks.filter { $0 == .wrong }.count
             let total = feedbacks.count
 
-            let current = dict[type.rawValue] ?? 1.0
+            let current = dict[key] ?? 1.0
 
             var adjusted = current
             if Double(annoyingCount) / Double(total) > 0.5 {
@@ -42,7 +47,7 @@ enum AdaptiveThresholds {
                 adjusted *= 0.95
             }
 
-            dict[type.rawValue] = min(max(adjusted, clampRange.lowerBound), clampRange.upperBound)
+            dict[key] = min(max(adjusted, clampRange.lowerBound), clampRange.upperBound)
         }
 
         save(dict)

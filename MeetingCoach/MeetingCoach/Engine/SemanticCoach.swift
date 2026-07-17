@@ -1,5 +1,14 @@
 import Foundation
 
+/// A rubric-defined signal the semantic coach watches beyond its built-in
+/// set. Plain type (not Rubric) so bench/test harnesses can compile this
+/// file standalone, without the YAML layer.
+struct CustomSemanticSignal: Sendable {
+    let id: String            // snake_case rubric id, e.g. "rambling_intro"
+    let name: String          // display name, e.g. "Rambling Intro"
+    let description: String   // what the model should look for
+}
+
 /// Tier-2 semantic coaching: a low-frequency local-LLM pass over the recent
 /// conversation, catching rubric signals that keyword heuristics can't —
 /// alignment reached, buried signal, hedge not pinned, no decision named.
@@ -25,28 +34,50 @@ final class SemanticCoach {
         .noDecision: 2, .alignmentReached: 3, .buriedSignal: 3,
         .hedgeNotPinned: 3, .commitmentGap: 2, .questionParked: 2,
     ]
+    /// Custom rubric signals ship conservative until they earn trust.
+    static let maxFiresPerCustom = 2
 
-    private let client: OllamaClient
-    private var lastFiredByType: [NudgeType: TimeInterval] = [:]
-    private var firesByType: [NudgeType: Int] = [:]
-    /// Everything already nudged, echoed back to the (stateless) model so it
-    /// stops re-reporting the same observation every pass.
-    private var firedHistory: [(type: NudgeType, text: String)] = []
-    private var isAnalyzing = false
+    /// One built-in semantic signal: prompt id, nudge type, and the
+    /// definition line the model sees.
+    private struct SignalDef {
+        let id: String
+        let type: NudgeType
+        let definition: String
+    }
 
-    private static let signalMap: [String: NudgeType] = [
-        "no_decision": .noDecision,
-        "alignment_reached": .alignmentReached,
-        "buried_signal": .buriedSignal,
-        "hedge_not_pinned": .hedgeNotPinned,
-        "commitment_escalation": .commitmentGap,
-        "question_parked": .questionParked,
+    private static let builtinDefs: [SignalDef] = [
+        SignalDef(id: "no_decision", type: .noDecision,
+                  definition: "a clear question or topic has been open for many minutes and nobody has named a decision, an owner, and a date."),
+        SignalDef(id: "alignment_reached", type: .alignmentReached,
+                  definition: "two or more people have stated compatible positions on the open question, but the discussion keeps going instead of closing it."),
+        SignalDef(id: "buried_signal", type: .buriedSignal,
+                  definition: "a high-stakes statement (a number miss, churn, a named risk, someone hinting at quitting, a deadline slip) was mentioned and the conversation moved past it without engaging."),
+        SignalDef(id: "hedge_not_pinned", type: .hedgeNotPinned,
+                  definition: "a commitment was stated as a range or with soft language (\"in a few weeks\", \"we should be able to\") and was not pinned to a concrete date or number."),
+        SignalDef(id: "commitment_escalation", type: .commitmentGap,
+                  definition: "the user's own commitment grew substantially mid-discussion (\"two calls\" becoming \"a call a day\") without anyone acknowledging the change in scope."),
+        SignalDef(id: "question_parked", type: .questionParked,
+                  definition: "the user has asked essentially the same substantive question more than twice (possibly in different words) and it keeps getting deflected or parked instead of answered."),
     ]
 
-    init(model: String) {
+    private let client: OllamaClient
+    /// Built-in semantic signals still enabled by the active rubric.
+    private let activeDefs: [SignalDef]
+    /// Rubric-defined signals, keyed by their snake_case id.
+    private let customSignals: [String: CustomSemanticSignal]
+    private var lastFiredByKey: [String: TimeInterval] = [:]
+    private var firesByKey: [String: Int] = [:]
+    /// Everything already nudged, echoed back to the (stateless) model so it
+    /// stops re-reporting the same observation every pass.
+    private var firedHistory: [(key: String, label: String, text: String)] = []
+    private var isAnalyzing = false
+
+    init(model: String, tuning: RubricTuning = [:], customSignals: [CustomSemanticSignal] = []) {
         // Short timeout: a semantic call that arrives 2 minutes late is
         // stale coaching. Better to skip a beat than nudge about the past.
         client = OllamaClient(model: model, timeout: 45)
+        activeDefs = Self.builtinDefs.filter { tuning[$0.type.rawValue]?.enabled ?? true }
+        self.customSignals = Dictionary(uniqueKeysWithValues: customSignals.map { ($0.id, $0) })
     }
 
     /// Analyze the recent window. Returns at most one high-confidence nudge.
@@ -60,6 +91,7 @@ final class SemanticCoach {
     /// line-per-utterance).
     func analyze(utterances: [Utterance], elapsed: TimeInterval, context: PreCallContext) async -> [Nudge] {
         guard !isAnalyzing else { return [] }
+        guard !activeDefs.isEmpty || !customSignals.isEmpty else { return [] }
 
         let windowStart = elapsed - Self.windowSeconds
         let window = utterances.filter { $0.t >= windowStart }
@@ -69,8 +101,8 @@ final class SemanticCoach {
         isAnalyzing = true
         defer { isAnalyzing = false }
 
-        let (system, user) = Self.buildPrompt(
-            window: window, elapsed: elapsed, context: context, alreadyFired: firedHistory
+        let (system, user) = buildPrompt(
+            window: window, elapsed: elapsed, context: context
         )
         let raw: String
         do {
@@ -80,64 +112,79 @@ final class SemanticCoach {
             return []
         }
 
-        let calls = Self.parseCalls(raw)
+        let calls = parseCalls(raw)
         mclog("[Semantic] \(calls.count) raw calls from model")
 
-        // Gate: confidence, per-type cooldown, per-type session cap,
+        // Gate: confidence, per-signal cooldown, per-signal session cap,
         // no near-duplicate of an earlier nudge, best-one-only.
         let eligible = calls
             .filter { $0.confidence >= Self.confidenceThreshold }
             .filter { call in
-                let last = lastFiredByType[call.type] ?? -.infinity
+                let last = lastFiredByKey[call.key] ?? -.infinity
                 return elapsed - last >= Self.perTypeCooldown
             }
             .filter { call in
-                firesByType[call.type, default: 0] < Self.maxFiresPerType[call.type, default: 3]
+                firesByKey[call.key, default: 0] < maxFires(for: call)
             }
             .filter { call in
-                // Same-type nudge with heavily overlapping content = repeat.
+                // Same-signal nudge with heavily overlapping content = repeat.
                 let words = TextAnalysis.contentWords(call.text)
                 return !firedHistory.contains {
-                    $0.type == call.type
+                    $0.key == call.key
                         && TextAnalysis.jaccard(words, TextAnalysis.contentWords($0.text)) >= 0.5
                 }
             }
             .sorted { $0.confidence > $1.confidence }
 
         guard let best = eligible.first else { return [] }
-        lastFiredByType[best.type] = elapsed
-        firesByType[best.type, default: 0] += 1
-        firedHistory.append((best.type, best.text))
+        lastFiredByKey[best.key] = elapsed
+        firesByKey[best.key, default: 0] += 1
+        firedHistory.append((best.key, best.label, best.text))
         return [Nudge(
             id: UUID(),
             type: best.type,
             text: best.text,
             urgency: .med,
-            timestamp: elapsed
+            timestamp: elapsed,
+            customId: best.customId,
+            customName: best.customName
         )]
     }
 
     func reset() {
-        lastFiredByType = [:]
-        firesByType = [:]
+        lastFiredByKey = [:]
+        firesByKey = [:]
         firedHistory = []
+    }
+
+    private func maxFires(for call: SemanticCall) -> Int {
+        if call.type == .custom { return Self.maxFiresPerCustom }
+        return Self.maxFiresPerType[call.type, default: 3]
     }
 
     // MARK: - Prompt
 
-    private static func buildPrompt(
-        window: [Utterance], elapsed: TimeInterval, context: PreCallContext,
-        alreadyFired: [(type: NudgeType, text: String)]
+    private func buildPrompt(
+        window: [Utterance], elapsed: TimeInterval, context: PreCallContext
     ) -> (system: String, user: String) {
-        let system = """
-        You are a real-time meeting coach watching a live transcript. You look ONLY for these five signals:
+        var defLines: [String] = []
+        var ids: [String] = []
+        var n = 1
+        for def in activeDefs {
+            defLines.append("\(n). \(def.id) — \(def.definition)")
+            ids.append(def.id)
+            n += 1
+        }
+        for custom in customSignals.values.sorted(by: { $0.id < $1.id }) {
+            defLines.append("\(n). \(custom.id) — (user-defined) \(custom.description)")
+            ids.append(custom.id)
+            n += 1
+        }
 
-        1. no_decision — a clear question or topic has been open for many minutes and nobody has named a decision, an owner, and a date.
-        2. alignment_reached — two or more people have stated compatible positions on the open question, but the discussion keeps going instead of closing it.
-        3. buried_signal — a high-stakes statement (a number miss, churn, a named risk, someone hinting at quitting, a deadline slip) was mentioned and the conversation moved past it without engaging.
-        4. hedge_not_pinned — a commitment was stated as a range or with soft language ("in a few weeks", "we should be able to") and was not pinned to a concrete date or number.
-        5. commitment_escalation — the user's own commitment grew substantially mid-discussion ("two calls" becoming "a call a day") without anyone acknowledging the change in scope.
-        6. question_parked — the user has asked essentially the same substantive question more than twice (possibly in different words) and it keeps getting deflected or parked instead of answered.
+        let system = """
+        You are a real-time meeting coach watching a live transcript. You look ONLY for these signals:
+
+        \(defLines.joined(separator: "\n"))
 
         Rules:
         - Report a signal ONLY with strong evidence in the transcript. Silence is the correct output most of the time.
@@ -145,7 +192,7 @@ final class SemanticCoach {
         - "nudge" is the short coaching line shown to the user mid-meeting: max 8 words, imperative, concrete.
 
         Respond with ONLY a JSON array, no other text. Each item:
-        {"signal": "<one of: no_decision, alignment_reached, buried_signal, hedge_not_pinned, commitment_escalation, question_parked>", "nudge": "<max 8 words>", "confidence": <0.0-1.0>}
+        {"signal": "<one of: \(ids.joined(separator: ", "))>", "nudge": "<max 8 words>", "confidence": <0.0-1.0>}
 
         Return [] if nothing qualifies (this is the usual case).
         """
@@ -164,9 +211,9 @@ final class SemanticCoach {
         case .general:
             break
         }
-        if !alreadyFired.isEmpty {
+        if !firedHistory.isEmpty {
             userParts.append("Already nudged this meeting (do NOT re-report these or minor variations of them):\n"
-                + alreadyFired.map { "- \($0.type.rawValue): \($0.text)" }.joined(separator: "\n"))
+                + firedHistory.map { "- \($0.label): \($0.text)" }.joined(separator: "\n"))
         }
         userParts.append("Elapsed: \(Int(elapsed / 60)) minutes.")
         userParts.append("Recent conversation (You = the user being coached):")
@@ -183,9 +230,17 @@ final class SemanticCoach {
         let type: NudgeType
         let text: String
         let confidence: Double
+        let customId: String?
+        let customName: String?
+
+        var key: String {
+            if let customId { return "custom:\(customId)" }
+            return type.rawValue
+        }
+        var label: String { customId ?? type.rawValue }
     }
 
-    private static func parseCalls(_ raw: String) -> [SemanticCall] {
+    private func parseCalls(_ raw: String) -> [SemanticCall] {
         // Models wrap JSON in prose/code fences; extract the outermost array.
         guard let start = raw.firstIndex(of: "["),
               let end = raw.lastIndex(of: "]"),
@@ -195,19 +250,35 @@ final class SemanticCoach {
               let items = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
         else { return [] }
 
+        let builtinById = Dictionary(uniqueKeysWithValues: activeDefs.map { ($0.id, $0.type) })
+
         return items.compactMap { item in
             guard let signal = item["signal"] as? String,
-                  let type = signalMap[signal],
                   let text = item["nudge"] as? String,
                   !text.isEmpty
             else { return nil }
+
+            let type: NudgeType
+            var customId: String?
+            var customName: String?
+            if let builtin = builtinById[signal] {
+                type = builtin
+            } else if let custom = customSignals[signal] {
+                type = .custom
+                customId = custom.id
+                customName = custom.name
+            } else {
+                return nil
+            }
+
             let confidence = (item["confidence"] as? Double)
                 ?? (item["confidence"] as? Int).map(Double.init)
                 ?? 0
             // Enforce the 8-word budget defensively.
             let words = text.split(separator: " ")
             let clipped = words.count > 8 ? words.prefix(8).joined(separator: " ") : text
-            return SemanticCall(type: type, text: clipped, confidence: confidence)
+            return SemanticCall(type: type, text: clipped, confidence: confidence,
+                                customId: customId, customName: customName)
         }
     }
 }
