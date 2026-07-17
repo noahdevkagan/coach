@@ -126,7 +126,8 @@ struct LiveTimelineView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         // Summary card
                         if let summary = liveSession.meetingSummary {
-                            MeetingSummaryCard(summary: summary).id("summary")
+                            MeetingSummaryCard(summary: summary, recapText: recapText(summary))
+                                .id("summary")
                             Divider().padding(.vertical, 4)
                         } else if liveSession.isGeneratingSummary {
                             HStack(spacing: 8) {
@@ -211,6 +212,15 @@ struct LiveTimelineView: View {
             LiveTranscriptPane(liveSession: liveSession)
         }
         .background(Color(.controlBackgroundColor).opacity(0.5))
+    }
+
+    private func recapText(_ summary: String) -> String {
+        RecapExporter.markdown(
+            summary: summary,
+            context: liveSession.preCallContext,
+            durationMinutes: max(1, Int(liveSession.elapsedTime) / 60),
+            talkShare: liveSession.talkStats.sessionShare
+        )
     }
 
     private func exportTranscript() {
@@ -489,11 +499,48 @@ struct NudgeCardView: View {
 
 struct MeetingSummaryCard: View {
     let summary: String
+    /// Full shareable recap (summary + session facts + footer). When set,
+    /// copy/share controls appear in the card header.
+    var recapText: String?
+
+    @State private var copied = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Meeting Review", systemImage: "doc.text.magnifyingglass")
-                .font(.headline)
+            HStack {
+                Label("Meeting Review", systemImage: "doc.text.magnifyingglass")
+                    .font(.headline)
+                Spacer()
+                if let recap = recapText {
+                    if copied {
+                        Label("Copied", systemImage: "checkmark")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    }
+                    Button {
+                        RecapExporter.copyToPasteboard(recap)
+                        copied = true
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .seconds(2))
+                            copied = false
+                        }
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help("Copy recap for Slack or email")
+
+                    ShareLink(item: recap) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help("Share recap")
+                }
+            }
 
             Text(summary)
                 .font(.callout)

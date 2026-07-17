@@ -360,6 +360,7 @@ final class LiveSessionViewModel {
             (settings.hasCheckedModels && settings.ollamaReachable && settings.availableModels.isEmpty) {
             meetingSummary = instantReview(durationMinutes: durationMin)
             isGeneratingSummary = false
+            persistReview()
             return
         }
 
@@ -388,6 +389,7 @@ final class LiveSessionViewModel {
             guard ollamaManager.status == .running else {
                 meetingSummary = instantReview(durationMinutes: durationMin)
                 isGeneratingSummary = false
+                persistReview()
                 return
             }
 
@@ -402,7 +404,22 @@ final class LiveSessionViewModel {
                 meetingSummary = instantReview(durationMinutes: durationMin)
             }
             isGeneratingSummary = false
+            persistReview()
         }
+    }
+
+    /// Write the review into the saved session file under "## Review" so
+    /// trends and the rubric advisor can mine it later. Replaces any earlier
+    /// review section — reviews can be regenerated.
+    private func persistReview() {
+        guard let path = savedPath, let summary = meetingSummary,
+              var content = try? String(contentsOfFile: path, encoding: .utf8) else { return }
+        if let range = content.range(of: "\n## Review") {
+            content = String(content[..<range.lowerBound])
+        }
+        content = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        content += "\n\n## Review\n\n\(summary)\n"
+        try? content.write(toFile: path, atomically: true, encoding: .utf8)
     }
 
     private func instantReview(durationMinutes: Int) -> String {
