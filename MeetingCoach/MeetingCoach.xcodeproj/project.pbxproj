@@ -43,6 +43,7 @@
 		602166D3A6873647DC911FDE /* bird_chirp.wav in Resources */ = {isa = PBXBuildFile; fileRef = 14D8000DD43FC31EDFC5A989 /* bird_chirp.wav */; };
 		643DA0464410998385AE5E60 /* PreCallFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25F544EB2BBE998E71984423 /* PreCallFormView.swift */; };
 		75C0D28E8BF07978D20349B6 /* SpeakerDiarizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB68720A316FEE2207F54E4B /* SpeakerDiarizer.swift */; };
+		7738C639EFAA02BEF8DD5765 /* FeedbackFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35B1ADEF0B99BDEB25D36FE4 /* FeedbackFormView.swift */; };
 		80A3C6A385E3EE4BE0E678BD /* AudioCaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 169665A106EBBC6CCDA1F018 /* AudioCaptureManager.swift */; };
 		831AAAE68BDAAC75DC37FB2B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B601F828AB17A262298DF0AE /* ContentView.swift */; };
 		85E59446014AE47DD1E5A810 /* SessionTrendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A2619C7DBDE479D92329B84 /* SessionTrendsView.swift */; };
@@ -98,6 +99,7 @@
 		2FBAD9FDD0A26CB47962E922 /* DeterministicReview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeterministicReview.swift; sourceTree = "<group>"; };
 		3148143DE9DBDDDC62BC5535 /* RecapExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecapExporter.swift; sourceTree = "<group>"; };
 		31809EA09C75CBBA15B69874 /* RubricBuilderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RubricBuilderViewModel.swift; sourceTree = "<group>"; };
+		35B1ADEF0B99BDEB25D36FE4 /* FeedbackFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackFormView.swift; sourceTree = "<group>"; };
 		42E54C36F44DC42BE2B8D5D9 /* SimulationTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulationTimelineView.swift; sourceTree = "<group>"; };
 		59A325315611300C1A9E2C53 /* demo_nudges.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = demo_nudges.json; sourceTree = "<group>"; };
 		5C9A04C9B391284F7BCDBD2E /* TrainingExample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingExample.swift; sourceTree = "<group>"; };
@@ -175,6 +177,7 @@
 			isa = PBXGroup;
 			children = (
 				E80054B1508EFBBFD8D840F3 /* CoachingOverlayPanel.swift */,
+				35B1ADEF0B99BDEB25D36FE4 /* FeedbackFormView.swift */,
 				96F44479B82669A57E95C7E4 /* MeetingPromptPanel.swift */,
 				25F544EB2BBE998E71984423 /* PreCallFormView.swift */,
 				0B4B0AF697805859194CB8FB /* ProgressDashboardView.swift */,
@@ -438,6 +441,7 @@
 				965F05D47B12F506C3B6CE55 /* DemoScript.swift in Sources */,
 				0B9771217CC1244125C2B177 /* DeterministicReview.swift in Sources */,
 				3777383CF5218E48A0B5262D /* EchoFilter.swift in Sources */,
+				7738C639EFAA02BEF8DD5765 /* FeedbackFormView.swift in Sources */,
 				0C80F4E7CBCBC9D2C7FA9664 /* FocusGoals.swift in Sources */,
 				27B1368F1ECD54E49385BA3E /* GoingQuietSignal.swift in Sources */,
 				C7D931047233C23F27CBE934 /* HighStakesSignal.swift in Sources */,

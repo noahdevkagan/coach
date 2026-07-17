@@ -48,6 +48,12 @@ struct MeetingCoachApp: App {
                          ollamaManager: ollamaManager, detection: detection)
         }
 
+        // Feedback form, opened from the menu bar dropdown.
+        Window("Send Feedback", id: "feedback") {
+            FeedbackFormView()
+        }
+        .windowResizability(.contentSize)
+
         // Preferences (⌘,). Progress moved to the main window's idle pane;
         // this keeps the learned-sensitivity details reachable.
         Settings {
@@ -163,6 +169,10 @@ struct MenuBarView: View {
             NSApp.activate(ignoringOtherApps: true)
         }
         Divider()
+        Button("Send Feedback…") {
+            openWindow(id: "feedback")
+            NSApp.activate(ignoringOtherApps: true)
+        }
         CheckForUpdatesView(updater: updater)
     }
 
