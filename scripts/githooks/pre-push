@@ -6,4 +6,22 @@ if [ "${SKIP_GATE:-0}" = "1" ]; then
     echo "push gate SKIPPED (SKIP_GATE=1)"
     exit 0
 fi
+
+# A release tag may not leave this machine without user-facing notes:
+# pushing refs/tags/vX.Y.Z requires a "## X.Y.Z" section in CHANGELOG.md
+# (which also feeds the app's update dialog and the site changelog page).
+repo_root="$(dirname "$0")/../.."
+while read -r local_ref _local_sha _remote_ref _remote_sha; do
+    case "$local_ref" in
+        refs/tags/v*)
+            ver="${local_ref#refs/tags/v}"
+            if ! grep -qE "^##[[:space:]]+${ver}([^0-9.]|$)" "$repo_root/CHANGELOG.md"; then
+                echo "RELEASE GATE FAILED: no \"## $ver\" section in CHANGELOG.md."
+                echo "Add user-facing notes for $ver, run scripts/build-changelog.py, commit, then push the tag."
+                exit 1
+            fi
+            ;;
+    esac
+done
+
 exec bash "$(dirname "$0")/../push-gate.sh"

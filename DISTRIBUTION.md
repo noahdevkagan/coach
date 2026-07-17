@@ -147,3 +147,11 @@ First time: `npx wrangler login`, and attach the `getmeetingcoach.com` custom do
 to the project in the Cloudflare dashboard (Pages → meetcoach → Custom domains).
 
 When cutting a release, update the DMG version in `docs/thanks.html`.
+
+### Changelog page (`/changelog.html`)
+`docs/changelog.html` is generated from `CHANGELOG.md` by
+`python3 scripts/build-changelog.py` — never edit it by hand. Two gates keep it
+honest: pushing a `vX.Y.Z` tag fails unless CHANGELOG.md has a `## X.Y.Z`
+section, and every push fails if the generated page is stale. So the release
+rhythm is: add the `## X.Y.Z` section → run the script → commit → tag → push →
+deploy the site (command above).
