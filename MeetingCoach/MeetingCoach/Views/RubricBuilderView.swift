@@ -189,8 +189,11 @@ struct RubricBuilderView: View {
             Button("Cancel") { dismiss() }
             Button {
                 vm.save(settings: settings)
+                // save() only sets `saved` on success — validation or write
+                // failures keep the sheet open with the error visible.
+                if vm.saved { dismiss() }
             } label: {
-                Label("Save as coaching style", systemImage: "tray.and.arrow.down")
+                Label("Save", systemImage: "tray.and.arrow.down")
             }
             .buttonStyle(.borderedProminent)
             .keyboardShortcut(.defaultAction)
