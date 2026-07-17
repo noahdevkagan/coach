@@ -55,7 +55,7 @@ Every `git push` runs `scripts/push-gate.sh` (~4 min): build → ASR transcript 
 
 ## Release
 
-Push a tag: `git tag vX.Y.Z && git push origin vX.Y.Z`. CI signs, notarizes, attaches the DMG to a GitHub Release, and updates the Sparkle appcast (users auto-update). Unreleased work batches on `main`; see what's pending with `git log $(git describe --tags --abbrev=0)..main --oneline`. Do not tag without the maintainer asking.
+Push a tag: `git tag vX.Y.Z && git push origin vX.Y.Z`. CI first runs the full test gate (`.github/workflows/test-gate.yml` — build + all suites; a failing gate blocks the release), then signs, notarizes, attaches the DMG to a GitHub Release, and updates the Sparkle appcast (users auto-update). Unreleased work batches on `main`; see what's pending with `git log $(git describe --tags --abbrev=0)..main --oneline`. Do not tag without the maintainer asking.
 
 ## Conventions
 

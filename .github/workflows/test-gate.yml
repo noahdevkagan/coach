@@ -1,0 +1,57 @@
+name: Test Gate
+
+# The release workflow calls this (workflow_call), so EVERY release runs the
+# full test gate on CI before anything is signed or published — the local
+# pre-push gate can be skipped or unconfigured; this one cannot.
+# workflow_dispatch lets you run the gate on demand without releasing.
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  gate:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 16
+        run: |
+          set -euo pipefail
+          XCODE_PATH="$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -1)"
+          if [ -z "$XCODE_PATH" ]; then
+            echo "No Xcode 16.x on this runner image:" >&2
+            ls -d /Applications/Xcode*.app >&2
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE_PATH"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build
+        run: |
+          cd MeetingCoach
+          xcodegen
+          set -o pipefail
+          xcodebuild -project MeetingCoach.xcodeproj -scheme MeetingCoach \
+            -configuration Debug -derivedDataPath build build 2>&1 | tail -3
+
+      - name: Deterministic suites (nudges, rubric, detector, demo)
+        run: |
+          bash tests/nudges/run.sh
+          bash tests/rubric/run.sh
+          bash tests/detector/run.sh
+          bash tests/demo/run.sh
+
+      - name: Cache Parakeet model
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Application Support/FluidAudio
+          key: parakeet-fluidaudio-v1
+
+      - name: Transcript + echo gates (real-time audio)
+        run: |
+          FAST=1 bash tests/asr/run.sh
+          bash tests/echo/run.sh

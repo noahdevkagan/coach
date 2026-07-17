@@ -24,7 +24,13 @@ env:
   OLLAMA_VERSION: v0.31.1  # pinned; also keys the download cache
 
 jobs:
+  # Every release runs the full test gate first — a tag from any machine
+  # (or a manual dispatch) can never ship untested.
+  gate:
+    uses: ./.github/workflows/test-gate.yml
+
   release:
+    needs: gate
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
