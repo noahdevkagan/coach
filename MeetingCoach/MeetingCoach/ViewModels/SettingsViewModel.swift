@@ -39,9 +39,14 @@ final class SettingsViewModel {
             ?? "qwen2.5:7b-instruct"
         self.rubricPath = UserDefaults.standard.string(forKey: "rubricPath") ?? ""
         if self.rubricPath.isEmpty {
-            let defaultPath = NSString("~/dev/meeting-coach/rubrics/personal.yaml").expandingTildeInPath
-            if FileManager.default.fileExists(atPath: defaultPath) {
-                self.rubricPath = defaultPath
+            // Legacy dev-checkout rubric wins if present so an existing
+            // personal setup keeps coaching identically.
+            let legacyPath = NSString("~/dev/meeting-coach/rubrics/personal.yaml").expandingTildeInPath
+            if FileManager.default.fileExists(atPath: legacyPath) {
+                self.rubricPath = legacyPath
+            } else {
+                AppSupport.ensureLayout()
+                self.rubricPath = AppSupport.activeRubricURL.path
             }
         }
     }
