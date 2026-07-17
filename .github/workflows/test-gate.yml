@@ -43,20 +43,14 @@ jobs:
             build 2>&1 | grep -E "error|warning: Run script|BUILD" || true
           test -d build/Build/Products/Debug/MeetingCoach.app
 
+      # The real-time ASR transcript + echo suites are NOT run here: on
+      # virtualized CI runners Parakeet underruns and scores ~35% WER vs the
+      # 5% bar (validated 2026-07-17) — they need real hardware and stay in
+      # the local push gate (scripts/push-gate.sh). CI enforces everything
+      # deterministic.
       - name: Deterministic suites (nudges, rubric, detector, demo)
         run: |
           bash tests/nudges/run.sh
           bash tests/rubric/run.sh
           bash tests/detector/run.sh
           bash tests/demo/run.sh
-
-      - name: Cache Parakeet model
-        uses: actions/cache@v4
-        with:
-          path: ~/Library/Application Support/FluidAudio
-          key: parakeet-fluidaudio-v1
-
-      - name: Transcript + echo gates (real-time audio)
-        run: |
-          FAST=1 bash tests/asr/run.sh
-          bash tests/echo/run.sh
