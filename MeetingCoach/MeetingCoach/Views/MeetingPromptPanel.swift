@@ -25,6 +25,7 @@ final class MeetingPromptPanel: NSPanel {
         backgroundColor = .clear
         hasShadow = true
         sharingType = .none  // invisible in screen shares
+        acceptsMouseMovedEvents = true  // hover-reveal close button
 
         if let screen = NSScreen.main {
             let x = screen.visibleFrame.maxX - 462
@@ -48,6 +49,7 @@ struct MeetingPromptView: View {
     let onDismiss: () -> Void
 
     @State private var pulse = false
+    @State private var hovering = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -147,6 +149,26 @@ struct MeetingPromptView: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
         )
+        // Standard macOS notification UX: a tiny close button in the
+        // top-left corner, revealed on hover.
+        .overlay(alignment: .topLeading) {
+            if hovering {
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 19, height: 19)
+                        .background(.regularMaterial, in: Circle())
+                        .overlay(Circle().strokeBorder(Color.primary.opacity(0.12)))
+                }
+                .buttonStyle(.plain)
+                .offset(x: -5, y: -5)
+                .transition(.opacity)
+            }
+        }
+        .onHover { over in
+            withAnimation(.easeInOut(duration: 0.12)) { hovering = over }
+        }
         .padding(4)
     }
 }
