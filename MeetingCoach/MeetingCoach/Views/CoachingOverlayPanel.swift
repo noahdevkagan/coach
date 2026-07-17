@@ -7,7 +7,7 @@ final class CoachingOverlayPanel: NSPanel {
 
     init() {
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 300, height: 50),
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 66),
             styleMask: [.nonactivatingPanel, .titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: true
@@ -27,7 +27,7 @@ final class CoachingOverlayPanel: NSPanel {
         // Position at top-right of main screen
         if let screen = NSScreen.main {
             let x = screen.visibleFrame.maxX - 320
-            let y = screen.visibleFrame.maxY - 70
+            let y = screen.visibleFrame.maxY - 86
             setFrameOrigin(NSPoint(x: x, y: y))
         }
     }
@@ -37,62 +37,75 @@ final class CoachingOverlayPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
-/// SwiftUI view shown inside the overlay panel — single-line nudge display.
+/// SwiftUI view shown inside the overlay panel: a single-line nudge display
+/// with a persistent talk-share meter underneath. Observes the session
+/// directly (@Observable), so the meter and nudges update without the host
+/// rebuilding the panel's content view.
 struct CoachingOverlayView: View {
-    let activeNudge: Nudge?
-    let isLive: Bool
-    let onFeedback: (UUID, NudgeFeedback) -> Void
+    var liveSession: LiveSessionViewModel
     let onClose: () -> Void
 
+    private var activeNudge: Nudge? { liveSession.activeNudge }
+
     var body: some View {
-        HStack(spacing: 8) {
-            // Status dot
-            Circle()
-                .fill(isLive ? .green : .gray)
-                .frame(width: 6, height: 6)
-
-            if let nudge = activeNudge {
-                // Urgency dot (green = reinforcement, not a correction)
+        VStack(spacing: 5) {
+            HStack(spacing: 8) {
+                // Status dot
                 Circle()
-                    .fill(nudgeColor(nudge))
-                    .frame(width: 8, height: 8)
+                    .fill(liveSession.isLive ? .green : .gray)
+                    .frame(width: 6, height: 6)
 
-                // Nudge text
-                Text(nudge.text)
-                    .font(.callout.bold())
-                    .lineLimit(1)
+                if let nudge = activeNudge {
+                    // Urgency dot (green = reinforcement, not a correction)
+                    Circle()
+                        .fill(nudgeColor(nudge))
+                        .frame(width: 8, height: 8)
 
-                Spacer()
+                    // Nudge text
+                    Text(nudge.text)
+                        .font(.callout.bold())
+                        .lineLimit(1)
 
-                // Feedback buttons
-                HStack(spacing: 4) {
-                    feedbackButton(nudge: nudge, feedback: .useful,
-                                   icon: "hand.thumbsup.fill", color: .green)
-                    feedbackButton(nudge: nudge, feedback: .annoying,
-                                   icon: "minus.circle.fill", color: .gray)
-                    feedbackButton(nudge: nudge, feedback: .wrong,
-                                   icon: "xmark.circle.fill", color: .red)
+                    Spacer()
+
+                    // Feedback buttons
+                    HStack(spacing: 4) {
+                        feedbackButton(nudge: nudge, feedback: .useful,
+                                       icon: "hand.thumbsup.fill", color: .green)
+                        feedbackButton(nudge: nudge, feedback: .annoying,
+                                       icon: "minus.circle.fill", color: .gray)
+                        feedbackButton(nudge: nudge, feedback: .wrong,
+                                       icon: "xmark.circle.fill", color: .red)
+                    }
+                } else {
+                    // Ambient state
+                    Image(systemName: "waveform")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                    Text("Listening...")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                    Spacer()
                 }
-            } else {
-                // Ambient state
-                Image(systemName: "waveform")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                Text("Listening...")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                Spacer()
+
+                // Close
+                Button {
+                    onClose()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
             }
 
-            // Close
-            Button {
-                onClose()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+            // Talk-share meter — stays visible under active nudges. The
+            // trailing window is what the user can still change; fall back
+            // to the session share early on.
+            if liveSession.isLive,
+               let share = liveSession.talkStats.recentShare ?? liveSession.talkStats.sessionShare {
+                TalkMeterBar(share: share)
             }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -101,7 +114,7 @@ struct CoachingOverlayView: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(activeNudge != nil ? nudgeColor(activeNudge!).opacity(0.3) : Color.primary.opacity(0.08), lineWidth: 1)
+                .stroke(activeNudge.map { nudgeColor($0).opacity(0.3) } ?? Color.primary.opacity(0.08), lineWidth: 1)
         )
         .padding(6)
         .animation(.easeInOut(duration: 0.3), value: activeNudge?.id)
@@ -109,7 +122,7 @@ struct CoachingOverlayView: View {
 
     private func feedbackButton(nudge: Nudge, feedback: NudgeFeedback, icon: String, color: Color) -> some View {
         Button {
-            onFeedback(nudge.id, feedback)
+            liveSession.recordFeedback(nudgeId: nudge.id, feedback: feedback)
         } label: {
             Image(systemName: icon)
                 .font(.caption)
@@ -125,5 +138,31 @@ struct CoachingOverlayView: View {
         case .med: return .blue
         case .high: return .orange
         }
+    }
+}
+
+/// Thin two-tone you/them bar with a percentage label. Orange past 65% —
+/// the point where coaching notes consistently call the floor hogged.
+struct TalkMeterBar: View {
+    let share: Double
+    var warnAt: Double = 0.65
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text("You \(Int(share * 100))%")
+                .font(.caption2.monospacedDigit().weight(.semibold))
+                .foregroundStyle(share >= warnAt ? Color.orange : Color.secondary)
+                .frame(width: 52, alignment: .leading)
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.secondary.opacity(0.25))
+                    Capsule()
+                        .fill(share >= warnAt ? Color.orange : Color.blue)
+                        .frame(width: max(3, geo.size.width * share))
+                }
+            }
+            .frame(height: 4)
+        }
+        .animation(.easeOut(duration: 0.4), value: share)
     }
 }

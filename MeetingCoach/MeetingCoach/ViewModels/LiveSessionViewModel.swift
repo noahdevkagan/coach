@@ -15,6 +15,9 @@ final class LiveSessionViewModel {
     var livePartials: [String: String] = [:]
     var nudges: [Nudge] = []
     var activeNudge: Nudge?
+    /// Live word-share meter data (you vs. them), updated with each
+    /// signal evaluation. Empty in mic-only mode.
+    var talkStats = TalkStats()
     var error: String?
     var status: String = ""
     var elapsedTime: TimeInterval = 0
@@ -96,6 +99,7 @@ final class LiveSessionViewModel {
         livePartials = [:]
         nudges = []
         activeNudge = nil
+        talkStats.reset()
         error = nil
         status = "Starting — 10 coaching signals loaded"
         elapsedTime = 0
@@ -200,6 +204,7 @@ final class LiveSessionViewModel {
         livePartials = [:]
         nudges = []
         activeNudge = nil
+        talkStats.reset()
         error = nil
         meetingSummary = nil
         savedPath = nil
@@ -266,6 +271,7 @@ final class LiveSessionViewModel {
         turns = []
         nudges = []
         activeNudge = nil
+        talkStats.reset()
         meetingSummary = nil
         showPostSession = false
         status = ""
@@ -456,6 +462,7 @@ final class LiveSessionViewModel {
         )
         turns = engine.turns
         signalEngine = engine
+        talkStats.update(turns: turns, elapsed: elapsedTime)
 
         for nudge in newNudges {
             nudges.append(nudge)
@@ -542,6 +549,9 @@ final class LiveSessionViewModel {
         lines.append("**Duration:** \(elapsedFormatted)")
         lines.append("**Utterances:** \(utterances.count)")
         lines.append("**Nudges:** \(nudges.count)")
+        if let share = talkStats.sessionShare {
+            lines.append("**Talk ratio:** \(Int(share * 100))% you")
+        }
         lines.append("")
 
         // Pre-call context

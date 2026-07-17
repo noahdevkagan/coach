@@ -49,9 +49,6 @@ struct ContentView: View {
                 showWelcome = false
             }
         }
-        .onChange(of: liveSession.activeNudge?.id) { _, _ in
-            updateOverlay()
-        }
         .onChange(of: liveSession.isLive) { _, isLive in
             if isLive { showOverlay() } else { hideOverlay() }
         }
@@ -79,13 +76,9 @@ struct ContentView: View {
 
     private func updateOverlay() {
         guard let panel = overlayPanel, panel.isVisible else { return }
-        let view = CoachingOverlayView(
-            activeNudge: liveSession.activeNudge,
-            isLive: liveSession.isLive,
-            onFeedback: { [weak liveSession] id, feedback in
-                liveSession?.recordFeedback(nudgeId: id, feedback: feedback)
-            }
-        ) { [weak panel = overlayPanel] in
+        // The view observes the session (@Observable), so one hosting view
+        // tracks nudges and the talk meter without being rebuilt.
+        let view = CoachingOverlayView(liveSession: liveSession) { [weak panel = overlayPanel] in
             panel?.orderOut(nil)
         }
         panel.contentView = NSHostingView(rootView: view)
@@ -207,6 +200,12 @@ struct LiveTimelineView: View {
                 }
             }
             .padding(.horizontal).padding(.vertical, 8)
+
+            // Talk balance: rolling share bar + session sparkline
+            if let share = liveSession.talkStats.recentShare ?? liveSession.talkStats.sessionShare {
+                TalkBalanceHeader(share: share, history: liveSession.talkStats.history)
+                    .padding(.horizontal).padding(.bottom, 6)
+            }
             Divider()
 
             LiveTranscriptPane(liveSession: liveSession)
@@ -225,6 +224,58 @@ struct LiveTimelineView: View {
             .map { "[\($0.formattedTime)] \($0.speaker): \($0.text)" }
             .joined(separator: "\n")
         try? text.write(to: url, atomically: true, encoding: .utf8)
+    }
+}
+
+/// Talk balance strip for the transcript panel: the meter bar plus a small
+/// sparkline of how the share moved across the session.
+private struct TalkBalanceHeader: View {
+    let share: Double
+    let history: [TalkStats.Sample]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            TalkMeterBar(share: share)
+            if history.count >= 4 {
+                TalkShareSparkline(history: history)
+                    .frame(height: 14)
+            }
+        }
+    }
+}
+
+/// Minimal line sparkline of talk share over time; the 65% warn level is a
+/// faint reference line.
+private struct TalkShareSparkline: View {
+    let history: [TalkStats.Sample]
+    var warnAt: Double = 0.65
+
+    var body: some View {
+        GeometryReader { geo in
+            let minT = history.first?.t ?? 0
+            let maxT = max(history.last?.t ?? 1, minT + 1)
+            let points = history.map { sample in
+                CGPoint(
+                    x: geo.size.width * (sample.t - minT) / (maxT - minT),
+                    y: geo.size.height * (1 - sample.share)
+                )
+            }
+            ZStack {
+                Path { p in
+                    let y = geo.size.height * (1 - warnAt)
+                    p.move(to: CGPoint(x: 0, y: y))
+                    p.addLine(to: CGPoint(x: geo.size.width, y: y))
+                }
+                .stroke(Color.orange.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+
+                Path { p in
+                    guard let first = points.first else { return }
+                    p.move(to: first)
+                    for pt in points.dropFirst() { p.addLine(to: pt) }
+                }
+                .stroke(Color.blue.opacity(0.7), lineWidth: 1.5)
+            }
+        }
     }
 }
 
