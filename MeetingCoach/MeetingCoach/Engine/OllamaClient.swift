@@ -50,45 +50,50 @@ struct CatalogModel: Identifiable, Sendable {
     var fullName: String { "\(name):\(tag)" }
 }
 
-/// Curated catalog of models good for meeting coaching.
+/// Curated catalog of models good for meeting coaching. The first entry is
+/// the onboarding recommendation. Reviewed periodically (last: 2026-07)
+/// against what the semantic coach actually needs: strong conversational
+/// judgment + strict JSON on a 60s heartbeat, on 8–16GB Apple Silicon.
+/// Thinking-mode models (DeepSeek R1 etc.) are deliberately absent — they
+/// burn heartbeat latency on reasoning tokens before the JSON starts.
 let modelCatalog: [CatalogModel] = [
     // -- Recommended --
+    CatalogModel(name: "qwen3.5", tag: "9b",
+                 description: "Qwen 3.5 — best judgment + rock-solid JSON, MLX-fast on Apple Silicon. Recommended.",
+                 parameterSize: "9B", diskSize: "~6.6 GB"),
     CatalogModel(name: "gemma4", tag: "e4b",
-                 description: "Google Gemma 4 Edge — fast, multimodal, 128K context, tool calling. Best balance.",
+                 description: "Google Gemma 4 Edge — efficient MoE, 128K context, tool calling",
                  parameterSize: "4B eff", diskSize: "~9.6 GB"),
-    CatalogModel(name: "qwen2.5", tag: "7b-instruct",
-                 description: "Strong instruction-following, reliable structured JSON output",
-                 parameterSize: "7B", diskSize: "~4.7 GB"),
     // -- Compact / fast --
+    CatalogModel(name: "qwen3.5", tag: "4b",
+                 description: "Lighter Qwen 3.5 — the pick for 8GB Macs",
+                 parameterSize: "4B", diskSize: "~3.4 GB"),
     CatalogModel(name: "gemma4", tag: "e2b",
                  description: "Google Gemma 4 Edge — smallest, great for quick scans",
                  parameterSize: "2B eff", diskSize: "~7.2 GB"),
-    CatalogModel(name: "qwen2.5", tag: "3b-instruct",
-                 description: "Lighter Qwen, fastest inference",
-                 parameterSize: "3B", diskSize: "~2.0 GB"),
     // -- Larger / higher quality --
+    CatalogModel(name: "qwen3.5", tag: "27b",
+                 description: "Qwen 3.5 27B — top judgment for nuanced signals, needs 32GB RAM",
+                 parameterSize: "27B", diskSize: "~17 GB"),
     CatalogModel(name: "gemma4", tag: "12b",
                  description: "Google Gemma 4 12B — stronger reasoning, still fast on Apple Silicon",
                  parameterSize: "12B", diskSize: "~8.1 GB"),
     CatalogModel(name: "gemma4", tag: "26b",
                  description: "Google Gemma 4 26B MoE — best quality, needs 16GB+ RAM",
                  parameterSize: "26B MoE", diskSize: "~16 GB"),
-    CatalogModel(name: "qwen2.5", tag: "14b-instruct",
-                 description: "Larger Qwen, better judgment for nuanced signals",
-                 parameterSize: "14B", diskSize: "~9.0 GB"),
     CatalogModel(name: "phi4", tag: "latest",
                  description: "Microsoft Phi-4, strong reasoning for its size",
                  parameterSize: "14B", diskSize: "~9.1 GB"),
     // -- Alternatives --
-    CatalogModel(name: "llama3.1", tag: "8b-instruct-q4_0",
-                 description: "Meta's Llama 3.1, solid general-purpose",
-                 parameterSize: "8B", diskSize: "~4.7 GB"),
+    CatalogModel(name: "qwen2.5", tag: "7b-instruct",
+                 description: "Previous default — reliable JSON, fine to keep if already installed",
+                 parameterSize: "7B", diskSize: "~4.7 GB"),
+    CatalogModel(name: "granite4", tag: "3b",
+                 description: "IBM Granite 4 — tiny, strong instruction-following, Apache licensed",
+                 parameterSize: "3B", diskSize: "~2.1 GB"),
     CatalogModel(name: "mistral", tag: "7b-instruct-v0.3",
                  description: "Mistral 7B, fast and reliable",
                  parameterSize: "7B", diskSize: "~4.1 GB"),
-    CatalogModel(name: "deepseek-r1", tag: "7b",
-                 description: "DeepSeek R1, reasoning-focused",
-                 parameterSize: "7B", diskSize: "~4.7 GB"),
     CatalogModel(name: "glm4", tag: "9b",
                  description: "THUDM GLM-4 — strong bilingual, good structured output",
                  parameterSize: "9B", diskSize: "~5.5 GB"),

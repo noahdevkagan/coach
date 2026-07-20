@@ -31,7 +31,7 @@ final class SettingsViewModel {
     init() {
         self.semanticCoachEnabled = UserDefaults.standard.object(forKey: "semanticCoachEnabled") as? Bool ?? true
         self.selectedModel = UserDefaults.standard.string(forKey: "selectedModel")
-            ?? "qwen2.5:7b-instruct"
+            ?? "qwen3.5:9b"
         self.rubricPath = UserDefaults.standard.string(forKey: "rubricPath") ?? ""
         if self.rubricPath.isEmpty {
             AppSupport.ensureLayout()
