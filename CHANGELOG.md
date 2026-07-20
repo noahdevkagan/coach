@@ -9,7 +9,9 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
-- Stopping a session no longer loses the words spoken right before you hit Stop — and a short session's transcript stays visible
+## 0.6.3 — 2026-07-20
+
+- Stopping a session keeps your whole transcript on screen — including the words you were still saying when you hit Stop (they now land in the saved session too)
 - Nudges and Transcript panes are back to clean white; the warm tint stays in the sidebar only
 
 ## 0.6.2 — 2026-07-20
