@@ -20,6 +20,11 @@ final class SettingsViewModel {
         didSet { UserDefaults.standard.set(semanticCoachEnabled, forKey: "semanticCoachEnabled") }
     }
 
+    /// Session clock in the coaching overlay's ambient row. Default on.
+    var showOverlayClock: Bool {
+        didSet { UserDefaults.standard.set(showOverlayClock, forKey: "showOverlayClock") }
+    }
+
     // Download state
     var downloadingModel: String?
     var downloadProgress: Double = 0
@@ -30,6 +35,7 @@ final class SettingsViewModel {
 
     init() {
         self.semanticCoachEnabled = UserDefaults.standard.object(forKey: "semanticCoachEnabled") as? Bool ?? true
+        self.showOverlayClock = UserDefaults.standard.object(forKey: "showOverlayClock") as? Bool ?? true
         self.selectedModel = UserDefaults.standard.string(forKey: "selectedModel")
             ?? "qwen3.5:9b"
         self.rubricPath = UserDefaults.standard.string(forKey: "rubricPath") ?? ""

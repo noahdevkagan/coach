@@ -76,7 +76,7 @@ struct MeetingCoachApp: App {
         // and Stats (session trends + learned sensitivity).
         Settings {
             TabView {
-                GeneralSettingsView(detection: detection)
+                GeneralSettingsView(detection: detection, settings: settings)
                     .tabItem { Label("General", systemImage: "gear") }
                 ScrollView {
                     SessionTrendsView()

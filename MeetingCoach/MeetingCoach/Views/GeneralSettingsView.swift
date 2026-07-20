@@ -5,6 +5,7 @@ import AppKit
 /// the meeting-detection behavior toggles (mirrors of the menu bar ones).
 struct GeneralSettingsView: View {
     @Bindable var detection: MeetingDetectionService
+    @Bindable var settings: SettingsViewModel
 
     /// Re-read after "Change…" so the row updates without relaunching.
     @State private var sessionsPath = AppSupport.sessionsDir.path
@@ -35,6 +36,13 @@ struct GeneralSettingsView: View {
                     Button("Change…") { chooseFolder() }
                 }
                 Text("New sessions save to this folder. Existing transcripts stay where they are — move the files in Finder if you relocate.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Coaching overlay") {
+                Toggle("Show session timer", isOn: $settings.showOverlayClock)
+                Text("A small clock next to \u{201C}Listening\u{201D} in the floating overlay, so you always know how long the meeting has run.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

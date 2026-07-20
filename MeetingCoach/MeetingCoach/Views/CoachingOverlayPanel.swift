@@ -43,6 +43,7 @@ final class CoachingOverlayPanel: NSPanel {
 /// rebuilding the panel's content view.
 struct CoachingOverlayView: View {
     var liveSession: LiveSessionViewModel
+    var settings: SettingsViewModel
     let onClose: () -> Void
 
     private var activeNudge: Nudge? { liveSession.activeNudge }
@@ -85,6 +86,13 @@ struct CoachingOverlayView: View {
                     Text("Listening...")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
+                    // Session clock — the only always-visible place to see
+                    // how long the meeting has run without opening a window.
+                    if settings.showOverlayClock {
+                        Text(liveSession.elapsedFormatted)
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                    }
                     Spacer()
                 }
 

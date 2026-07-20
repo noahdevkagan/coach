@@ -81,7 +81,7 @@ struct ContentView: View {
         // session (@Observable), so one hosting view tracks nudges and the
         // talk meter for the whole session without being rebuilt.
         if !(panel.contentView is NSHostingView<CoachingOverlayView>) {
-            let view = CoachingOverlayView(liveSession: liveSession) { [weak panel] in
+            let view = CoachingOverlayView(liveSession: liveSession, settings: settings) { [weak panel] in
                 panel?.orderOut(nil)
             }
             panel.contentView = NSHostingView(rootView: view)
