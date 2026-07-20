@@ -56,4 +56,5 @@ jobs:
           bash tests/nudges/run.sh
           bash tests/rubric/run.sh
           bash tests/detector/run.sh
+          bash tests/session/run.sh
           bash tests/demo/run.sh

@@ -223,6 +223,15 @@ final class LiveSessionViewModel {
                                       text: text, endT: elapsedTime))
         }
         livePartials = [:]
+        // The transcript pane renders TURNS, and turns only rebuild during
+        // live evaluation — so words committed since the last tick (plus
+        // the partials just flushed) vanished from view the instant the
+        // session stopped. Coalesce the full record once before it freezes.
+        if !utterances.isEmpty {
+            var builder = TurnBuilder()
+            builder.rebuild(utterances)
+            turns = builder.turns
+        }
         status = "Stopped"
 
         // Demo sessions leave no trace: no save, no threshold adaptation.

@@ -48,3 +48,4 @@ tests/asr/.out/
 tests/nudges/.build/
 tests/echo/.build/
 .wrangler/
+tests/session/.build

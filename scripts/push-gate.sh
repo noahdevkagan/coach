@@ -71,6 +71,7 @@ echo "--- [3/4] nudges"
 bash tests/nudges/run.sh || { echo "NUDGE GATE FAILED"; exit 1; }
 bash tests/rubric/run.sh || { echo "RUBRIC GATE FAILED"; exit 1; }
 bash tests/detector/run.sh || { echo "DETECTOR GATE FAILED"; exit 1; }
+bash tests/session/run.sh || { echo "SESSION GATE FAILED"; exit 1; }
 bash tests/demo/run.sh || { echo "DEMO GATE FAILED"; exit 1; }
 
 echo "--- [4/4] benchmark trend (informational)"
