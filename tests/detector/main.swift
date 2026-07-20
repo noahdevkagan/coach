@@ -94,13 +94,18 @@ func runEnded(_ timeline: [(Double, MeetingSignals)], detector: inout MeetingDet
     return ends
 }
 
-// 9. Armed live session: the meeting's mic hold released → ended exactly
-//    once, after the 60s end debounce, leaving the detector idle.
+// 9. Armed live session: the meeting's mic hold released → ended fires
+//    60s after the release and keeps firing every tick while the release
+//    persists (the service vetoes stops mid-goodbye, so a one-shot event
+//    could be swallowed). The detector stays live until the service
+//    acknowledges the stop via sessionEnded().
 var d9 = MeetingDetector()
 d9.sessionStarted()
 let e9 = runEnded([(0, app), (100, quiet)], detector: &d9, to: 300)
-check(e9 == [160], "meeting end fires 60s after mic release", "got \(e9)")
-check(d9.state == .idle, "ended leaves detector idle", "got \(d9.state)")
+check(e9.first == 160, "meeting end fires 60s after mic release", "got \(e9.prefix(3))")
+check(e9 == Array(stride(from: 160.0, through: 300, by: 1)),
+      "ended keeps firing while the release persists", "got \(e9.count) events")
+check(d9.isLive, "detector stays live until the stop is acknowledged", "got \(d9.state)")
 
 // 10. A session with no meeting signals (in-person coaching) never arms,
 //     so it never auto-ends no matter how long it runs.
@@ -116,12 +121,29 @@ d11.sessionStarted()
 let e11 = runEnded([(0, app), (100, quiet), (130, app)], detector: &d11, to: 400)
 check(e11.isEmpty, "sub-debounce mic drop doesn't end the session", "got \(e11)")
 
-// 12. After an auto-end the detector prompts again for the next meeting.
+// 12. After an auto-end (service acknowledges via sessionEnded) the
+//     detector prompts again for the next meeting.
 var d12 = MeetingDetector()
 d12.sessionStarted()
 _ = runEnded([(0, app), (100, quiet)], detector: &d12, to: 200)
-let p12 = run([(300, app)], detector: &d12, from: 300, to: 330)
+d12.sessionEnded()   // what the service does once the session stops
+let p12 = run([(300, app)], detector: &d12, from: 250, to: 330)
 check(p12 == [305], "prompts again for the next meeting", "got \(p12)")
+
+// 12b. Regression (2026-07-20 William meeting): the service vetoes the
+//      first .ended reports because goodbyes were <20s ago — the detector
+//      must KEEP reporting the end so a later re-check can stop the
+//      session. And if the meeting resumes (mic evidence back), the
+//      pending end cancels; a second release restarts the debounce.
+var d12b = MeetingDetector()
+d12b.sessionStarted()
+let e12b = runEnded([(0, app), (100, quiet), (200, app), (250, quiet)],
+                    detector: &d12b, to: 400)
+check(e12b.first == 160 && e12b.contains(199) && !e12b.contains(200),
+      "end reports persist through a veto; resuming mic cancels them", "got \(e12b.prefix(45))")
+check(e12b.filter { $0 >= 200 }.first == 310,
+      "second release restarts the 60s debounce (ended at 250+60)",
+      "got \(e12b.filter { $0 >= 200 }.first ?? -1)")
 
 // MARK: - Window evidence
 
@@ -151,7 +173,7 @@ func runEvents(_ timeline: [(Double, MeetingSignals)], detector: inout MeetingDe
 var d13 = MeetingDetector()
 d13.sessionStarted()
 let e13 = runEnded([(0, win(app, true)), (100, win(quiet, false))], detector: &d13, to: 300)
-check(e13 == [115], "mic release + window gone ends at 15s", "got \(e13)")
+check(e13.first == 115, "mic release + window gone ends at 15s", "got \(e13.prefix(3))")
 
 // 14. Muted participant: mic released but the meeting window persists →
 //     never auto-ends; fires .endedAmbiguous at 300s, stays live, and
@@ -169,14 +191,14 @@ check(d14.isLive, "ambiguous end leaves the session live", "got \(d14.state)")
 var d15 = MeetingDetector()
 d15.sessionStarted()
 let e15 = runEnded([(0, win(quiet, true)), (50, win(quiet, false))], detector: &d15, to: 300)
-check(e15 == [50], "window evidence arms and ends an unattributed session", "got \(e15)")
+check(e15.first == 50, "window evidence arms and ends an unattributed session", "got \(e15.prefix(3))")
 
 // 16. Window gone but the app still holds the mic warm (Zoom/Slack
 //     post-call) → ends after the 90s linger debounce.
 var d16 = MeetingDetector()
 d16.sessionStarted()
 let e16 = runEnded([(0, win(app, true)), (100, win(app, false))], detector: &d16, to: 400)
-check(e16 == [190], "mic lingering after window gone ends at 90s", "got \(e16)")
+check(e16.first == 190, "mic lingering after window gone ends at 90s", "got \(e16.prefix(3))")
 
 // 17. Fail-safe: absence is only trusted after a window was SEEN — false
 //     from the start (heuristic never matched) behaves exactly like the
@@ -184,7 +206,7 @@ check(e16 == [190], "mic lingering after window gone ends at 90s", "got \(e16)")
 var d17 = MeetingDetector()
 d17.sessionStarted()
 let e17 = runEnded([(0, win(app, false)), (100, win(quiet, false))], detector: &d17, to: 300)
-check(e17 == [160], "unseen window absence degrades to the 60s mic path", "got \(e17)")
+check(e17.first == 160, "unseen window absence degrades to the 60s mic path", "got \(e17.prefix(3))")
 
 // 18. Window flapping right after a mic release (Space switch) under the
 //     fast debounce doesn't end the session; the persistent-window
@@ -203,7 +225,7 @@ var d19 = MeetingDetector()
 d19.sessionStarted()
 let e19 = runEnded([(0, win(app, true)), (100, win(quiet, nil)), (140, win(quiet, false))],
                    detector: &d19, to: 300)
-check(e19 == [140], "window vanishing mid-quiet ends immediately", "got \(e19)")
+check(e19.first == 140, "window vanishing mid-quiet ends immediately", "got \(e19.prefix(3))")
 
 // MARK: - Window heuristics (pure title/owner matching)
 

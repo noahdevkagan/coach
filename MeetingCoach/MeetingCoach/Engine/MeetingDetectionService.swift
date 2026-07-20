@@ -85,8 +85,9 @@ final class MeetingDetectionService {
             guard let session = liveSession, session.isLive, !session.isDemo else { return }
             // A released mic can lie (some browsers drop the hold while
             // muted) — only stop when the room has also gone quiet. If
-            // people are still talking, skip; the detector rearms and
-            // fires again on the next sustained release.
+            // people are still talking, skip; the detector keeps reporting
+            // .ended every tick while the evidence holds, so this re-runs
+            // until the goodbyes trail off (or the meeting resumes).
             //
             // "Talking" must include IN-FLIGHT speech: Parakeet commits in
             // large chunks (100s+ mid-monologue), so the last committed

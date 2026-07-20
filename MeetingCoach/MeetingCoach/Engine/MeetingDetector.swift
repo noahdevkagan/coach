@@ -63,7 +63,15 @@ struct MeetingDetector: Sendable {
         case cooldown(until: TimeInterval)
     }
     enum Event: Equatable, Sendable {
-        case none, prompt, ended
+        case none, prompt
+        /// The meeting looks over. Reported EVERY tick while the end
+        /// evidence persists — the service layer vetoes stops while people
+        /// are still talking, so a one-shot event would be lost to a veto
+        /// and the session would never auto-stop (seen live: goodbyes
+        /// within 20s of the mic release swallowed the only .ended). The
+        /// state clears via sessionEnded() once the session actually
+        /// stops; meeting evidence returning cancels the end on its own.
+        case ended
         /// Mic long released but a meeting window is still visible — too
         /// ambiguous to auto-stop. The session stays live; the service may
         /// surface a gentle hint but must not stop the session.
@@ -109,18 +117,13 @@ struct MeetingDetector: Sendable {
             // hold the input open after a call on some versions).
             if nowArmed && (!candidate || windowGone) {
                 let since = quietSince ?? now
+                state = .live(armed: nowArmed, windowSeen: nowWindowSeen, quietSince: since)
                 if candidate {
                     // Mic warm, window gone.
-                    if now - since >= micLingerEndDebounce {
-                        state = .idle
-                        return .ended
-                    }
+                    if now - since >= micLingerEndDebounce { return .ended }
                 } else if windowGone {
                     // Both end signals agree — end fast.
-                    if now - since >= fastEndDebounce {
-                        state = .idle
-                        return .ended
-                    }
+                    if now - since >= fastEndDebounce { return .ended }
                 } else if nowWindowSeen && signals.meetingWindowPresent == true {
                     // Mic released but the meeting window persists — the
                     // muted-participant case. Never auto-end; surface an
@@ -132,12 +135,8 @@ struct MeetingDetector: Sendable {
                     }
                 } else {
                     // No window information — the original mic-only path.
-                    if now - since >= endDebounce {
-                        state = .idle
-                        return .ended
-                    }
+                    if now - since >= endDebounce { return .ended }
                 }
-                state = .live(armed: nowArmed, windowSeen: nowWindowSeen, quietSince: since)
             } else {
                 state = .live(armed: nowArmed, windowSeen: nowWindowSeen, quietSince: nil)
             }
