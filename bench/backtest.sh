@@ -18,6 +18,7 @@ swiftc -O -o "$OUT/mc-backtest" \
   "$SRC/Engine/SemanticCoach.swift" \
   "$SRC/Engine/OllamaClient.swift" \
   "$SRC/Models/Utterance.swift" \
+  "$SRC/Models/TrainingExample.swift" \
   "$SRC/Models/Nudge.swift" \
   "$SRC/Models/PreCallContext.swift" \
   "$SRC"/Engine/Signals/*.swift

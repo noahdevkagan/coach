@@ -49,11 +49,82 @@ enum TrainingStore {
         save(all)
     }
 
+    /// Aliases → canonical NudgeType raw value. Keys are normalized
+    /// (lowercase, alphanumerics and single spaces). Multi-word aliases and
+    /// distinctive tokens only — a generic word like "decision" alone would
+    /// tag half of any prose paste. Legacy ids from the pre-0.4 rubric are
+    /// included so old saved examples normalize on read.
+    static let signalAliases: [(alias: String, type: NudgeType)] = [
+        // Canonical ids (camelCase pastes normalize to a single token)
+        ("talktime", .talkTime), ("talk time", .talkTime),
+        ("voiceshare", .voiceShare), ("voice share", .voiceShare),
+        ("vagueanswer", .vagueAnswer), ("vague answer", .vagueAnswer),
+        ("hedgenotpinned", .hedgeNotPinned), ("hedge", .hedgeNotPinned),
+        ("nodecision", .noDecision), ("no decision", .noDecision),
+        ("no owner", .noDecision),
+        ("alignmentreached", .alignmentReached), ("alignment reached", .alignmentReached),
+        ("buriedsignal", .buriedSignal), ("buried signal", .buriedSignal),
+        ("stackedquestions", .stackedQuestions), ("stacked questions", .stackedQuestions),
+        ("one question at a time", .stackedQuestions),
+        ("unansweredquestion", .unansweredQuestion), ("unanswered question", .unansweredQuestion),
+        ("interruption", .interruption), ("let them finish", .interruption),
+        ("nextsteps", .nextSteps), ("next steps", .nextSteps),
+        ("overrun", .overrun), ("over time", .overrun), ("ran over", .overrun),
+        ("missingdiscovery", .missingDiscovery), ("no questions", .missingDiscovery),
+        ("repetitionloop", .repetitionLoop), ("repetition", .repetitionLoop),
+        ("goingquiet", .goingQuiet), ("going quiet", .goingQuiet),
+        ("gone quiet", .goingQuiet),
+        ("yesman", .yesMan), ("yes man", .yesMan), ("just agreeing", .yesMan),
+        ("questionparked", .questionParked), ("parked question", .questionParked),
+        ("commitmentgap", .commitmentGap), ("commitment gap", .commitmentGap),
+        ("timecheck", .timeCheck), ("time check", .timeCheck),
+        ("questionlanded", .questionLanded), ("question landed", .questionLanded),
+        ("ownershiphanded", .ownershipHanded), ("ownership handed", .ownershipHanded),
+        ("refocused", .refocused),
+        ("commitmentlocked", .commitmentLocked), ("commitments locked", .commitmentLocked),
+        ("reflectedback", .reflectedBack), ("reflected back", .reflectedBack),
+        // Semantic-coach prompt ids
+        ("no_decision", .noDecision), ("alignment_reached", .alignmentReached),
+        ("buried_signal", .buriedSignal), ("hedge_not_pinned", .hedgeNotPinned),
+        ("commitment_escalation", .commitmentGap), ("question_parked", .questionParked),
+        // Legacy pre-0.4 rubric ids (old saved examples still carry these)
+        ("repetition_loop", .repetitionLoop), ("stacked_asks", .stackedQuestions),
+        ("talk_time_imbalance", .talkTime), ("unaddressed_objection", .buriedSignal),
+        ("promise_vs_clock", .hedgeNotPinned), ("resolution_capture", .noDecision),
+        ("escalation_rising", .commitmentGap),
+    ]
+
+    /// Lowercase; underscores/punctuation → spaces; collapse runs. Space-
+    /// padded so aliases match on word boundaries ("parked question" never
+    /// matches inside "sparked questioning").
+    private static func normalized(_ s: String) -> String {
+        let mapped = s.lowercased().map { c -> Character in
+            (c.isLetter || c.isNumber) ? c : " "
+        }
+        let collapsed = String(mapped).split(separator: " ").joined(separator: " ")
+        return " " + collapsed + " "
+    }
+
+    /// First signal type a normalized line refers to, if any.
+    private static func matchType(in line: String) -> NudgeType? {
+        let norm = normalized(line)
+        return signalAliases.first { norm.contains(" \($0.alias.replacingOccurrences(of: "_", with: " ")) ") }?.type
+    }
+
+    /// Canonical NudgeType raw value for a stored signalId (which may be a
+    /// legacy or semantic id), or nil if it maps to nothing current.
+    static func canonicalType(for signalId: String) -> NudgeType? {
+        if let direct = NudgeType(rawValue: signalId) { return direct }
+        return matchType(in: signalId)
+    }
+
     /// Parse raw coaching feedback text into signal examples.
-    /// Supports formats like:
-    ///   "Trigger 1: repetition_loop" / "Signal: repetition_loop"
-    ///   "Evidence: ..."
-    ///   "Nudge: ..."
+    /// Structured form:
+    ///   "Trigger 1: talkTime" / "Signal: hedge_not_pinned"
+    ///   "Evidence: ..." / "Nudge: ..."
+    /// Freeform prose falls back to line-level mention scanning, so a paste
+    /// like "3. Delist trigger… make talk time nudges earlier" still teaches
+    /// the signals it names.
     static func parseFeedback(_ text: String) -> [SignalExample] {
         var results: [SignalExample] = []
         let lines = text.components(separatedBy: .newlines)
@@ -61,12 +132,6 @@ enum TrainingStore {
         var currentSignal: String?
         var currentEvidence: String?
         var currentNudge: String?
-
-        let signalIds = [
-            "repetition_loop", "escalation_rising", "resolution_capture",
-            "unaddressed_objection", "stacked_asks", "global_negative",
-            "talk_time_imbalance", "promise_vs_clock", "positive_reinforcement"
-        ]
 
         func flush() {
             if let sig = currentSignal {
@@ -85,21 +150,13 @@ enum TrainingStore {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             let lower = trimmed.lowercased()
 
-            // Check if line contains a signal ID
-            if let found = signalIds.first(where: { lower.contains($0) }) {
+            // Signal/Trigger header — an explicit prefix, or a short line
+            // that is essentially just a signal name.
+            let isHeader = lower.hasPrefix("trigger") || lower.hasPrefix("signal")
+                || trimmed.split(separator: " ").count <= 4
+            if isHeader, let found = matchType(in: trimmed) {
                 flush()
-                currentSignal = found
-                continue
-            }
-
-            // Check for "Trigger N:" pattern followed by a name
-            if lower.hasPrefix("trigger") && lower.contains(":") {
-                // Try to find signal name after the colon
-                let afterColon = trimmed.components(separatedBy: ":").dropFirst().joined(separator: ":").trimmingCharacters(in: .whitespaces)
-                if let found = signalIds.first(where: { afterColon.lowercased().contains($0) }) {
-                    flush()
-                    currentSignal = found
-                }
+                currentSignal = found.rawValue
                 continue
             }
 
@@ -117,16 +174,55 @@ enum TrainingStore {
                 continue
             }
 
-            // If we have a current signal and this looks like content, append to evidence
             if currentSignal != nil && currentEvidence == nil && !trimmed.isEmpty
                 && !lower.hasPrefix("#") && !lower.hasPrefix("---") {
+                // Inside a structured block: first content line is evidence.
                 currentEvidence = trimmed
+            } else if currentSignal == nil, !trimmed.isEmpty,
+                      let mentioned = matchType(in: trimmed) {
+                // Freeform prose mentioning a signal by name — the line
+                // itself is the lesson. One example per line, capped length.
+                results.append(SignalExample(
+                    signalId: mentioned.rawValue,
+                    evidence: String(trimmed.prefix(280)),
+                    nudge: ""
+                ))
             }
         }
         flush()
 
         return results
     }
+
+    /// All saved examples grouped by canonical NudgeType raw value.
+    /// Examples saved before parsing existed (0 parsed signals) are
+    /// re-parsed from their raw feedback here, and legacy signal ids are
+    /// normalized — old training data keeps teaching without migration.
+    static func examplesByType() -> [String: [SignalExample]] {
+        var grouped: [String: [SignalExample]] = [:]
+        for example in load() {
+            let signals = example.signals.isEmpty
+                ? parseFeedback(example.feedback)
+                : example.signals
+            for s in signals {
+                guard let type = canonicalType(for: s.signalId) else { continue }
+                grouped[type.rawValue, default: []].append(s)
+            }
+        }
+        return grouped
+    }
+
+    /// Signal types the user's saved notes call out — these get modestly
+    /// more sensitive at session start (the notes are the user saying
+    /// "watch for this" in their own words).
+    static func emphasizedTypes() -> Set<NudgeType> {
+        Set(examplesByType().keys.compactMap(NudgeType.init(rawValue:)))
+    }
+
+    /// Threshold/cooldown multiplier for note-emphasized signals. Gentler
+    /// than a focus goal — notes accumulate over months; focus is explicit
+    /// per-week intent.
+    static let sensitivityBoost = 0.9
 
     private static func extractValue(_ line: String) -> String {
         // Split on first ":" and take the rest

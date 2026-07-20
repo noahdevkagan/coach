@@ -1425,6 +1425,9 @@ struct FeedbackSection: View {
     }
 
     @State private var isExpanded = false
+    /// Display names of the signal types the last save taught, e.g.
+    /// "Talk Time, Pin the Date" — feedback that the paste was understood.
+    @State private var savedSignalNames = ""
 
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
@@ -1471,7 +1474,10 @@ struct FeedbackSection: View {
                           || activeUtterances.isEmpty)
 
                 if simulation.feedbackSaved {
-                    Label("Saved", systemImage: "checkmark.circle.fill")
+                    Label(savedSignalNames.isEmpty
+                            ? "Saved"
+                            : "Saved — tunes \(savedSignalNames)",
+                          systemImage: "checkmark.circle.fill")
                         .font(.caption)
                         .foregroundStyle(.green)
                 }
@@ -1507,6 +1513,11 @@ struct FeedbackSection: View {
         TrainingStore.append(example)
         trainingCount += 1
         simulation.feedbackSaved = true
+        savedSignalNames = Array(
+            signals.compactMap { TrainingStore.canonicalType(for: $0.signalId)?.displayName }
+                .reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+                .prefix(4)
+        ).joined(separator: ", ")
         mclog("[Training] Saved example with \(signals.count) parsed signals, source=\(sourceLabel)")
     }
 }

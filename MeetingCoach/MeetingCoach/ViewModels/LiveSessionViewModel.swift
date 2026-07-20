@@ -113,13 +113,28 @@ final class LiveSessionViewModel {
             t.cooldownMultiplier *= FocusGoals.sensitivityBoost
             tuning[type.rawValue] = t
         }
+        // Coaching-note emphasis: signal types the user's saved notes call
+        // out get modestly more sensitive — same mechanism as focus goals,
+        // gentler boost. The notes themselves also feed the semantic coach
+        // as few-shot examples below.
+        let noteExamples = TrainingStore.examplesByType()
+        for type in TrainingStore.emphasizedTypes() where !focusTypes.contains(type) {
+            var t = tuning[type.rawValue] ?? SignalTuning()
+            t.thresholdMultiplier *= TrainingStore.sensitivityBoost
+            t.cooldownMultiplier *= TrainingStore.sensitivityBoost
+            tuning[type.rawValue] = t
+        }
+        if !noteExamples.isEmpty {
+            mclog("[Training] Session tuned by coaching notes: \(noteExamples.keys.sorted().joined(separator: ", "))")
+        }
         signalEngine = SignalEngine(context: context, tuning: tuning)
 
         // Tier-2 semantic coaching: local LLM heartbeat (optional, toggleable)
         if let settings, let ollamaManager, settings.semanticCoachEnabled {
             semanticCoach = SemanticCoach(model: settings.selectedModel,
                                           tuning: tuning,
-                                          customSignals: rubric.customSemanticSignals)
+                                          customSignals: rubric.customSemanticSignals,
+                                          noteExamples: noteExamples)
             if ollamaManager.status == .stopped {
                 ollamaManager.start()
             }

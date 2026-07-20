@@ -51,6 +51,8 @@ swiftc -O -o "$OUT/sigcheck" \
   "$SRC/Models/Utterance.swift" \
   "$SRC/Models/Nudge.swift" \
   "$SRC/Models/PreCallContext.swift" \
+  "$SRC/Models/TrainingExample.swift" \
+  "$SRC/Engine/Mclog.swift" \
   "$SRC"/Engine/Signals/*.swift
 "$OUT/sigcheck" || fail=1
 

@@ -54,6 +54,11 @@ final class SemanticCoach {
     private let client: OllamaClient
     /// Built-in semantic signals still enabled by the active rubric.
     private let activeDefs: [SignalDef]
+    /// User coaching-note examples keyed by NudgeType raw value — appended
+    /// to the matching signal definitions as few-shot guidance, so saved
+    /// notes shape what that signal type looks for. Kept tiny (2 per
+    /// signal, clipped) — the 60s heartbeat needs a fast prompt.
+    private let noteExamples: [String: [SignalExample]]
     /// Rubric-defined signals, keyed by their snake_case id.
     private let customSignals: [String: CustomSemanticSignal]
     /// Per-signal cooldown multipliers from the rubric/focus tuning — the
@@ -66,11 +71,13 @@ final class SemanticCoach {
     private var firedHistory: [(key: String, label: String, text: String)] = []
     private var isAnalyzing = false
 
-    init(model: String, tuning: RubricTuning = [:], customSignals: [CustomSemanticSignal] = []) {
+    init(model: String, tuning: RubricTuning = [:], customSignals: [CustomSemanticSignal] = [],
+         noteExamples: [String: [SignalExample]] = [:]) {
         // Short timeout: a semantic call that arrives 2 minutes late is
         // stale coaching. Better to skip a beat than nudge about the past.
         client = OllamaClient(model: model, timeout: 45)
         activeDefs = Self.builtinDefs.filter { tuning[$0.type.rawValue]?.enabled ?? true }
+        self.noteExamples = noteExamples
         // First entry wins on duplicate ids — rubrics are user/LLM-authored,
         // so a repeated id must degrade gracefully, never trap.
         self.customSignals = Dictionary(customSignals.map { ($0.id, $0) },
@@ -170,7 +177,16 @@ final class SemanticCoach {
         var ids: [String] = []
         var n = 1
         for def in activeDefs {
-            defLines.append("\(n). \(def.id) — \(def.definition)")
+            var line = "\(n). \(def.id) — \(def.definition)"
+            // The user's own flagged instances teach the model what THIS
+            // user means by the signal — evidence clipped, 2 per signal.
+            for ex in (noteExamples[def.type.rawValue] ?? []).suffix(2)
+            where !ex.evidence.isEmpty {
+                let clipped = String(ex.evidence.prefix(160))
+                let coach = ex.nudge.isEmpty ? "" : " → coach: \"\(ex.nudge)\""
+                line += "\n   The user flagged this in a past meeting: \"\(clipped)\"\(coach)"
+            }
+            defLines.append(line)
             ids.append(def.id)
             n += 1
         }

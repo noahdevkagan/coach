@@ -185,4 +185,42 @@ _ = bo3.shouldDisplay(urgency: .med, isPositive: false, isFocusType: false, now:
 backoffCheck(bo3.shouldDisplay(urgency: .med, isPositive: false, isFocusType: false, now: 161),
              "suppressed display doesn't advance the clock (161 - 100 >= 60)")
 
+// Coaching-note parsing: structured blocks, freeform prose mentions, and
+// legacy-id normalization all resolve to canonical signal types.
+func parseCheck(_ ok: Bool, _ label: String, _ detail: String = "") {
+    print("notes \(label): \(ok ? "PASS" : "FAIL\(detail.isEmpty ? "" : " — \(detail)")")")
+    if !ok { fail = true }
+}
+
+let structured = TrainingStore.parseFeedback("""
+Signal: hedge_not_pinned
+Evidence: "I could maybe do it by Friday"
+Nudge: Pin the exact date
+
+Trigger 2: talkTime
+Evidence: monologued for 90 seconds about pricing
+Nudge: Hand the floor back
+""")
+parseCheck(structured.map(\.signalId) == ["hedgeNotPinned", "talkTime"],
+           "structured blocks parse to canonical ids", "got \(structured.map(\.signalId))")
+parseCheck(structured.first?.nudge == "Pin the exact date",
+           "structured nudge text survives", "got \(structured.first?.nudge ?? "nil")")
+
+let prose = TrainingStore.parseFeedback("""
+What worked: you noticed when they went quiet after the pricing ask.
+You kept stacking questions — one question at a time next time.
+The Wednesday commitment was a hedge, should have pinned it in the room.
+""")
+let proseTypes = Set(prose.map(\.signalId))
+parseCheck(proseTypes.contains("stackedQuestions") && proseTypes.contains("hedgeNotPinned"),
+           "freeform prose mentions are captured", "got \(proseTypes.sorted())")
+
+parseCheck(TrainingStore.canonicalType(for: "talk_time_imbalance") == .talkTime
+           && TrainingStore.canonicalType(for: "unaddressed_objection") == .buriedSignal
+           && TrainingStore.canonicalType(for: "no_decision") == .noDecision,
+           "legacy and semantic ids normalize to current types")
+
+parseCheck(TrainingStore.parseFeedback("Great meeting, keep the energy up!").isEmpty,
+           "notes naming no signal parse to nothing")
+
 exit(fail ? 1 : 0)
