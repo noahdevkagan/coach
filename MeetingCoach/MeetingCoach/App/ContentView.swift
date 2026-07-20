@@ -126,6 +126,7 @@ struct LiveTimelineView: View {
                 }
             }
             .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 8)
+            Divider().opacity(0.5)
 
             ScrollViewReader { proxy in
                 ScrollView {
@@ -182,6 +183,7 @@ struct LiveTimelineView: View {
                 }
             }
         }
+        .background(MCTheme.surface)
     }
 
     private var transcriptPanel: some View {
@@ -245,7 +247,7 @@ struct LiveTimelineView: View {
 
             LiveTranscriptPane(liveSession: liveSession)
         }
-        .background(MCTheme.canvas)
+        .background(MCTheme.surface)
     }
 
     private func recapText(_ summary: String) -> String {
@@ -1579,7 +1581,7 @@ struct CardStyle: ViewModifier {
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+                    .strokeBorder(Color.primary.opacity(0.09), lineWidth: 1)
             )
     }
 }

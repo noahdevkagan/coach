@@ -9,6 +9,9 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Stopping a session no longer loses the words spoken right before you hit Stop — and a short session's transcript stays visible
+- Nudges and Transcript panes are back to clean white; the warm tint stays in the sidebar only
+
 ## 0.6.2 — 2026-07-20
 
 - Coaching now reliably stops when your meeting ends — saying goodbye right before hanging up no longer made it miss the ending

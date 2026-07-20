@@ -213,6 +213,15 @@ final class LiveSessionViewModel {
         dismissTask?.cancel()
         dismissTask = nil
         showSilenceWarning = false
+        // Commit whatever the recognizers were still holding: clearing the
+        // partials outright dropped the final words before Stop from the
+        // transcript and the saved session — and left a short session's
+        // pane looking empty (nothing committed yet -> empty state).
+        for (speaker, text) in livePartials
+        where !text.trimmingCharacters(in: .whitespaces).isEmpty {
+            insertUtterance(Utterance(t: elapsedTime, speaker: speaker,
+                                      text: text, endT: elapsedTime))
+        }
         livePartials = [:]
         status = "Stopped"
 
