@@ -1,0 +1,1481 @@
+11:03:25 --> 11:03:28
+noah kagan: Yo, what is up?
+
+11:04:17 --> 11:04:20
+noah kagan: So, just waiting on William.
+
+11:04:22 --> 11:04:24
+noah kagan: covered in now?
+
+11:04:25 --> 11:04:27
+noah kagan: So I'll do…
+
+11:04:27 --> 11:04:29
+noah kagan: The H2 stuff…
+
+11:04:31 --> 11:04:33
+noah kagan: I don't know.
+
+11:05:10 --> 11:05:12
+noah kagan: Alright, still waiting on Liam. Oh, there he is.
+
+11:05:20 --> 11:05:22
+noah kagan: The legend is here.
+
+11:05:21 --> 11:05:22
+William Hodges: Can you hear me?
+
+11:05:22 --> 11:05:24
+noah kagan: Yeah, I can't…
+
+11:05:22 --> 11:05:26
+William Hodges: We're both here.
+
+11:05:25 --> 11:05:29
+noah kagan: We are both here. Did you see the Odyssey, by the way?
+
+11:05:30 --> 11:05:37
+William Hodges: Yeah, I, uh, I went on Friday night, and I was… I was pretty blown away, to be honest with you.
+
+11:05:37 --> 11:05:39
+William Hodges: I don't know what you thought.
+
+11:05:38 --> 11:05:43
+noah kagan: I haven't seen it yet, but I'm very tempted, so I was asking my wife if she's down.
+
+11:05:44 --> 11:05:52
+William Hodges: It's great, I was riveted. I get sometimes bored in long movies, and it is a long movie, but I was, like, locked in the whole time.
+
+11:05:53 --> 11:05:54
+noah kagan: Ooh, I like that.
+
+11:05:54 --> 11:05:59
+William Hodges: It was, like, I'd compare it to Gladiator, you know, almost.
+
+11:06:00 --> 11:06:04
+William Hodges: It's on that level for me, so…
+
+11:06:04 --> 11:06:06
+noah kagan: ***** that's good.
+
+11:06:05 --> 11:06:06
+William Hodges: Highly.
+
+11:06:06 --> 11:06:08
+William Hodges: Yeah, highly recommend.
+
+11:06:08 --> 11:06:12
+noah kagan: Well, nice, man! Uh, it's good to see you, as always.
+
+11:06:12 --> 11:06:14
+William Hodges: Yeah, back outro.
+
+11:06:12 --> 11:06:14
+noah kagan: um…
+
+11:06:14 --> 11:06:18
+noah kagan: I will go see it then, based on William's recommendation.
+
+11:06:19 --> 11:06:20
+noah kagan: Um…
+
+11:06:19 --> 11:06:25
+William Hodges: Well, you know, movies are super subjective, so don't go.
+
+11:06:21 --> 11:06:23
+noah kagan: No pressure.
+
+11:06:23 --> 11:06:27
+noah kagan: No, I'm sure it's good. So, what I was hoping to do today…
+
+11:06:27 --> 11:06:33
+noah kagan: is just understand your process of what's going on on radar. I just want to learn.
+
+11:06:33 --> 11:06:34
+noah kagan: And…
+
+11:06:34 --> 11:06:42
+noah kagan: So maybe do you wanna just walk me through, we'll start with that. And I have a few other follow-up questions, but if you're gonna share screen, I'd just love to just see and learn how you.
+
+11:06:43 --> 11:06:49
+William Hodges: Absolutely, I can do that. Yeah, uh, we'll just dive in. I have a few that, um…
+
+11:06:50 --> 11:06:53
+William Hodges: Are in the queue right now, so…
+
+11:06:53 --> 11:07:01
+William Hodges: Uh, that's great. So, so, and then I'll just provide a little bit of context along the way.
+
+11:06:59 --> 11:07:00
+noah kagan: Okay.
+
+11:07:01 --> 11:07:02
+William Hodges: Um…
+
+11:07:02 --> 11:07:14
+William Hodges: Obviously, we released Radar, and there was the qualifier, quizzats, whatever, URL thing, and then that was, like, the only QA step that had been productized.
+
+11:07:14 --> 11:07:21
+William Hodges: And so we we sort of, like, rolled with that. And in the first.
+
+11:07:18 --> 11:07:20
+noah kagan: Okay.
+
+11:07:21 --> 11:07:24
+William Hodges: In the second half of June, there was…
+
+11:07:24 --> 11:07:31
+William Hodges: that was it, and then the things would come into pending, and Caitlin and Sean… although Sean, I guess, was…
+
+11:07:31 --> 11:07:44
+William Hodges: Sort of, like, getting his thing ready to leave. There was no we basically got tons and tons of pending submissions, and there was not a process when the when the thing was released for radar.
+
+11:07:44 --> 11:07:49
+William Hodges: For people to submit, for there to be a qualification process, like, with a human.
+
+11:07:49 --> 11:08:06
+William Hodges: Um, so there grew to be, like, a huge backlog, and so what I did for, like, the first a lot of products that got live is we had this project board, and it's in HubSpot, and it's where we manage all the submissions that come in. So I'm gonna start by just this is where I start my day.
+
+11:08:05 --> 11:08:06
+noah kagan: Okay.
+
+11:08:06 --> 11:08:22
+William Hodges: What had been happening, uh, until a few weeks ago was that I know where to locate all of this, you know, pending submissions in admin. And I was basically… because I don't think I'm a…
+
+11:08:22 --> 11:08:43
+William Hodges: expert expert on tool quality, whatever. So I would run some of the ones that were in pending because nothing was getting added here because there was no process to qualify the pending stuff. So then I was just manually running it by Caitlin, Abby, McKenna, and others to get feedback to say, hey, what do you think of this one? Can I run with this? Should we launch this on radar? And then they would say, yes, move forwards or no.
+
+11:08:43 --> 11:08:49
+William Hodges: So then, that… I was creating deals, moving them along, onboarding them, and then that's the process I'm going to show you now.
+
+11:08:49 --> 11:08:58
+William Hodges: Now, I was basically… I don't want really anything. I'm happy to do my own quality checking, and we sort of talked about that on Slack.
+
+11:08:58 --> 11:09:00
+William Hodges: Oh.
+
+11:09:00 --> 11:09:07
+noah kagan: And… and what was Kaelin… I guess I'm… yeah, I'm trying to… what was Kaelin, and they were just saying the product looks good for it?
+
+11:09:08 --> 11:09:11
+William Hodges: I don't know that they really…
+
+11:09:11 --> 11:09:13
+William Hodges: Understood.
+
+11:09:13 --> 11:09:18
+William Hodges: what the guidelines were for radar. I think they were…
+
+11:09:18 --> 11:09:25
+William Hodges: They have, and this is where I'm really getting out of my depth, they have criteria that they use to score.
+
+11:09:25 --> 11:09:40
+William Hodges: stuff on the other side of the business with Launchpad and Select, like Tier 1, Tier 2, Tier 3. So they already kind of know what a Tier 3 is, and then they basically were taking those which were usually not qualified to be Launchpad.
+
+11:09:41 --> 11:09:48
+William Hodges: And then if it was a Tier 3, they'd be like, oh, this is a Tier 3. But I don't know exact… I mean, I have those documents that Abby sent you.
+
+11:09:48 --> 11:09:51
+William Hodges: But, um…
+
+11:09:49 --> 11:09:55
+noah kagan: So this is a sep… can you send me this? I think we have too many… we have, like, a few docs, no truths.
+
+11:09:55 --> 11:09:58
+William Hodges: Yeah, no, 100%, yeah.
+
+11:09:55 --> 11:10:01
+noah kagan: So what I'm what I'm my my intention is to get us all on the same page with.
+
+11:10:01 --> 11:10:04
+noah kagan: Making things black and white with this stuff.
+
+11:10:06 --> 11:10:09
+William Hodges: Yeah, I agree. And so…
+
+11:10:09 --> 11:10:22
+William Hodges: I felt like I didn't understand what it was, and it wasn't black and white, so I basically told Caitlin that my involvement, and I've been very busy, but is gonna be, like, working with them once it's, like.
+
+11:10:22 --> 11:10:35
+William Hodges: determined that it's qualified. So, in terms of, um… there's been some where I've raised some red flags to them, but generally, it's like, I'm moving forward with it. So I can sort of, like, now get to what I do.
+
+11:10:36 --> 11:10:37
+William Hodges: with these.
+
+11:10:37 --> 11:10:39
+noah kagan: Got it. And then…
+
+11:10:37 --> 11:10:39
+William Hodges: If you wanna see.
+
+11:10:39 --> 11:10:50
+noah kagan: Currently, in today's world, if I understand you, do we have anything where, like, if refunds 70% after X sales, or anything that we turn things off?
+
+11:10:51 --> 11:11:03
+William Hodges: No, but I've been, um, monitoring the collection, like, all the deals that are transacting, and a lot of them are just still… they're just getting sales, but…
+
+11:11:02 --> 11:11:08
+noah kagan: Which is awesome. I think that's a clear thing that needs to be in our criteria.
+
+11:11:03 --> 11:11:04
+William Hodges: Uh, no.
+
+11:11:09 --> 11:11:11
+William Hodges: Yeah, like a…
+
+11:11:11 --> 11:11:13
+William Hodges: You know, I…
+
+11:11:15 --> 11:11:16
+William Hodges: uh…
+
+11:11:16 --> 11:11:18
+William Hodges: Delisted.
+
+11:11:18 --> 11:11:19
+William Hodges: Delisting.
+
+11:11:19 --> 11:11:25
+noah kagan: Okay, so yeah, let's take a step back. So what I'm looking for is to understand, like, when someone submits it.
+
+11:11:25 --> 11:11:27
+William Hodges: Yeah.
+
+11:11:25 --> 11:11:35
+noah kagan: Abby's team has done their touches, and then it's to you. So what's the touches and things that happen from when they've given you the thumbs up to getting it live?
+
+11:11:35 --> 11:11:56
+William Hodges: Totally. I'm gonna take one and I'll show you. A lot of times they do nothing because sometimes people just, I think the main thing they're looking for is price point. And so sometimes they're not even reaching out to these people. Like this one, for instance, uh, has no notes associated. So I don't think that they even spoke with this person, but she, she just reviewed the lead and marked it as qualified.
+
+11:11:56 --> 11:12:01
+William Hodges: So I'll just do some housekeeping on this thing, um, and then what I'll…
+
+11:11:59 --> 11:12:03
+noah kagan: Yeah, so show me here. So this is Scribia.
+
+11:12:03 --> 11:12:12
+William Hodges: Yeah, so then I'll pick it up, and I'll move it into my lane so that I'm working on it, and then it is really straightforward, but, um…
+
+11:12:11 --> 11:12:13
+noah kagan: Yeah, I'd love to see it.
+
+11:12:12 --> 11:12:17
+William Hodges: I go and I search to find their submission on admin.
+
+11:12:17 --> 11:12:21
+William Hodges: And then it's this pending one here.
+
+11:12:21 --> 11:12:32
+William Hodges: And what I'll do is I'll open it up, and then I also, just because, like, there's a later step where I use this, I just open up their user account, too, because I want to just take a look at their profile.
+
+11:12:32 --> 11:12:39
+William Hodges: And then I will just mark myself as the owner of the setup. Some of these fields are old from, um…
+
+11:12:39 --> 11:12:49
+William Hodges: like, LO days, or, like, self-listed days. And then I have to click this, and I mark the submission as approved, which doesn't…
+
+11:12:47 --> 11:12:50
+noah kagan: Oh, so how do you decide to approve it or not?
+
+11:12:50 --> 11:13:08
+William Hodges: Well, they, at this point, said that it's qualified. So, what approving it does is, right now, if you view it before it's approved, it'll show the page in this really antiquated format that's not actually how the modular page looks. So, like, if you go to a PDP on our website.
+
+11:13:06 --> 11:13:07
+noah kagan: Uh-huh.
+
+11:13:08 --> 11:13:19
+William Hodges: there will be, you know, it's laid out in the… with all those text boxes, you know? And unfortunately, the pre… the modular components don't generate until it's inapproved.
+
+11:13:19 --> 11:13:35
+William Hodges: So I've the next step is for me to just, like, confirm what the PDP looks like, make any tweaks, ensure that there's nothing funky that was put on the modular page, and then maybe just tell the partner what I fixed or maybe.
+
+11:13:35 --> 11:13:39
+William Hodges: Could you help me with this thing that's missing? Um…
+
+11:13:37 --> 11:13:44
+noah kagan: Let's take a real example, so the one you just got, like, is there any… is this an approved-from-them product?
+
+11:13:40 --> 11:13:42
+William Hodges: Yeah.
+
+11:13:44 --> 11:13:48
+William Hodges: From, uh, like, have they approved it?
+
+11:13:47 --> 11:13:53
+noah kagan: I think what I'm not clear on is, is this Abby and McKenna have approved it to go live on the site?
+
+11:13:49 --> 11:13:50
+William Hodges: Yep.
+
+11:13:51 --> 11:13:56
+William Hodges: Yes. Yes, yes, yes. Yeah, I only work on stuff.
+
+11:13:53 --> 11:13:59
+noah kagan: And then, how did you know that it's approved? So, you see in HubSpot that it's approved, or.
+
+11:13:58 --> 11:14:14
+William Hodges: Yeah. So basically where I start my day with these is I just review anything that's in this lane or this either these two lanes where it's a submission that's either they've marked as qualified and then I there's a separate one for, hey, this shit's really good. Do this first before the others.
+
+11:14:15 --> 11:14:19
+noah kagan: Okay, so these are… so Scribia is already live, or no?
+
+11:14:18 --> 11:14:22
+William Hodges: No, not live. So they need…
+
+11:14:20 --> 11:14:23
+noah kagan: So, what's the setup and approved column mean?
+
+11:14:23 --> 11:14:29
+William Hodges: That means that I'm working on getting it live, and testing redemption, and that kind of thing.
+
+11:14:28 --> 11:14:34
+noah kagan: Oh, so you, so you, okay, so let's start from there. So script, let's take the script and walk from start to finish on, on your touches.
+
+11:14:34 --> 11:14:42
+William Hodges: Yeah, so I… what I do is I… the reason I approve it is so that I can actually see what the PDP is going to look like, um, and…
+
+11:14:41 --> 11:14:44
+noah kagan: And when you approve it, is it live on the site, technically?
+
+11:14:44 --> 11:14:54
+William Hodges: No, it's not. That requires one more step, thankfully, because that would be not good. So it's just kind of a preliminary step, and it generates the…
+
+11:14:45 --> 11:14:47
+noah kagan: Okay.
+
+11:14:54 --> 11:14:59
+William Hodges: modular page. So then, once I save it.
+
+11:14:59 --> 11:15:10
+William Hodges: Uh, the next step is I'll go to the deal that's associated with it, and this is, like, where you'd actually set it live. And then from here, what I'll do is…
+
+11:15:10 --> 11:15:17
+William Hodges: Uh, first take a look at the deal plans. So they've submitted one tier, it's 20 bucks.
+
+11:15:17 --> 11:15:28
+William Hodges: Um, I'm gonna mark… I'm gonna mark it as the recommended tier, and then I'll just look at this, and sometimes, not exactly sure why, I've documented it on the radar feedback thing. Sometimes.
+
+11:15:18 --> 11:15:19
+noah kagan: That's awesome.
+
+11:15:28 --> 11:15:49
+William Hodges: Clearly, they they want to include all these things. It's not saying that render speed isn't included, but it'll just maybe miscategorize it. So I just am gonna mark these as as approved. So when I share the PDP with them, I'm just gonna be like, hey. Could you take a second look at this? And you see how they also said credits per week, but they didn't, like, say how many credits. It seems like they did they in the flow.
+
+11:15:49 --> 11:16:02
+William Hodges: they marked it as, like, a Boolean, like a checkmark, but they didn't provide, like, instead of a variable. So I'll have to, like, clarify, oh, like, how many video renders is it? How many credits is it?
+
+11:16:02 --> 11:16:10
+William Hodges: Um, so I'll just, like, note that, but in the meantime, I'm just gonna approve it, or submit it to make that change, and…
+
+11:16:10 --> 11:16:16
+William Hodges: save this, and then what I'll do is I'll just look at what it looks like on the website.
+
+11:16:16 --> 11:16:18
+William Hodges: And…
+
+11:16:20 --> 11:16:34
+William Hodges: Okay. This is, like, this is basically everything they gave us. And this is already looking a little better than it sometimes looks. Like, they actually put effort into copy. There's three image sections with copy.
+
+11:16:34 --> 11:16:43
+William Hodges: It's pretty good. Um, looks like they don't have a profile photo, so I've been asking people to, like, do that, and also to reformat their…
+
+11:16:41 --> 11:16:44
+noah kagan: Is that from their AppSumo account?
+
+11:16:43 --> 11:16:45
+William Hodges: Yeah.
+
+11:16:45 --> 11:17:02
+William Hodges: So this is their, let's see, I opened it earlier, but yeah, here's their user account. Their username is just ops5. Like I've been asking people in my initial email where I ask them to review the PDB to just potentially reformat it to something like your first name.
+
+11:17:02 --> 11:17:09
+William Hodges: underscore Scribia, or whatever, and people are very nice about that, and do that, and add a profile photo, because it's…
+
+11:17:09 --> 11:17:15
+William Hodges: I just think that that's important for trust, and, like, it takes no time for them to do it.
+
+11:17:15 --> 11:17:18
+William Hodges: But that's what I'm getting from looking at this.
+
+11:17:18 --> 11:17:22
+William Hodges: And so then it's like, okay, we have this.
+
+11:17:22 --> 11:17:35
+William Hodges: And then what I'm gonna do is in my initial outreach email, I also want them to just test their own redemption flow. So what I'll do is I'll just give them their own tier so that they can test it, and I'll also do that.
+
+11:17:35 --> 11:17:39
+William Hodges: But that way, they have it in their account.
+
+11:17:39 --> 11:17:46
+William Hodges: And then I have their email address copied to my clipboard, so then what I'm gonna do is just send them a quick email.
+
+11:17:46 --> 11:17:48
+William Hodges: And…
+
+11:17:48 --> 11:17:57
+William Hodges: Uh, we'll do their product names, Scribby, make sure I get the spelling right, Scribby, uh.
+
+11:17:58 --> 11:18:08
+William Hodges: And then I have, like, we'll put them as the recipient, and I'm going to copy this. So this is, like, this looks tedious, but this doesn't take very long.
+
+11:18:08 --> 11:18:09
+noah kagan: So you're…
+
+11:18:10 --> 11:18:12
+noah kagan: What are you emailing them?
+
+11:18:12 --> 11:18:24
+William Hodges: Basically, I have a template of, like, the very few things that we need them to do. So, the first is, I saw their profile, their username was just not formatted correctly. Or, like, we can launch it like this, I just…
+
+11:18:25 --> 11:18:41
+William Hodges: I think it's kinda better to not have it that way. This is my own quality standard I've been, like, injecting into these things. So I asked them to add, like, a profile photo, like, link their LinkedIn or socials just so that there's, like, some level of customer trust in these PDPs.
+
+11:18:39 --> 11:18:41
+noah kagan: Gmail.
+
+11:18:41 --> 11:18:47
+William Hodges: And then I say, go… and well, this is all the things I might have them do. Um…
+
+11:18:46 --> 11:18:50
+noah kagan: Do you send… you send all of them the same thing?
+
+11:18:47 --> 11:18:48
+William Hodges: And then I delete.
+
+11:18:50 --> 11:19:05
+William Hodges: Yeah. Well, no, because, like, for instance, some people will submit, because we try to reduce friction in the flow. So on Scribia, for instance, it looks like they were nice. They actually said what integrations they have, who they're best for.
+
+11:18:51 --> 11:18:52
+noah kagan: Okay.
+
+11:18:59 --> 11:19:00
+noah kagan: I'm not sure.
+
+11:19:05 --> 11:19:17
+William Hodges: what their alternatives to are. Um, I've wanted… we… right now, my standard for these PDPs is I want some data for some of these. Like.
+
+11:19:17 --> 11:19:31
+William Hodges: That's what… I don't… we… I don't want to have the at-a-glance section completely missing, because that seems like a huge inconsistency. If they don't have integrations, then it could just show alternative 2 or best 4, but they were great, and they did it. So, like, that's… I just removed this.
+
+11:19:31 --> 11:19:36
+William Hodges: Uh, some people have really ****** images, so I have to ask for them to, like.
+
+11:19:36 --> 11:19:45
+William Hodges: get us those, they… but that's fine. And then here, like, sometimes people just confuse what features, so, um, here I'll just say something like.
+
+11:19:45 --> 11:19:47
+William Hodges: Uh, credit…
+
+11:19:48 --> 11:19:50
+William Hodges: Limits.
+
+11:19:53 --> 11:19:55
+William Hodges: I saw…
+
+11:19:57 --> 11:19:59
+William Hodges: that…
+
+11:19:59 --> 11:20:03
+William Hodges: There wasn't defined.
+
+11:20:05 --> 11:20:11
+William Hodges: Weekly credit limits in your pricing card.
+
+11:20:11 --> 11:20:19
+William Hodges: Help me with what those are for this tier so I can add them in.
+
+11:20:22 --> 11:20:31
+William Hodges: And then I've… the other thing that I've been asking for, we don't ask for it in the flow, and I've kind of… I've asked Matt, like, whether I should continue doing this.
+
+11:20:31 --> 11:20:40
+William Hodges: his perspective was that I probably should until we get, like, a critical mass of radar products, but in the flow, we're… I guess we're not asking for, like, what the…
+
+11:20:40 --> 11:20:45
+William Hodges: comparison prices, so I've been asking partners for, um…
+
+11:20:43 --> 11:20:46
+noah kagan: But we don't… we don't… do we show that on the list.
+
+11:20:46 --> 11:20:54
+William Hodges: Not in the pricing card, it's only… or not in the pricing… whatever this is, but we do show it here only.
+
+11:20:53 --> 11:20:56
+noah kagan: I didn't see it when I was submitting my product.
+
+11:20:56 --> 11:21:05
+William Hodges: We don't ask for it. That's why I'm asking for it, and I never have to ask for it again. I'm… I am agnostic on that, I just…
+
+11:21:05 --> 11:21:15
+William Hodges: I've been doing it because oftentimes people are submitting at a big discount, and I think it is worth displaying it, but if we don't want it to seem like that, we don't have to ask.
+
+11:21:15 --> 11:21:16
+noah kagan: Okay.
+
+11:21:16 --> 11:21:19
+noah kagan: Just ask… no, just kind of do your thing.
+
+11:21:18 --> 11:21:19
+William Hodges: Yeah.
+
+11:21:19 --> 11:21:26
+William Hodges: And then, let's see, I will take the link to the preview page, because I'd just like to hyperlink it in here for them.
+
+11:21:26 --> 11:21:29
+William Hodges: So that they can take a look.
+
+11:21:29 --> 11:21:44
+William Hodges: And let's see, just take a look. So just, you know, maybe just edit your profile a little bit so it's nice. Test your redemption tier. Credit limits, they'll explain, like, what exactly you get, because here it obviously just says, like, credits per week, how many video renders per week.
+
+11:21:45 --> 11:21:50
+William Hodges: Uh, how many? Um, and then comparison pricing.
+
+11:21:50 --> 11:21:53
+William Hodges: And then I will…
+
+11:21:53 --> 11:22:03
+William Hodges: Just, like, tag it for my inbox management and send it, and then usually people are getting back within, like, an hour, and then once they respond to this, like, it takes…
+
+11:22:03 --> 11:22:08
+William Hodges: Probably 5 minutes to publish it on the site for sale.
+
+11:22:09 --> 11:22:11
+noah kagan: And so.
+
+11:22:11 --> 11:22:15
+noah kagan: Did you check… where do you check redemption, and where do you actually check the product?
+
+11:22:15 --> 11:22:23
+William Hodges: So, I have… I'm not checking the product, to be totally honest with you, like, besides doing a scan of the website.
+
+11:22:23 --> 11:22:26
+noah kagan: So, did we go to their website? Let's go to their website.
+
+11:22:23 --> 11:22:24
+William Hodges: Um…
+
+11:22:27 --> 11:22:31
+William Hodges: Yeah, I… I do… I do… well, so, sometimes, like.
+
+11:22:27 --> 11:22:29
+noah kagan: When do you do that?
+
+11:22:31 --> 11:22:33
+William Hodges: people will…
+
+11:22:34 --> 11:22:47
+William Hodges: only put one TLDR bullet. Sometimes people will have no TLDR bullets, because it's not required in the flow. So, that's fine. Um, but I've just… see, that's kind of like a…
+
+11:22:47 --> 11:22:49
+William Hodges: Delta between…
+
+11:22:51 --> 11:22:57
+William Hodges: the… like, I'll open another one in just a sec to show… this is a, like, relatively good one, believe it or not.
+
+11:22:57 --> 11:23:00
+William Hodges: There's ones where, um…
+
+11:23:00 --> 11:23:11
+William Hodges: people will put nothing here, and then it's like, okay, I have to, like, figure that out for them. Like, I'm not gonna bother them with that. So then, I will just go to their website and try to create, like.
+
+11:23:11 --> 11:23:16
+William Hodges: a TLDR customers would want to see. Do, like, Iena's job, but, like.
+
+11:23:17 --> 11:23:19
+William Hodges: Over here.
+
+11:23:19 --> 11:23:21
+William Hodges: Um, so this is their website.
+
+11:23:19 --> 11:23:20
+noah kagan: Okay.
+
+11:23:21 --> 11:23:23
+William Hodges: Um…
+
+11:23:22 --> 11:23:23
+noah kagan: Jane.
+
+11:23:23 --> 11:23:27
+William Hodges: And Abby and McKenna will have been on this already, if they've… but…
+
+11:23:27 --> 11:23:31
+William Hodges: And I'm happy to do more of stuff.
+
+11:23:29 --> 11:23:34
+noah kagan: No, no, no, dude, I'm just… just… this is just a learning…
+
+11:23:33 --> 11:23:34
+William Hodges: Yeah.
+
+11:23:34 --> 11:23:36
+noah kagan: Uh, dive.
+
+11:23:35 --> 11:23:40
+William Hodges: So, yes, sometimes, like, sometimes if somebody's…
+
+11:23:40 --> 11:23:42
+William Hodges: Or, or, sometimes this…
+
+11:23:40 --> 11:23:45
+noah kagan: So their website looks good. That headline needs work, right?
+
+11:23:44 --> 11:23:50
+William Hodges: This one… what I'll usually do is shorten it, because we want it to be sort of short and punchy.
+
+11:23:45 --> 11:23:47
+noah kagan: You.
+
+11:23:51 --> 11:23:53
+noah kagan: So do you change that, or tell them?
+
+11:23:53 --> 11:23:58
+William Hodges: Usually what I'll do, and I didn't do it this time, because I was just sort of…
+
+11:23:59 --> 11:24:07
+William Hodges: Uh, moving quickly with you, but, like, what I'll often do is I'll take something like this and make it, uh, there.
+
+11:24:07 --> 11:24:12
+William Hodges: thing before I send it to them, so there's another place where that lives.
+
+11:24:12 --> 11:24:22
+William Hodges: And I'll just change it right now, and then by the time they open the email, they probably will see it. Usually, I let them know that I did do that tweak, but I just didn't do that, because I didn't change it in this case.
+
+11:24:24 --> 11:24:30
+William Hodges: I actually probably won't, because I don't want… well, you know what? I'm just gonna do it, and then I'll just let them know.
+
+11:24:24 --> 11:24:26
+noah kagan: Got it.
+
+11:24:29 --> 11:24:32
+noah kagan: Oh, I like your style. I like that.
+
+11:24:32 --> 11:24:34
+noah kagan: And then, um…
+
+11:24:34 --> 11:24:38
+noah kagan: Do you check redemption, or how does… how do you check redemption?
+
+11:24:38 --> 11:24:46
+William Hodges: Yeah, usually I will do that right after I send that email, because sometimes if I notice something that's broken about it, I'll just let them know.
+
+11:24:46 --> 11:24:55
+William Hodges: Um, so then what I do is I go back to their deal that I have open, then I just give the plan to myself.
+
+11:24:55 --> 11:25:00
+William Hodges: And then we'll test their redemption, their activation flow.
+
+11:25:25 --> 11:25:28
+William Hodges: So this is a great example.
+
+11:25:28 --> 11:25:32
+noah kagan: And so do you not… do you turn the app live or not live?
+
+11:25:32 --> 11:25:46
+William Hodges: Oh, I… at this point, I haven't done anything, because I'm still waiting for them to, like, let me know about… because they'll also probably run into that same error when they test it, and then I want them to do their profile edits, so I'm just going to follow up and just say.
+
+11:25:47 --> 11:25:49
+William Hodges: Hey, partner.
+
+11:25:49 --> 11:25:52
+William Hodges: Just following…
+
+11:25:56 --> 11:26:05
+William Hodges: Whatever, I'm gonna… I'll finish this email after our call, but then I'll send a, hey, this is what I ran into, and then I'm just gonna go pull the…
+
+11:26:05 --> 11:26:08
+William Hodges: License key for it, as well.
+
+11:26:10 --> 11:26:15
+noah kagan: Oh, so you're gonna pull a license key for them. You don't tell them, like, hey, this didn.
+
+11:26:15 --> 11:26:23
+William Hodges: Well, I let them know, just because if they're troubleshooting it, then they can kind of see, like, whether they received it or not on their end, the license key.
+
+11:26:24 --> 11:26:29
+William Hodges: Um, so here it is. So I'm just gonna paste it so that they have it.
+
+11:26:31 --> 11:26:33
+William Hodges: Um…
+
+11:26:33 --> 11:26:36
+William Hodges: And then they can, like, diagnose what the issue was.
+
+11:26:34 --> 11:26:37
+noah kagan: Because you, you don't do the work for them, you basically put it back on them?
+
+11:26:38 --> 11:26:53
+William Hodges: Well, yeah, I can't… I can't, um, fix their connection with our API, because I'm not a dev on their side. So, but they can look to the logs and see, because they already hooked up… they configured and validated with ours.
+
+11:26:53 --> 11:26:54
+noah kagan: Okay.
+
+11:26:53 --> 11:26:58
+William Hodges: And so, I think they will have received a webhook for this license key, but for some reason it said…
+
+11:26:58 --> 11:27:00
+William Hodges: um…
+
+11:27:00 --> 11:27:05
+William Hodges: That it was expired or used already, but that's obviously not true.
+
+11:27:05 --> 11:27:08
+William Hodges: And also, this is…
+
+11:27:05 --> 11:27:07
+noah kagan: Okay.
+
+11:27:08 --> 11:27:14
+William Hodges: Misleading, because you can't get a new activation code link in your partner portal.
+
+11:27:16 --> 11:27:20
+William Hodges: So I'm just gonna put that there to make sure that they take that language off.
+
+11:27:21 --> 11:27:25
+William Hodges: But, yeah, and then… and then, um…
+
+11:27:26 --> 11:27:30
+noah kagan: So for this one, it's just… it's a… you… what do you do now?
+
+11:27:26 --> 11:27:28
+William Hodges: Let's see.
+
+11:27:30 --> 11:27:32
+William Hodges: So…
+
+11:27:32 --> 11:27:43
+William Hodges: Once they get that profile photo in there, um, there's, like, two last things that I'll do. If you notice… I'm trying to find the PDP link here.
+
+11:27:43 --> 11:27:58
+William Hodges: If you notice here, like, oftentimes we ask for their geography, like, where are you located? They didn't submit that, because it's not required in the flow, which is fine, but, like, by providing their LinkedIn and getting their name, because this one, I don't even know what their name is.
+
+11:27:58 --> 11:28:05
+William Hodges: So once I have their name, like, I can find out where the dude is located. Like, is it London? Is it Bangalore?
+
+11:28:05 --> 11:28:17
+William Hodges: So that's one thing, um… and I'll add that in here, so that it says, like, wherever they're located, and then there's a little step that needs to happen for… because when they submitted, and…
+
+11:28:17 --> 11:28:26
+William Hodges: I approved the thing, and that generated this modular page. And so, it's a little confusing, but the actual back end of that page.
+
+11:28:26 --> 11:28:27
+William Hodges: is…
+
+11:28:27 --> 11:28:36
+William Hodges: located here, and I… there's different components for the PDP, and I basically need to go and…
+
+11:28:37 --> 11:28:53
+William Hodges: Here, if I were — I'm just going to — if you were to put location, Austin, United States, then the little flag would appear there. And then I'll also put — once they add their LinkedIn to their account, I'll extract their username and dump their URL here.
+
+11:28:53 --> 11:28:59
+William Hodges: Um, when they change their username to something something underscore Scribia, I'll change it here.
+
+11:28:59 --> 11:29:04
+William Hodges: Uh, once they upload a profile photo, I'll make sure that it's mapping to here.
+
+11:29:04 --> 11:29:09
+William Hodges: Uh, and then that takes a few seconds, and then…
+
+11:29:09 --> 11:29:15
+William Hodges: And then that part of the page looks pretty, and then that's…
+
+11:29:15 --> 11:29:17
+William Hodges: really the only…
+
+11:29:17 --> 11:29:25
+William Hodges: thing left that's keeping it from… Oh, and then once they reply, I will know how many credits per week.
+
+11:29:23 --> 11:29:26
+noah kagan: Oh, because we don't actually say what this is, right?
+
+11:29:27 --> 11:29:29
+William Hodges: Like, what do you mean?
+
+11:29:28 --> 11:29:32
+noah kagan: How many credits per week? Doesn't really say any of it.
+
+11:29:30 --> 11:29:31
+William Hodges: Yeah, yeah.
+
+11:29:31 --> 11:29:34
+William Hodges: They need to tell me, um…
+
+11:29:34 --> 11:29:43
+William Hodges: You know, it's just because, like, you could submit… is it a variable, or is it, like, a binary? And I guess they just did an oopsies when they were going through the flow.
+
+11:29:44 --> 11:29:46
+William Hodges: Uh…
+
+11:29:46 --> 11:29:53
+William Hodges: And… that's it. And then I just confirm, you know, hey, are you ready to launch? I'm gonna flip you live.
+
+11:29:53 --> 11:29:55
+William Hodges: uh…
+
+11:29:55 --> 11:30:00
+William Hodges: Any last tweaks for the page? And then they say yes or no, and then I put it live.
+
+11:30:01 --> 11:30:03
+noah kagan: And then…
+
+11:30:03 --> 11:30:10
+noah kagan: In terms of the actual product, William, like, let's take the number one product we have today selling on Radar.
+
+11:30:09 --> 11:30:11
+William Hodges: Yeah.
+
+11:30:11 --> 11:30:12
+noah kagan: um…
+
+11:30:13 --> 11:30:17
+noah kagan: Have we checked it at all? Have we even tried it?
+
+11:30:18 --> 11:30:22
+William Hodges: Uh, I did redeem it, but no, I've not used it.
+
+11:30:22 --> 11:30:26
+noah kagan: What's our V1 of this, which balances…
+
+11:30:26 --> 11:30:32
+noah kagan: Obviously, I think all of the work you're doing setting it up, William, should be passed down to the partner and less from you.
+
+11:30:33 --> 11:30:35
+William Hodges: I agree.
+
+11:30:33 --> 11:30:40
+noah kagan: Right? Like, all of your thing… like, that's really what our development team should be doing, and it sounds like you're giving them all that feedback.
+
+11:30:42 --> 11:30:47
+William Hodges: I've given them a lot of feedback. Uh, the… I mean…
+
+11:30:48 --> 11:30:53
+William Hodges: if you were to truth serum me, I don't think it's, like… I… I…
+
+11:30:53 --> 11:30:56
+William Hodges: I think we should make things more mandatory in the flow.
+
+11:30:57 --> 11:30:58
+William Hodges: Like.
+
+11:30:58 --> 11:31:09
+William Hodges: I think we should just require two TLDR bullets, and, like, we have to have a standard, right? Like, I don't know, if we're fine with none or one, then I won't ever, like…
+
+11:31:10 --> 11:31:12
+William Hodges: Manually add a second.
+
+11:31:12 --> 11:31:17
+William Hodges: But if we want two, let's just make the person give us two.
+
+11:31:17 --> 11:31:19
+William Hodges: you know…
+
+11:31:19 --> 11:31:21
+William Hodges: But that's also more friction.
+
+11:31:22 --> 11:31:23
+William Hodges: So…
+
+11:31:24 --> 11:31:26
+William Hodges: I know that sounds dumb, but…
+
+11:31:26 --> 11:31:37
+noah kagan: No, it's not that I think it's you know. That's the the intention here is that. We're so. You're spending a lot of effort here. And then we haven't even checked the product.
+
+11:31:26 --> 11:31:28
+William Hodges: Or…
+
+11:31:38 --> 11:31:51
+William Hodges: I don't think I'm spending that… I think it's, like, if somebody comes to, like, for instance, this guy Chris Eddington, he, like, came to me on Partner Slack, he's, like, he has a few tools, and I know you talked to him on somewhere.
+
+11:31:51 --> 11:31:52
+William Hodges: Um…
+
+11:31:52 --> 11:31:58
+William Hodges: Like, he told me at, like, 8 o'clock that he'd submitted a tool.
+
+11:31:58 --> 11:32:02
+William Hodges: And then I was doing other stuff, but I started working on this at, like.
+
+11:32:02 --> 11:32:05
+William Hodges: 10, 15, or something?
+
+11:32:05 --> 11:32:11
+William Hodges: And… we got the product live of… with, like, maybe 10 minutes of my… of my time.
+
+11:32:11 --> 11:32:16
+noah kagan: So I guess my app. No, no, I think you're doing great. I'm I think you're you're you're a stud.
+
+11:32:11 --> 11:32:13
+William Hodges: So…
+
+11:32:17 --> 11:32:20
+noah kagan: I think my question here.
+
+11:32:20 --> 11:32:28
+noah kagan: Sounds like there's there's still a lot of manual stuff to get it live which needs to get addressed, and that is that is that prioritized in the site feedback.
+
+11:32:25 --> 11:32:27
+William Hodges: Yeah.
+
+11:32:28 --> 11:32:35
+noah kagan: You have the site feedback doc, is that prioritized enough action items that you want them to do that would reduce the amount of time you have to spend to get it live?
+
+11:32:37 --> 11:32:39
+William Hodges: Um…
+
+11:32:41 --> 11:32:53
+William Hodges: I would be happy to tell them what to do and prioritize. I haven't been given that guidance. I can ask for it to say.
+
+11:32:53 --> 11:33:02
+William Hodges: Is there a way that I could, uh, stack rank these based on how much time it saves me? I can add that as a column onto that document.
+
+11:33:01 --> 11:33:08
+noah kagan: I think that would be helpful, so I think let's do that number one, and number two, what's the V1 here for QA process?
+
+11:33:09 --> 11:33:13
+noah kagan: Because we're putting stuff on the site, even if it…
+
+11:33:13 --> 11:33:21
+noah kagan: um… I don't think it should be as extensive, obviously, as Select with all of this stuff, but what's our… what's our V1 bare minimum? Because right now it's zero.
+
+11:33:21 --> 11:33:23
+noah kagan: Like, we don't even really know if it's working.
+
+11:33:22 --> 11:33:23
+William Hodges: Yeah.
+
+11:33:24 --> 11:33:26
+William Hodges: Um…
+
+11:33:25 --> 11:33:27
+noah kagan: And I think that's that's pretty.
+
+11:33:27 --> 11:33:29
+noah kagan: That's dangerous.
+
+11:33:30 --> 11:33:33
+William Hodges: I mean, yeah, I agree.
+
+11:33:38 --> 11:33:49
+William Hodges: Okay, well, I'll, uh, let Matt know that I added, like, uh… I'm gonna do just a drop-down with, like, a 1 through 10 or something. Yeah.
+
+11:33:44 --> 11:33:49
+noah kagan: Yeah, I think that would be helpful for you and for them, because then it'll do that. And then…
+
+11:33:49 --> 11:33:58
+noah kagan: why don't we just spend, you know, I wanna let's finish within fifteen minutes. Like, what's the v one for the QA? Let's let's go through a product, and then maybe straw.
+
+11:33:58 --> 11:34:00
+noah kagan: what we write up as the QA.
+
+11:34:01 --> 11:34:06
+noah kagan: Because eventually that can either be automated, or we have… that could be a contractor, but… um…
+
+11:34:02 --> 11:34:03
+William Hodges: Yeah.
+
+11:34:07 --> 11:34:20
+noah kagan: I think my feedback for you, William, you're awesome. You're literally one of my favorite people here. I think it's… how do we keep taking work… I think you're such a great person, you take all the work, and I think the opportunity that I think I've given feedback is, like, how do you…
+
+11:34:20 --> 11:34:25
+noah kagan: do less work. I think your success is when you you're like finished at 4.
+
+11:34:25 --> 11:34:31
+noah kagan: Because you've kept strategically figuring out, like, hey, product team, help do this, and it'll save me time, and then help do this, and it.
+
+11:34:31 --> 11:34:35
+noah kagan: I'm sure you'll keep working hard. I don't doubt that ever.
+
+11:34:35 --> 11:34:46
+William Hodges: Well, the thing is, is they've actually, like, I have, uh… so, for instance, like, there was the… they've… they've been sort of sidetracked, though, on some other things, like the, um…
+
+11:34:46 --> 11:34:48
+William Hodges: Agent…
+
+11:34:48 --> 11:35:03
+William Hodges: incorporation in the flow, to have your agent submit the flow. Like, Trent is getting to some of the item… like, Trent hadn't been working on anything on this sheet, and then I heard you loud and clear, so I'm trying to be a little bit more vocal about my feedback for the process.
+
+11:35:04 --> 11:35:05
+William Hodges: And…
+
+11:35:07 --> 11:35:20
+William Hodges: So, I agree. I would like to… I would like that to be my life. I have not been done at 4 for the past month. But also, I've been, like, happier at work the last month than I've been ever, so…
+
+11:35:18 --> 11:35:21
+noah kagan: Yeah, what's made you… tell me more about that.
+
+11:35:21 --> 11:35:33
+William Hodges: Well, I just feel like I'm, like, doing something, you know? Like, I think sometimes… I think high-level management or, like, priority setting, it's cool, but it is nice to just, like, actually…
+
+11:35:34 --> 11:35:36
+William Hodges: to, like…
+
+11:35:36 --> 11:35:46
+William Hodges: I don't know, I think it's amazing. Over on Sunday, all the Radar products as a collection were 5% of our store's revenue, which I think's great, like…
+
+11:35:46 --> 11:35:50
+William Hodges: We used to… self-listed at one point was, like, 20-ish, you know, maybe?
+
+11:35:49 --> 11:35:50
+noah kagan: Yeah.
+
+11:35:50 --> 11:36:07
+William Hodges: And now we're at the point where, just after a month, like, this collection… yeah, and yeah, it's, like, a ton of tools, but 5%, I mean, and it will compound, because they're evergreen. So, I just feel really good about the results. So, I think if we were able to just take a little bit more quality track here.
+
+11:36:07 --> 11:36:10
+William Hodges: It can really hit the sweet spot.
+
+11:36:10 --> 11:36:11
+noah kagan: Yeah.
+
+11:36:11 --> 11:36:13
+noah kagan: So.
+
+11:36:13 --> 11:36:20
+noah kagan: It seems like there's a few different criteria here that we're getting clear on, so my… again, the thing that's still outstanding…
+
+11:36:18 --> 11:36:19
+William Hodges: Yeah.
+
+11:36:20 --> 11:36:34
+noah kagan: One, we said earlier in this meeting, the D-list criteria, that's outstanding. And the second thing is, what is the QA criteria? Like, what's the minimum? So, I'd like to have something, and if you want to go over it right now, we can do one together.
+
+11:36:26 --> 11:36:28
+William Hodges: Yeah.
+
+11:36:31 --> 11:36:33
+William Hodges: Yeah.
+
+11:36:34 --> 11:36:37
+noah kagan: So pick, you know, even take the number one product.
+
+11:36:35 --> 11:36:36
+William Hodges: Yeah.
+
+11:36:37 --> 11:36:40
+noah kagan: And let's do it together to have a V1.
+
+11:36:41 --> 11:36:42
+noah kagan: But, uh…
+
+11:36:41 --> 11:36:43
+William Hodges: Well…
+
+11:36:43 --> 11:36:47
+William Hodges: Yeah, I would… I would like your thoughts on…
+
+11:36:47 --> 11:36:57
+William Hodges: like, they have been hyper-fixated, McKenna and Abby, on price. Like, on… and I just don't think that…
+
+11:36:57 --> 11:37:15
+William Hodges: See, there's things where I think we can function like a marketplace, and if they don't sell because they priced it wrong, like, obviously there is a price point, which I think is heinous to have a tier… you know, we're not gonna launch $1,000 tier ones, but the best-selling tier on the best-selling product, uncommentably, is, like, $170.
+
+11:37:16 --> 11:37:29
+William Hodges: Like, in terms of invoices, not sales. Like, the highest transacting tier is over $100. So I just don't think that there's a lot of credence to, like, oh my god, tier 1 has to be $49 for radar.
+
+11:37:27 --> 11:37:38
+noah kagan: Yeah, we can. We can. I think there's different criteria that we have to eventually solve for. But right now it's working. So I'd rather focus on the Qa. Stuff. So again, I'm asking the same question again.
+
+11:37:29 --> 11:37:31
+William Hodges: So…
+
+11:37:34 --> 11:37:36
+William Hodges: Yeah.
+
+11:37:36 --> 11:37:39
+William Hodges: Yeah, like, pro…
+
+11:37:38 --> 11:37:41
+noah kagan: What's our QA V1?
+
+11:37:42 --> 11:37:48
+noah kagan: Because this is… this is… there's deal… there's deal terms, there's who talks to people.
+
+11:37:43 --> 11:37:45
+William Hodges: Yeah, well…
+
+11:37:48 --> 11:37:59
+noah kagan: there's delisting, and then… well, QA, and then there's delisting. And what I'm seeing right now is that we don't check anything for QA, which is… again, I'm at… I'm gonna stop saying. I want to see if you wanted that.
+
+11:37:56 --> 11:37:58
+William Hodges: Yes, that's true.
+
+11:37:59 --> 11:38:06
+noah kagan: pretty soon, and I want to execute it on. Now, what I don't want to do is add even more time to your list, because you're doing amazing.
+
+11:38:06 --> 11:38:15
+noah kagan: And I just want to figure out some level of a V1 solution. So do you want to go over a product together or do you want to do it yourself and then come back to me with what V1 could look like? My expectation to be clear?
+
+11:38:15 --> 11:38:20
+noah kagan: What's the expectation for a radar product? That it's not a scam?
+
+11:38:20 --> 11:38:25
+noah kagan: It doesn't… it functions at least what it says it does, like it's working.
+
+11:38:25 --> 11:38:26
+William Hodges: Yeah.
+
+11:38:28 --> 11:38:34
+William Hodges: So, I think it's, uh, you know, there's some things that I'm gonna draw on, probably, to…
+
+11:38:34 --> 11:38:37
+William Hodges: like, for instance.
+
+11:38:38 --> 11:38:40
+William Hodges: Potentially…
+
+11:38:40 --> 11:38:41
+William Hodges: They own it.
+
+11:38:42 --> 11:38:44
+William Hodges: In English…
+
+11:38:47 --> 11:38:48
+William Hodges: Hmm… okay.
+
+11:38:51 --> 11:38:54
+William Hodges: Functionality matches features.
+
+11:38:58 --> 11:39:02
+William Hodges: I… well, to answer your question, I… this is something I can work on.
+
+11:39:01 --> 11:39:03
+noah kagan: Yeah, if you…
+
+11:39:02 --> 11:39:07
+William Hodges: I… I don't really want to do this work, to be honest with you, though, like…
+
+11:39:06 --> 11:39:12
+noah kagan: Oh, I love that answer. Guess what you won't, but let's just get the V1 so you can give it to someone to do.
+
+11:39:10 --> 11:39:11
+William Hodges: Yeah.
+
+11:39:11 --> 11:39:26
+William Hodges: Yeah, okay, because I, uh, I love working with these partners, I want to be involved in setting them up for success and whatever, and… but, like, I do think that this is… because there's already people who are, like, spending time looking at these, and…
+
+11:39:26 --> 11:39:28
+William Hodges: qualifying them, so…
+
+11:39:28 --> 11:39:33
+William Hodges: I just… whatever this is needs to be… and to be…
+
+11:39:35 --> 11:39:37
+William Hodges: To vent for a moment.
+
+11:39:39 --> 11:39:52
+William Hodges: There was a huge backlog of these submissions, and I told Caitlin from the beginning that there was going to be 20 to 40 submissions a day when we turned Radar Live, and we needed to have.
+
+11:39:53 --> 11:40:00
+William Hodges: Abby and McKenna review and qualify each 20 to 40, that means 10 to 20 each.
+
+11:40:00 --> 11:40:18
+William Hodges: You know, to look at them and make a decision. And then we basically did nothing for two weeks. And so we had hundreds and hundreds of things pending. Partners asking, what's the status? What's the status? And then they still couldn't do it. So we need to bring, we brought in Krishna, Kim's wife, who has lead qualification experience.
+
+11:40:18 --> 11:40:35
+William Hodges: For the past week, she's just been solely working on qualifying stuff and then determining if the, like, quizzat score is commensurate with our tier one, tier two, tier three, tier four, and giving it to them. And then they've been reviewing her decisions and giving it to me.
+
+11:40:35 --> 11:40:41
+William Hodges: And to me, that's just such a bucked process, and we're still unable to get to the bottom of the queue, and.
+
+11:40:41 --> 11:40:48
+William Hodges: What's probably gonna happen is Krishna's gonna get us back to Q0, and then we're still gonna get 20 to 40 a day, and I'm… I'm…
+
+11:40:48 --> 11:40:54
+William Hodges: Really exhausted, because I need to work with Caitlin on her…
+
+11:40:55 --> 11:41:05
+William Hodges: Trusting me to design what this process is gonna be, because all we need is a trustworthy individual with an eye for quality, who can do…
+
+11:41:06 --> 11:41:09
+William Hodges: 20 to 40 a day, which is not…
+
+11:41:09 --> 11:41:17
+William Hodges: Crazy. Especially because 20 of those 40 are, like, you don't even need to open the website to tell.
+
+11:41:18 --> 11:41:20
+William Hodges: I think. So…
+
+11:41:20 --> 11:41:27
+noah kagan: All right, so zooming out, maybe zooming out, William, so I do hear you. I think the two things I…
+
+11:41:20 --> 11:41:24
+William Hodges: Yeah, I… this week, I can do that.
+
+11:41:25 --> 11:41:26
+William Hodges: Yeah.
+
+11:41:27 --> 11:41:31
+noah kagan: And then let's wrap it here. Who owns radar?
+
+11:41:36 --> 11:41:37
+William Hodges: Um…
+
+11:41:41 --> 11:41:44
+William Hodges: Caitlin, I guess, since Sean's out.
+
+11:41:43 --> 11:41:50
+noah kagan: That's a good question to answer. So, number one, who is the owner here? It needs to be finalized this week. Number two.
+
+11:41:45 --> 11:41:47
+William Hodges: Yeah.
+
+11:41:51 --> 11:42:02
+noah kagan: what I want to see is high level. We have… right now, it's all over… it's a little… it's not all over the place, but we need better, like, here's the people who qualify, here's the playbook.
+
+11:42:02 --> 11:42:13
+noah kagan: who, how they get on the site, here's how they get QA'd, here's how they get delisted, and it's boom, it's, it's like a, it's a assembly line that has these documents coordinated.
+
+11:42:04 --> 11:42:05
+William Hodges: Yeah.
+
+11:42:13 --> 11:42:14
+noah kagan: So.
+
+11:42:14 --> 11:42:15
+William Hodges: Yeah.
+
+11:42:14 --> 11:42:23
+noah kagan: Right now, it's a little bit separate, and there's become… I don't want… I want less and less pages, not more and more, with more clarity.
+
+11:42:23 --> 11:42:34
+noah kagan: My other prep… and so that's what I'm looking for. Who's the owner, and then what's the clear pages of how we're coordinating the process so we're doing less work, not more? Because, you know, I don't want to spend even more on radar.
+
+11:42:34 --> 11:42:47
+noah kagan: than we do on Select and get even less results. The whole point is, how do we make it more self-serve, empower the partners to do all the work, and so that, you know, our work is probably really the QA, right? Like, that's the part that…
+
+11:42:45 --> 11:42:49
+William Hodges: Like, operationally spend more, because we are, like…
+
+11:42:49 --> 11:42:58
+William Hodges: really far away from that. I don't think we're, like… because there's really only… because Abby and McKenna are, like, doing a little tiny, tiny bit of work.
+
+11:42:56 --> 11:43:00
+noah kagan: No, I get that, but I want to keep it that way, and…
+
+11:42:58 --> 11:43:00
+William Hodges: But I… it's kind of a one person.
+
+11:43:00 --> 11:43:05
+noah kagan: Yeah, I think my, again, my feedback to you, William, is, um, I think you could be the leader of Radar.
+
+11:43:05 --> 11:43:17
+noah kagan: I think, also, if you don't like how things are done, it's working on, like, how do I keep outsourcing or improving things so that I can keep backing off or spending it in the areas you like? Which, it sounds like you really like working with the partners.
+
+11:43:18 --> 11:43:21
+William Hodges: I have enjoyed that. I think…
+
+11:43:21 --> 11:43:23
+William Hodges: Well, I mean…
+
+11:43:23 --> 11:43:37
+William Hodges: do I… do I think a contractor could be doing some of the stuff that I'm doing now and have for the past month? Like, for sure. But, like, the other thing is that I've been able to, like, dial in a whole process document so that anybody can do it, and…
+
+11:43:37 --> 11:43:40
+William Hodges: Um, I have that ready.
+
+11:43:38 --> 11:43:40
+noah kagan: Great.
+
+11:43:40 --> 11:43:41
+noah kagan: So let's…
+
+11:43:40 --> 11:43:42
+William Hodges: So it's all, like…
+
+11:43:42 --> 11:43:53
+noah kagan: Yeah, let's get the… it sounds like there's a few stages, let's just have, like, Stage 1 doc, Stage 2 doc, and then have that a little bit tighter together, and then maybe by Friday, having a V1 around this stuff, like.
+
+11:43:53 --> 11:44:07
+William Hodges: So, yeah, I can do that. Like, the thing is, is, like, I don't think Abby and McKenna are, like, they're either unable or unwilling to do what needs to be done in this process, so, like, and I'm not their manager.
+
+11:44:05 --> 11:44:11
+noah kagan: I've asked them to basically not… I think what my preference… which part are they not willing or able to do?
+
+11:44:12 --> 11:44:14
+noah kagan: The qualification?
+
+11:44:12 --> 11:44:27
+William Hodges: They can't keep up… I don't… yeah, I really don't understand what the issue is, because there's still tons of things that are pending that they could review, and they could make, like, sort… like, I don't know what their other job is, like, with quotas for Select and Launchpad, so…
+
+11:44:27 --> 11:44:31
+William Hodges: I'm ignorant, but, like…
+
+11:44:31 --> 11:44:44
+William Hodges: Okay, here you can see the date, right? So these are people who submitted today, July 20th, and then July 19th, right? So, like, let's just say we wanted to qualify everything here that's the past two days in full.
+
+11:44:44 --> 11:44:50
+William Hodges: Right? How many is that? Like, 20, maybe? Like, less? 21.
+
+11:44:52 --> 11:44:56
+William Hodges: One person could do that, and it could be a…
+
+11:44:56 --> 11:44:59
+William Hodges: Part-ish contractor job.
+
+11:44:59 --> 11:45:03
+William Hodges: I don't know why they can't do it with half of their day.
+
+11:45:03 --> 11:45:07
+William Hodges: But somebody can definitely do…
+
+11:45:07 --> 11:45:11
+William Hodges: Because, okay, I have the SOP for onboarding them.
+
+11:45:10 --> 11:45:16
+noah kagan: Hi, William, I'm gonna stop, I'm gonna stop you just for a second. So, when I hear you, and things will improve.
+
+11:45:11 --> 11:45:12
+William Hodges: If we…
+
+11:45:13 --> 11:45:15
+William Hodges: Yeah.
+
+11:45:16 --> 11:45:18
+noah kagan: Let's take a step back.
+
+11:45:18 --> 11:45:19
+William Hodges: Yeah.
+
+11:45:18 --> 11:45:32
+noah kagan: by Friday, let's try to have an owner, maybe you have radar. Number two, I'd love to see clear documents of, like, stage one is how we qualify them, stage two is how you do your checks, stage three is QA, stage four is deal-de-list.
+
+11:45:22 --> 11:45:23
+William Hodges: Yeah.
+
+11:45:32 --> 11:45:47
+noah kagan: That's there. My feedback to Abby, just to make it very clear to you, is that I want them on less calls with these people because that's not the priority. The whole point of self-submission is Let's get the customers deciding if it's a good product or not, not our team.
+
+11:45:33 --> 11:45:35
+William Hodges: Yeah.
+
+11:45:42 --> 11:45:43
+William Hodges: I agree.
+
+11:45:43 --> 11:45:44
+William Hodges: Yeah.
+
+11:45:47 --> 11:45:53
+noah kagan: deciding it, which our team is already currently doing, and we're still having inconsistent success with that.
+
+11:45:53 --> 11:45:54
+William Hodges: Yeah.
+
+11:45:53 --> 11:45:54
+noah kagan: And.
+
+11:45:54 --> 11:45:59
+noah kagan: I think, so that was my feedback to them is tier one.
+
+11:45:59 --> 11:46:07
+noah kagan: Tier 1 radars, 50 will go to the BDMs, and 50% will go live without the BDMs, and we're gonna see how that actually performs.
+
+11:46:08 --> 11:46:10
+noah kagan: But…
+
+11:46:10 --> 11:46:17
+noah kagan: Separately, it sounds like you need to have a better alignment with them of expectation, or with Krishna, about this backlog problem, and take initiative to solve that.
+
+11:46:17 --> 11:46:30
+noah kagan: And then lastly, my feedback with you overall is you're such a stud, I love you here. I think the more that you're doing… you do work, and then you think, how do I… how do I help reduce the amount of work I have to actually do, is gonna make you so strong.
+
+11:46:19 --> 11:46:21
+William Hodges: Yeah.
+
+11:46:30 --> 11:46:39
+noah kagan: And being specific here, it's like, you're doing all this deal setup stuff, like, hey, product team, if you guys did this two things for me this week, it would save me an hour every week.
+
+11:46:31 --> 11:46:33
+William Hodges: I…
+
+11:46:33 --> 11:46:34
+William Hodges: Yeah.
+
+11:46:41 --> 11:46:57
+William Hodges: Yeah. There there are things like that. And, I hopefully, that new column helps with that. And I will make that document this week. I'm not I'm not trying to sound frustrated. It's just like, as I because I have my part of the process down and documented. There's refinements with bugs.
+
+11:46:57 --> 11:47:15
+William Hodges: after it's launched, I can create, like, a… you know, because I'm sort of imagining, you know, there's sort of, like, several parts of this journey. This is one of them, onboarding them. And then there's, like, a maintaining them, delisting them. And so… but for the step before this, of, like, what happens to qualify them to check the product, etc.
+
+11:47:15 --> 11:47:24
+William Hodges: Uh, I just think I'm gonna have to figure out… like, for me to build that SOP, and what the pro… what I think the process should be.
+
+11:47:24 --> 11:47:31
+William Hodges: I'm just gonna sort of have to know, like, who's gonna do it, and I don't wanna do it, and they can't do it.
+
+11:47:31 --> 11:47:33
+William Hodges: Um…
+
+11:47:33 --> 11:47:34
+William Hodges: I don't think.
+
+11:47:33 --> 11:47:36
+noah kagan: Wait, am I gonna go? We're 2 minutes over?
+
+11:47:35 --> 11:47:37
+William Hodges: Okay. Sorry.
+
+11:47:36 --> 11:47:41
+noah kagan: No, no, don't apologize. Um, so what's our next steps here, just to be on the same page.
+
+11:47:41 --> 11:47:49
+William Hodges: Uh, I… well, my first thing is I'm going to talk with Caitlin about ownership of radar.
+
+11:47:49 --> 11:47:56
+William Hodges: Um, the second thing is, I'm gonna just tell her what I'm working on, which is when she's back, which is gonna be…
+
+11:47:56 --> 11:47:58
+William Hodges: How do we qualify these?
+
+11:47:59 --> 11:48:04
+William Hodges: How do we delist them, add those into the process?
+
+11:48:04 --> 11:48:09
+William Hodges: of my little nested documents, and then I'll share those with you.
+
+11:48:12 --> 11:48:19
+William Hodges: hopefully by the end of this week? I don't know. Every single day is just jam-packed with me doing work, so…
+
+11:48:19 --> 11:48:22
+William Hodges: That's why I've not been able to be more strategic.
+
+11:48:22 --> 11:48:25
+William Hodges: I mean, I want to tell you I can do it by Friday.
+
+11:48:25 --> 11:48:33
+noah kagan: I think this is your opportunity. Not that you have to do this by Friday and rush. I don't think it's not about rushing William. I think it is about how do you. Get more strategic in your work.
+
+11:48:34 --> 11:48:43
+noah kagan: But I was kind of recommended like you're jam packed with work, which is great. And you really, I think, what you're saying about Caitlin and Abby. I hear you. I hear the or Abby Mckenna. I.
+
+11:48:43 --> 11:48:51
+noah kagan: Um, so I hear you, and it's… it's been heard. But, uh, so maybe look at it this week, give me maybe Wednesday when you think you can get it done.
+
+11:48:52 --> 11:48:55
+noah kagan: Like, by Wednesday, give me an update.
+
+11:48:52 --> 11:48:55
+William Hodges: Can I let you know on… can I let…
+
+11:48:55 --> 11:48:59
+William Hodges: Okay, I'll let you know on Wednesday when I'll have it for you, and, and, and, um.
+
+11:49:00 --> 11:49:12
+William Hodges: That'll be good. I will have news for you then. Okay, thanks, and I'm not trying to be frustrated. I just like working hard, I'm like a racehorse, and I just, like, you're right, I get too sucked into stuff, and uh…
+
+11:49:03 --> 11:49:06
+noah kagan: Dude, you're a stud. Thank you so much.
+
+11:49:10 --> 11:49:15
+noah kagan: I think… yeah, and it's alright. I gotta go, though, William, I'm over.
+
+11:49:12 --> 11:49:13
+William Hodges: Yeah. Okay.
+
+11:49:14 --> 11:49:17
+William Hodges: Okay. Okay, okay. Thank you for meeting with me.
+
+11:49:15 --> 11:49:18
+noah kagan: Good seeing you, man. Thank you for everything. Great stuff.
+
+11:49:18 --> 11:49:20
+noah kagan: Okay.

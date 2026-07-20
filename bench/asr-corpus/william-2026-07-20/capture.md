@@ -1,0 +1,1288 @@
+# Meeting Coach Session — 2026-07-20_13-50
+**Duration:** 47:25
+**Utterances:** 1252
+**Nudges:** 27
+**Talk ratio:** 32% you
+
+## Transcript
+- [00:01] You: Yeah, what is that?
+- [00:50] You: Joe, just waiting on William. Talk we were doing now.
+- [01:02] You: So I'm going to do the H2 stuff.
+- [01:07] You: That works.
+- [01:46] You: Alright, still waiting on William. Oh, there he is.
+- [01:51] You: The legend is here. We're both here. We are both here. Did you see the Odyssey, by the way? I haven't seen it yet, but I'm very tempted, so I was asking my wife if she's down
+- [01:58] Them: Can you hear
+- [01:59] Them: me?
+- [02:01] Them: both here
+- [02:08] Them: I went on
+- [02:09] Them: Friday night and I was
+- [02:11] Them: I was pretty blown away to be
+- [02:12] Them: honest with you.
+- [02:14] Them: I don't know what you thought.
+- [02:22] Them: great I was
+- [02:23] Them: rived and I get sometimes bored and
+- [02:24] Them: long movies and it is a
+- [02:26] Them: long movie but I was like
+- [02:27] Them: locked in the whole time
+- [02:29] You: Oh, I like that.
+- [02:32] Them: was like I
+- [02:33] Them: compared to gladiator
+- [02:35] Them: you know almost
+- [02:37] You: So. Damn, that's good. Highly. Well, nice, man. It's good to see you as always. Yeah, got you. I will go see it then based on William's recommendation. Well, you know, no questions are super subjective. No, I'm sure it's good. So, what I was hoping to do today is just understand your process of what's going on on radar.
+- [02:37] Them: it's on that level
+- [02:38] Them: for me
+- [02:40] Them: so
+- [02:43] Them: highly recommend
+- [02:57] Them: know
+- [02:59] Them: super subjective
+- [03:07] You: I just want to learn. So, maybe do you want to just walk me through? We'll start with that. And I have a few other follow-up questions, but if you're going to share screen, I'd just love to just see and learn how you're approaching it.
+- [03:20] Them: I can do
+- [03:22] Them: that. Yeah, we'll just die
+- [03:24] Them: Then I have a few that.
+- [03:27] Them: in the queue,
+- [03:28] Them: right now so
+- [03:30] You: Uh, that's great.
+- [03:32] Them: great so
+- [03:33] Them: so and then I'll just provide a little
+- [03:35] Them: bit of context
+- [03:36] Them: along the way
+- [03:39] Them: obviously they were
+- [03:41] Them: we released radar and
+- [03:42] Them: was the qua
+- [03:44] Them: croissants whatever you
+- [03:46] Them: thing and then that was like
+- [03:48] Them: the only QA step
+- [03:49] Them: that had been product
+- [03:52] Them: and so we
+- [03:53] Them: sort of like rolled with that
+- [03:56] Them: in the first
+- [03:58] Them: in the second half of June there
+- [04:00] Them: was that was it
+- [04:01] Them: and then the things were coming in
+- [04:03] Them: pending and Kaitlyn
+- [04:04] Them: and Sean
+- [04:06] Them: although Sean I guess was
+- [04:08] Them: sort of like getting his
+- [04:09] Them: thing ready to leave
+- [04:11] Them: there was no
+- [04:12] Them: we basically got ton
+- [04:14] Them: and tons of pending sub
+- [04:16] Them: and there was not a process
+- [04:17] Them: when when
+- [04:19] Them: thing was released
+- [04:20] Them: for radar.
+- [04:21] Them: for people to submit
+- [04:23] Them: further to be a qualification
+- [04:24] Them: process like with a human
+- [04:27] Them: they're grew to
+- [04:29] Them: be like a huge backlog and
+- [04:30] Them: so what I did for
+- [04:31] Them: like the first
+- [04:33] Them: a lot of products that got live
+- [04:35] Them: as we had this project
+- [04:36] Them: board and it's in hub
+- [04:38] Them: where we manage all the sub
+- [04:40] Them: to come in so I'm gonna start
+- [04:41] Them: but I just this is where I start
+- [04:43] Them: my day
+- [04:44] Them: What had been happening?
+- [04:46] Them: until a few weeks
+- [04:48] Them: ago was that
+- [04:49] Them: I know where to locate
+- [04:51] Them: all of those you know
+- [04:52] Them: and ad
+- [04:55] Them: and I was.
+- [04:56] Them: basically because I don't
+- [04:58] Them: think I'm a ex
+- [04:59] Them: expert on tool Quality
+- [05:00] Them: whatever so
+- [05:02] Them: I would run some of the ones that
+- [05:03] Them: were in pending because nothing
+- [05:04] Them: was getting added here because there
+- [05:06] Them: was no processed to qualify
+- [05:07] Them: stuff so then I was just
+- [05:09] Them: manually running it by Kaitlyn.
+- [05:12] Them: McKenna and others
+- [05:13] Them: to get feedback to say hey what do
+- [05:14] Them: you think of this one? Can I run
+- [05:16] Them: with us? Should we launch the sun
+- [05:17] Them: radar and then they would say yes
+- [05:18] Them: move forward or no
+- [05:21] Them: so then that I was creating
+- [05:22] Them: deals moving them along on
+- [05:23] Them: boarding them and then that's the process
+- [05:24] Them: I'm gonna show you now.
+- [05:26] You: I guess I'm, yeah, I'm trying to, what was Kaylin, and they were just saying the product looks good for it?
+- [05:27] Them: now I was
+- [05:28] Them: basically like I don't want really
+- [05:30] Them: anything. I'm happy to
+- [05:31] Them: do my own quality checking
+- [05:33] Them: and we sort of talked about that
+- [05:34] Them: on Slack.
+- [05:45] Them: don't know that
+- [05:46] Them: they really
+- [05:48] Them: understood
+- [05:50] Them: what the guideline
+- [05:51] Them: were for radar
+- [05:53] Them: I think they were.
+- [05:55] Them: They have this
+- [05:56] Them: this is where I'm really getting out of
+- [05:56] You: Can you?
+- [05:58] Them: my debt they have
+- [05:59] Them: criteria that they used to
+- [06:01] Them: score.
+- [06:02] Them: stuff on the other side of
+- [06:03] Them: the business with launch
+- [06:05] Them: and select like tier
+- [06:06] Them: 1, tier 2 tier
+- [06:08] Them: 3, so they already kind of
+- [06:09] Them: what a tier 3 is
+- [06:12] Them: and then they basically were
+- [06:13] Them: taking those which
+- [06:14] Them: were usually not qua
+- [06:16] Them: to be launchpad.
+- [06:19] Them: then, if it was a tier 3,
+- [06:20] Them: they'd be like all this is a tier
+- [06:21] Them: 3, but I don't know exactly I mean,
+- [06:23] Them: I have those documents that Abby
+- [06:24] Them: sent you but
+- [06:27] You: Send me this. I think we have too many, we have like a few docs no truths. So, what I'm, what I'm, my intention is to get us all on the same page with making things black and white with this stuff.
+- [06:33] Them: 100% yeah
+- [06:43] Them: I agree and
+- [06:45] Them: and so
+- [06:47] Them: felt like I did
+- [06:48] Them: understand what it was and it
+- [06:49] Them: wasn't black-and-white so
+- [06:51] Them: I basically told Kaitlyn
+- [06:53] Them: that my involvement
+- [06:54] Them: and I've been very busy but
+- [06:55] Them: it's gonna be like
+- [06:56] Them: like working with them once it's like
+- [06:59] Them: determined that it's
+- [07:01] Them: qualified so in terms
+- [07:02] Them: of there
+- [07:03] Them: been some I've
+- [07:05] Them: I've raised some red flags to them
+- [07:06] Them: but generally it's
+- [07:08] Them: like I'm moving forward so
+- [07:09] Them: that so I can sort like now
+- [07:11] Them: get to what I do
+- [07:11] You: Got it. And then currently in today's world, if I understand you, do we have anything where like if refunds 70% after X sales or anything that we turn things off?
+- [07:13] Them: these
+- [07:15] Them: if you wanna see
+- [07:28] You: Which is awesome. I think that that's a clear thing that needs to be in our criteria.
+- [07:28] Them: but I've been
+- [07:31] Them: monitoring the collection
+- [07:32] Them: like all the deals that
+- [07:34] Them: are transacting
+- [07:35] Them: and a lot of them are
+- [07:36] Them: just still they
+- [07:37] Them: just getting sales but
+- [07:46] You: Yeah, like a you know, I uh D listed D listing. Okay, so yeah, let's let's take a step back. So, what I'm looking for is to understand, like, when someone submits it, Abby's team has done their touches, and then it's to you. So, what's the touches and things that happen from when they've given you the thumbs up to getting it live?
+- [07:46] Them: it's like a
+- [07:48] Them: know I
+- [07:55] Them: list G listing
+- [08:12] You: Totally. Yeah, so show me here.
+- [08:13] Them: I'm gonna take
+- [08:14] Them: one and I'll show you a lot of
+- [08:15] Them: times they do nothing because
+- [08:18] Them: sometimes people just
+- [08:19] Them: think the main thing they're looking for is
+- [08:21] Them: price point and
+- [08:22] Them: so sometimes they're not even reaching out to
+- [08:24] Them: these people like this one for
+- [08:25] Them: instance has
+- [08:26] Them: no notes associated so I
+- [08:28] Them: don't think that they even spoke with
+- [08:29] Them: this person, but she
+- [08:31] Them: just reviewed the lead
+- [08:32] Them: and marked it disqualified
+- [08:33] Them: so I'll just do some house
+- [08:35] Them: on this thing
+- [08:37] Them: then what?
+- [08:41] Them: so then I'll
+- [08:41] Them: pick it up and I'll move
+- [08:42] Them: it into my lane
+- [08:44] Them: that I'm working on it and
+- [08:45] Them: then it is really
+- [08:47] Them: straightforward but
+- [08:50] Them: go and I
+- [08:52] Them: search to find their sub
+- [08:53] Them: admin
+- [08:54] Them: and then it's
+- [08:56] Them: this pending one
+- [08:58] You: Oh, so how do you decide to approve it or not?
+- [08:59] Them: what all
+- [09:00] Them: do is all open it up
+- [09:01] Them: and then I also just
+- [09:03] Them: cause like there's a later step where
+- [09:04] Them: I use this I just opened up their
+- [09:05] Them: user account too cause I wanna
+- [09:07] Them: just take a look at their profile.
+- [09:09] Them: and then I will
+- [09:10] Them: just mark myself as the owner
+- [09:12] Them: of the set up some
+- [09:14] Them: of these fields are old from
+- [09:17] Them: like L days
+- [09:18] Them: or like self listed.
+- [09:20] Them: and then I have to click
+- [09:21] Them: this and I marked
+- [09:23] Them: the submission is approve.
+- [09:24] Them: which doesn't.
+- [09:27] You: So
+- [09:29] Them: day at this
+- [09:30] Them: point said that it's qualified so
+- [09:32] Them: what app approving it does
+- [09:34] Them: right now if you view it
+- [09:35] Them: before it's approved it
+- [09:37] Them: show the page in
+- [09:38] Them: this really antiquated
+- [09:39] Them: format. That's not actually how
+- [09:41] Them: the modular page looks
+- [09:42] Them: so like if you go to a P
+- [09:44] Them: on our website.
+- [09:45] Them: there will be you know it's
+- [09:47] Them: laid out and all
+- [09:48] Them: all those text.
+- [09:49] Them: fault this you know.
+- [09:51] Them: and unfortunately the
+- [09:52] Them: modular components
+- [09:54] Them: don't generate until it
+- [09:55] Them: approved
+- [09:57] Them: the next step
+- [09:58] You: Let's take a real example. So, the one you just got, like, is there any, is this an approved from them product?
+- [09:59] Them: is for me to just like
+- [10:02] Them: what the PDP
+- [10:03] Them: looks like make any
+- [10:04] Them: tweaks ensure that there is
+- [10:06] Them: funky that was
+- [10:07] Them: put on the modular page
+- [10:08] Them: and then maybe just tell the
+- [10:10] Them: partner what I fixed or
+- [10:11] Them: maybe could you help me with
+- [10:12] Them: this thing that's missing
+- [10:15] Them: missing
+- [10:21] You: From like of day. I think what I'm not clear on is, is this Abby and McKenna have approved it to go live on the site? Yes. yes, yes. And then how did you know that it's approved? So you see in HubSpot that it's approved, or where did you check?
+- [10:24] Them: have they approved
+- [10:24] Them: it?
+- [10:26] Them: yet?
+- [10:29] Them: yes yes yes
+- [10:31] Them: yeah I only work on stuff
+- [10:36] Them: so basically where
+- [10:37] Them: I start my day with these
+- [10:39] Them: as I just review anything
+- [10:40] Them: that's in this lane
+- [10:41] Them: or either
+- [10:43] Them: these two lanes where it's a sub
+- [10:44] Them: that's either they marked
+- [10:46] Them: as qualified and there's a
+- [10:47] Them: separate one for this shit
+- [10:49] Them: is really good. Do this first
+- [10:50] Them: before the others.
+- [10:51] You: Okay, so these are. So, Scribby is already live or no? Okay, so let's start from there. So, let's take the scribby and walk from start to finish on your touches.
+- [10:56] Them: not live
+- [10:57] Them: so they need
+- [11:00] Them: means that I
+- [11:02] Them: am working on getting it live
+- [11:03] Them: and testing redemption that
+- [11:05] Them: that kind of thing
+- [11:12] Them: so what do do is
+- [11:13] Them: is the reason I approved it is that that
+- [11:14] Them: I can actually see what the PD
+- [11:16] Them: is gonna look like
+- [11:18] Them: and
+- [11:21] Them: it's not
+- [11:23] Them: that requires one more
+- [11:24] Them: stuff thankfully because that
+- [11:25] Them: would be not good
+- [11:27] Them: so it's just kind of a prelim
+- [11:29] Them: step and a generate
+- [11:31] Them: modular
+- [11:32] Them: page so
+- [11:34] Them: then once I save
+- [11:35] Them: it
+- [11:37] Them: next step
+- [11:38] Them: is all go to
+- [11:39] Them: the deal that's associate
+- [11:41] Them: with it and this is like
+- [11:42] Them: where you'd actually sit at live
+- [11:44] Them: and then from here
+- [11:45] Them: what I'll do is
+- [11:49] Them: take a look
+- [11:49] Them: at the deal plans so
+- [11:51] Them: they submitted one tier
+- [11:52] Them: it's 20 bucks
+- [11:55] Them: gonna I'm gonna
+- [11:56] Them: market as the recommended
+- [11:58] Them: recommended tier and then I'll just look at
+- [11:59] Them: this and sometimes not
+- [12:00] Them: exactly sure why
+- [12:02] Them: I've documented it on the rad
+- [12:03] Them: thing sometimes
+- [12:06] Them: clearly they they want
+- [12:07] Them: include all these things it's not
+- [12:08] Them: saying that renters speed is
+- [12:10] Them: included, but it will
+- [12:12] Them: maybe miss cat
+- [12:13] Them: it so I just I'm gonna
+- [12:14] Them: mark approved
+- [12:15] Them: so when I share the PDP with
+- [12:17] Them: him I'm just gonna be like hey could
+- [12:18] Them: you take a second look at this?
+- [12:19] Them: and you see how they also said
+- [12:21] Them: credits per week but they didn't like
+- [12:22] Them: how many credits it seems
+- [12:24] Them: like they did
+- [12:25] Them: in the flow.
+- [12:28] Them: marked it as like a
+- [12:29] Them: bully and like a checkmark, but
+- [12:30] Them: they didn't provide like
+- [12:31] Them: instead of a variable
+- [12:33] Them: so I'll have to like
+- [12:34] Them: clarify
+- [12:35] Them: like how many video render
+- [12:37] Them: is it how many credits is?
+- [12:38] Them: it?
+- [12:40] Them: so I'll just like note that
+- [12:42] Them: in the meantime, I'm just gonna
+- [12:43] Them: approve it.
+- [12:45] Them: or submit it to make that
+- [12:46] Them: change and
+- [12:48] Them: save the then what
+- [12:49] Them: do is I'll just look
+- [12:50] Them: at what it looks like on the
+- [12:52] Them: website.
+- [12:53] Them: this is like
+- [12:54] You: Is that from their App Sumo account? Yeah.
+- [12:58] Them: this is basically everything
+- [13:00] Them: they gave us
+- [13:01] Them: and this is already
+- [13:03] Them: looking a little better than
+- [13:04] Them: it sometimes looks like they
+- [13:06] Them: actually put effort into
+- [13:07] Them: copy there's
+- [13:08] Them: three image sections with copy
+- [13:11] Them: It's pretty good.
+- [13:13] Them: It looks like they don't have a profile
+- [13:14] Them: photo so I've been asking
+- [13:16] Them: people to like do
+- [13:17] Them: that and also
+- [13:18] Them: to reformat their.
+- [13:22] Them: so this is
+- [13:24] Them: their let's see. I opened it earlier.
+- [13:25] Them: but
+- [13:27] Them: yeah, here's their user account
+- [13:28] Them: Their username is just.
+- [13:30] Them: ops five like I've been
+- [13:31] Them: asking people in my initial e-
+- [13:33] Them: where I ask them to
+- [13:34] Them: review the PPD to
+- [13:35] Them: potentially reform ref
+- [13:36] Them: it to something like your
+- [13:38] Them: first name.
+- [13:39] Them: or whatever and
+- [13:42] Them: people are very nice about that
+- [13:43] Them: and do that and add a
+- [13:44] Them: profile photo cause it's
+- [13:46] Them: I just think that that's important
+- [13:48] Them: for trust and like it
+- [13:49] Them: takes no time for them to do
+- [13:50] Them: it.
+- [13:52] Them: that's what I'm getting from
+- [13:54] Them: looking at this
+- [13:56] Them: and so then it's like OK
+- [13:57] Them: we have this
+- [13:59] Them: and then
+- [14:00] Them: what I'm gonna do
+- [14:02] Them: is in my initial out
+- [14:03] Them: email. I also want them
+- [14:04] Them: to just test their own red
+- [14:06] Them: flow so what I'll do
+- [14:07] Them: is I'll just give them
+- [14:09] Them: their own tear so that they
+- [14:10] Them: can test it and I'll also
+- [14:11] Them: do that.
+- [14:12] Them: but that way they
+- [14:14] Them: have it in their account.
+- [14:16] Them: and then I have
+- [14:17] Them: their email address copy to my
+- [14:18] Them: clipboard so then when I'm gonna
+- [14:20] Them: do is
+- [14:21] Them: just send them a quick email.
+- [14:26] Them: do
+- [14:28] Them: their product names
+- [14:31] Them: Make sure I
+- [14:32] Them: get the spelling right Sri
+- [14:35] You: So you're
+- [14:36] Them: then I have
+- [14:37] Them: like put the recipient
+- [14:39] Them: recipient and I'm gonna copy this
+- [14:41] Them: This is like this
+- [14:42] Them: looks tedious, but this doesn't
+- [14:43] Them: take very long.
+- [14:46] You: What are you emailing them?
+- [14:49] You: I just.
+- [14:50] Them: I have a
+- [14:50] Them: template of like the very few things
+- [14:52] Them: that we need them to do
+- [14:53] Them: so the first is I saw their
+- [14:55] Them: profile. Their username was just not
+- [14:56] Them: formatted correctly
+- [14:59] Them: or like we can
+- [15:00] Them: like this. I just.
+- [15:02] You: You send all of them the same thing.
+- [15:02] Them: I think it's kind of better to
+- [15:03] Them: not have it that way.
+- [15:05] Them: this is my own quality
+- [15:06] Them: standard. I've been like in
+- [15:08] Them: into these things.
+- [15:09] Them: I asked him like a
+- [15:11] Them: profile photo like
+- [15:12] Them: their LinkedIn or social
+- [15:13] Them: just so that there's like some level
+- [15:15] Them: of customer trust
+- [15:17] Them: in these PDP
+- [15:18] Them: and then I say
+- [15:20] Them: this is all the things I might have
+- [15:22] Them: them do
+- [15:23] Them: and then I delete
+- [15:26] Them: then I delete
+- [15:27] You: Yeah. Okay.
+- [15:29] Them: well no because
+- [15:30] Them: like for instance some people
+- [15:32] Them: will submit because we try
+- [15:33] Them: to reduce friction on the
+- [15:34] Them: flow so on Scriba for in
+- [15:36] Them: it looks like they were nice
+- [15:37] Them: They actually said what they
+- [15:39] Them: they have who
+- [15:41] Them: best for.
+- [15:42] Them: what they're alternatives to are
+- [15:46] Them: I've wanted.
+- [15:47] Them: right now my standard for these
+- [15:49] Them: PDP is I
+- [15:50] Them: want some data for some of
+- [15:52] Them: these.
+- [15:54] Them: that's what I
+- [15:55] Them: don't I don't wanna have the the attic
+- [15:57] Them: glance section
+- [15:58] Them: completely missing because that seems like
+- [16:00] Them: a huge consistency
+- [16:01] Them: if they don't have in
+- [16:03] Them: then it could just show alternative
+- [16:04] Them: to our best for, but they were
+- [16:06] Them: and they did it so like that's I
+- [16:07] Them: just removed this.
+- [16:09] Them: Some people have really shitty images
+- [16:10] Them: so I have to ask
+- [16:12] Them: for them to like.
+- [16:13] Them: get us those but that
+- [16:15] Them: fine and then here.
+- [16:16] Them: like sometimes people
+- [16:17] Them: just confuse what feature
+- [16:19] Them: is so.
+- [16:20] Them: I'll just say something like
+- [16:23] Them: credit
+- [16:29] You: I saw
+- [16:31] Them: saw
+- [16:37] Them: wasn't
+- [16:39] Them: defined
+- [16:44] Them: credit limits
+- [16:45] Them: in your pricing
+- [16:47] Them: card
+- [16:48] Them: help me with
+- [16:50] Them: what those are
+- [16:52] Them: for this year
+- [16:53] Them: so I can
+- [16:54] Them: add the men
+- [17:00] Them: the other thing
+- [17:01] Them: that I've been asking for we don't ask
+- [17:02] Them: for the flow and
+- [17:03] Them: I'm kind of I've asked Matt
+- [17:05] Them: whether I should continue
+- [17:06] Them: doing this is
+- [17:08] Them: perspective was that I
+- [17:09] Them: probably should until we
+- [17:11] Them: get like a critical massive
+- [17:12] Them: radar products, but in the flow
+- [17:14] Them: I guess we're not asking for
+- [17:15] Them: like what the.
+- [17:17] Them: comparison prices so I
+- [17:19] Them: been asking partners for
+- [17:22] Them: asking partners for.
+- [17:24] Them: in the pricing card it's
+- [17:25] Them: only or not
+- [17:26] Them: the price
+- [17:28] Them: whatever this is but
+- [17:28] You: I didn't see it when I was submitting my product. Okay. Just ask, no, just kind of do your thing.
+- [17:29] Them: we do show it here
+- [17:30] Them: only
+- [17:32] Them: don't ask for
+- [17:35] Them: it that's why I'm asking for
+- [17:36] Them: it and I never
+- [17:37] Them: have to ask for it again
+- [17:39] Them: I've been the ag
+- [17:41] Them: on that. I just.
+- [17:42] Them: I've been doing it because
+- [17:44] Them: sometimes people are submitting submit
+- [17:46] Them: a big discount and I
+- [17:47] Them: think it is worth dis it
+- [17:48] Them: but if we don't want to seem
+- [17:50] Them: like that, we don't have to.
+- [17:51] Them: ask.
+- [17:53] Them: ask.
+- [17:57] Them: and then let's
+- [17:58] Them: see ya I will take
+- [18:00] Them: link to the preview page because
+- [18:01] Them: I just like to hyperlink in
+- [18:02] Them: here for them.
+- [18:04] Them: so that they can take a look.
+- [18:06] Them: and let's see just take a
+- [18:07] Them: look so just you know
+- [18:08] Them: maybe just edit your profile a little
+- [18:10] Them: bit, so it's nice test
+- [18:11] Them: your red redemption to your.
+- [18:14] Them: limit still explain
+- [18:15] Them: like what exactly you get cause
+- [18:17] Them: you're obviously just like
+- [18:18] Them: like credits per week how many
+- [18:20] Them: video renders per
+- [18:21] Them: week
+- [18:23] Them: how many?
+- [18:24] Them: and then comp
+- [18:26] Them: pricing
+- [18:27] Them: and then I
+- [18:29] Them: will
+- [18:30] Them: just target it for my in
+- [18:32] Them: management and send it and then
+- [18:34] Them: usually people are getting back within
+- [18:35] Them: like an hour and then
+- [18:36] Them: once they respond to
+- [18:38] Them: this like it takes
+- [18:40] Them: probably five
+- [18:41] Them: minutes to
+- [18:42] Them: publish it on the site
+- [18:43] Them: for sale
+- [18:45] Them: sale
+- [18:46] You: And so
+- [18:47] You: Did you che where do you check redemption? Where do you actually check the product?
+- [18:52] You: So, you like, do we go to their website? Let's go to their website. I do.
+- [18:54] Them: I have I'm
+- [18:54] Them: not checking the product to be totally
+- [18:56] Them: honest with you like besides doing
+- [18:58] Them: a scan of the website
+- [19:05] Them: I
+- [19:06] Them: also sometimes like
+- [19:08] Them: people will
+- [19:11] Them: put one TLDR
+- [19:14] Them: so those people have no TL
+- [19:15] Them: bullets cause it's not required
+- [19:17] Them: in the flow
+- [19:18] Them: so that's fine
+- [19:21] Them: but I've just
+- [19:22] Them: see that that's kind of like a
+- [19:24] Them: Delta
+- [19:25] Them: between
+- [19:28] Them: like all open
+- [19:29] Them: another one and just a sec to
+- [19:31] Them: this is like relative
+- [19:32] Them: good one believe it or not
+- [19:34] Them: there's ones where
+- [19:37] Them: people will put
+- [19:38] Them: nothing here and then it's like OK I
+- [19:39] Them: have to like figure that out for
+- [19:41] Them: them like I'm not gonna bother them
+- [19:42] Them: with that so
+- [19:43] Them: then I will just go
+- [19:45] Them: to their website and try
+- [19:46] Them: to create like.
+- [19:49] Them: TLDR customers would
+- [19:50] Them: want to see do you like
+- [19:52] Them: Yana's job but like
+- [19:54] You: Over here.
+- [19:54] Them: over here
+- [19:56] Them: so this is their website
+- [20:00] Them: Abby and McKenna
+- [20:01] Them: will have been on this already if
+- [20:03] Them: they
+- [20:04] You: And I'm happy to do more. no, no, dude. I'm just this is just a learning dive. Sometimes if somebody's so their website looked good, that t that headline needs work, right?
+- [20:05] Them: to do more
+- [20:07] Them: stuff
+- [20:12] Them: yes
+- [20:13] Them: sometimes like sometimes
+- [20:15] Them: if somebody's
+- [20:17] Them: somebody's or sometimes this
+- [20:22] Them: one would usually
+- [20:23] Them: do it shorten because we
+- [20:24] Them: because we wanted to be sort of short
+- [20:26] Them: country
+- [20:28] You: So, do you change that or tell them?
+- [20:31] Them: what I'll do
+- [20:32] Them: and I didn't do it this
+- [20:33] Them: time because I was just sort of
+- [20:37] Them: moving quickly with
+- [20:38] Them: you but like what all often
+- [20:39] Them: do is, I'll take something like
+- [20:41] Them: this and make it
+- [20:43] Them: there
+- [20:44] Them: before I send it to them
+- [20:46] Them: so there's another place where
+- [20:47] Them: that lives
+- [20:49] Them: I'll just change it
+- [20:50] Them: right now and then by the time
+- [20:51] Them: they open the email they probably
+- [20:53] Them: will see it usually I
+- [20:54] Them: let them know that I did do that
+- [20:55] Them: week but I just did do
+- [20:57] Them: that cause I didn't change it in this
+- [20:58] Them: case
+- [21:01] You: Got it. Oh, I like your style. And then, do you check redemption, or how do you check redemption?
+- [21:02] Them: actually probably won't
+- [21:03] Them: cause I don't want well
+- [21:04] Them: You know what I'm just gonna do it
+- [21:05] Them: and then I'll just let them know that
+- [21:06] Them: I did it.
+- [21:15] Them: usually I will
+- [21:16] Them: do that right after I sent that e-
+- [21:18] Them: because sometimes
+- [21:19] Them: if I notice something that
+- [21:20] Them: broken about it I'll just let
+- [21:22] Them: them know
+- [21:25] Them: then what I
+- [21:26] Them: do is I go back to their
+- [21:28] Them: deal, but I have open
+- [21:30] Them: then I just give the plan
+- [21:31] Them: to myself
+- [21:33] Them: and then
+- [21:34] Them: we test their redemption
+- [21:35] Them: their activation the flow
+- [21:43] You: Okay.
+- [21:46] You: Yeah.
+- [21:54] You: Okay.
+- [22:02] You: So, this is a great example. And so, do you turn the app live or not live?
+- [22:03] Them: a great example
+- [22:10] Them: point, I haven't
+- [22:11] Them: done anything cause I'm still waiting for them
+- [22:13] Them: to let me know about
+- [22:15] Them: because they'll also probably
+- [22:16] Them: run into that error when
+- [22:17] Them: they test it and then I want them
+- [22:18] Them: to do their profile
+- [22:20] Them: edits so I'm just gonna follow
+- [22:22] Them: up and just say
+- [22:24] Them: I'm gonna finish
+- [22:24] You: Hey partner, just following
+- [22:32] You: Whatever.
+- [22:35] Them: this email after our call but then
+- [22:36] Them: I'll send
+- [22:38] Them: this is what I ran
+- [22:39] Them: into and then I'm just gonna go
+- [22:41] Them: call the license
+- [22:43] Them: key for it as well
+- [22:47] You: Oh, so you're going to pull a license key for them. You don't tell them like, hey, this didn't work.
+- [22:53] Them: them know just
+- [22:54] Them: if they're troubleshooting it then they can
+- [22:55] Them: kind of see like whether
+- [22:56] Them: they received it or not on
+- [22:58] Them: their end the license
+- [22:59] Them: keys
+- [23:01] Them: here it
+- [23:02] Them: is so I'm just gonna pay
+- [23:04] Them: it so that they have it
+- [23:08] You: And then they don't. Because you don't do the work for them, you basically put it back on them.
+- [23:10] Them: then they can
+- [23:11] Them: like diagnose with the issue was
+- [23:16] Them: I can't but
+- [23:17] Them: I can't
+- [23:19] Them: can't fix their connection
+- [23:20] Them: with our API because I'm
+- [23:22] Them: not a dove on their
+- [23:23] Them: they can look
+- [23:24] Them: to the logs and see cause they
+- [23:26] Them: already hooked up they
+- [23:27] Them: can figure it in valid
+- [23:29] Them: ours and so I think
+- [23:31] Them: will have received a web hook for
+- [23:32] Them: this license key but for some
+- [23:34] Them: reason it said.
+- [23:36] Them: it was
+- [23:38] Them: expired or used
+- [23:40] Them: already, but that's obviously
+- [23:41] Them: not true
+- [23:42] Them: and also this
+- [23:44] Them: is
+- [23:45] Them: misleading because you can't
+- [23:47] Them: get a new activation
+- [23:48] Them: code link in your
+- [23:50] Them: partner portal
+- [23:53] Them: I'm just gonna
+- [23:54] Them: put that there to make sure that they
+- [23:55] Them: take that language off
+- [23:59] Them: yeah, and then
+- [24:00] Them: and then
+- [24:03] You: So for this one, it's just, it's a, you, what do you do now?
+- [24:04] Them: see
+- [24:09] Them: once they get
+- [24:11] Them: that profile photo in there
+- [24:13] Them: there's like two
+- [24:14] Them: things that I'll do
+- [24:16] Them: if you notice I'm
+- [24:18] Them: trying to find a PD
+- [24:19] Them: like here
+- [24:20] Them: if you notice here like
+- [24:22] Them: often times we ask for
+- [24:23] Them: their geography
+- [24:24] Them: like where are you located? They
+- [24:25] Them: didn't submit that because
+- [24:27] Them: it's not required
+- [24:28] Them: in the flow, which is fine
+- [24:29] Them: but like by pro
+- [24:31] Them: their LinkedIn and getting
+- [24:32] Them: their name because this one I
+- [24:33] Them: don't even know what their name is.
+- [24:35] Them: so once I have their name like
+- [24:36] Them: I could find out where the Dude
+- [24:38] Them: is located.
+- [24:40] Them: is it London is a
+- [24:41] Them: Bangalore
+- [24:42] Them: so that's one thing
+- [24:45] Them: and I'll add that
+- [24:46] Them: in here so that it
+- [24:47] Them: says like wherever they're located
+- [24:49] Them: and then there's a little
+- [24:50] Them: step that needs to happen for
+- [24:52] Them: when they submitted
+- [24:53] Them: and I app
+- [24:55] Them: the thing and that generated this
+- [24:56] Them: modular page and
+- [24:58] Them: so it's a little con
+- [24:59] Them: but the actual
+- [25:01] Them: back end of that
+- [25:03] Them: located here
+- [25:06] Them: and there's different
+- [25:08] Them: components for the PD
+- [25:09] Them: and I basically need to
+- [25:11] Them: go
+- [25:12] Them: and
+- [25:14] Them: here if I were I'm just gonna
+- [25:15] Them: like if you were to put location
+- [25:18] Them: Austin United States
+- [25:19] Them: like the little flag
+- [25:20] Them: would appear there and then
+- [25:22] Them: I'll also put like
+- [25:24] Them: once they add their LinkedIn to their
+- [25:25] Them: account all extra
+- [25:27] Them: their username and
+- [25:28] Them: dump their URL here
+- [25:30] Them: they change their
+- [25:31] Them: username to something something
+- [25:33] Them: I'll change it
+- [25:36] Them: they upload a
+- [25:38] Them: profile photo, I'll make sure that
+- [25:38] You: Oh, because we don't actually say what this is, right?
+- [25:39] Them: it's mapping to hear
+- [25:42] Them: and then that
+- [25:43] Them: takes a few seconds and
+- [25:45] Them: then
+- [25:47] Them: and then that
+- [25:48] Them: part of the page looks
+- [25:49] Them: pretty and
+- [25:50] Them: then that's really
+- [25:52] Them: the only
+- [25:54] Them: thing left. It's keeping
+- [25:55] Them: it from oh
+- [25:56] Them: and then once they reply
+- [25:58] Them: I will know
+- [26:00] Them: how many credits per week
+- [26:04] You: How many credits per week doesn't really say any of it?
+- [26:05] Them: what do you
+- [26:05] Them: mean?
+- [26:07] Them: yeah, they need
+- [26:09] Them: to tell me
+- [26:11] Them: you know it's just
+- [26:13] Them: could submit is it a vary
+- [26:14] Them: or is it like a bin
+- [26:16] Them: and I guess they just did
+- [26:17] Them: an Oopsies when they were going
+- [26:18] Them: through the flow
+- [26:25] Them: that's it and
+- [26:25] Them: then I just confirm you
+- [26:27] Them: know hey are you ready to launch?
+- [26:29] Them: I'm gonna flip you live.
+- [26:32] Them: last tweaks for
+- [26:33] Them: the page and then
+- [26:34] Them: they say yes or no and
+- [26:34] You: And then in terms of the actual product, William, like, let's take take the number one product we have today selling on radar. Yeah. Um Do you have we checked it at all? Have we even tried it? What's our V1 of this, which balances obviously, I think all of the work you're doing setting it up.
+- [26:35] Them: then I put it
+- [26:38] Them: live
+- [26:55] Them: did redeem it
+- [26:57] Them: but no, I'm not used it
+- [27:05] You: Should be passed down to the partner and less from you. Right? Like all of your thing, like that, that's really what our development team should be doing. And it sounds like you're giving them all that feedback.
+- [27:11] Them: agree
+- [27:19] Them: given them a
+- [27:20] Them: lot of feedback
+- [27:23] Them: mean
+- [27:24] You: You know?
+- [27:25] Them: you were at the truth
+- [27:26] Them: serum me I don't think it's like
+- [27:28] Them: I'd
+- [27:30] Them: think we should make things more man
+- [27:32] Them: than the flow
+- [27:34] Them: like
+- [27:35] Them: I think we should just
+- [27:36] Them: require to T
+- [27:38] Them: bullets and like
+- [27:39] Them: we have to have a standard right
+- [27:41] Them: like I don't know if we're
+- [27:42] Them: fine with none or one
+- [27:43] Them: then then I won't
+- [27:45] Them: like
+- [27:47] Them: add a second
+- [27:50] Them: but if we
+- [27:51] Them: want to, let's just make the
+- [27:52] Them: person give us two
+- [27:54] Them: you know
+- [27:55] You: So you're spending a lot of effort here, and then we haven't even checked the product.
+- [27:56] Them: but that's also more friction
+- [28:01] Them: I know that
+- [28:02] Them: sounds dumb, but
+- [28:04] Them: or
+- [28:15] Them: don't think I'm
+- [28:17] Them: spending that. I think it's like if somebody
+- [28:18] Them: comes to like
+- [28:19] Them: like for instance this guy, Chris Ed
+- [28:21] Them: he like came to me on partner
+- [28:23] Them: slack he's like that he's
+- [28:24] Them: has a few tools. I don't
+- [28:25] You: So, I guess my no, no, no, I think you're doing great. I think you're you're a stud. I think my question here.
+- [28:26] Them: talk to him on somewhere.
+- [28:30] Them: he told me
+- [28:32] Them: at like 8 o'clock that he
+- [28:33] Them: submitted a tool
+- [28:35] Them: and then I was doing other stuff
+- [28:36] Them: but I started working on
+- [28:38] Them: this at like
+- [28:39] Them: 1015 or something
+- [28:42] Them: and we got
+- [28:43] Them: the product live
+- [28:45] Them: with like maybe 10 minutes of
+- [28:47] Them: my time
+- [28:56] You: Sounds like there's still a lot of manual stuff to get it live, which needs to get addressed. And is that prioritized in the site feedback? You have the site feedback doc. Is that prioritized in the action items that you want them to do that would reduce the amount of time you have to spend to get it live?
+- [29:19] Them: would be happy
+- [29:20] Them: to tell them what to do
+- [29:22] Them: and prioritize
+- [29:23] Them: I haven't
+- [29:25] Them: been given
+- [29:26] You: I think that would be helpful. So I think let's do that number one. And number two. What's the v1 here for QA process? Because we're putting stuff on the site, even if it I don't think it should be as extensive, obviously, as select with all of this stuff, but what's our V1 bare minimum? Because right now it's
+- [29:26] Them: that guidance I can ask
+- [29:28] Them: for it to say.
+- [29:30] Them: is there a way that I
+- [29:31] Them: could stack
+- [29:32] Them: rank these based on
+- [29:34] Them: how much time it saves
+- [29:35] Them: me I can add
+- [29:36] Them: that as a column onto that
+- [29:38] Them: document.
+- [29:56] You: Zero. Like, we don't even really know if it's working. And I think that's that's pretty dangerous.
+- [30:08] Them: I agree
+- [30:15] You: Yeah, I think that would be helpful for you and for them, because then it'll do that. And then, why don't we just spend, you know, I want to finish within 15 minutes. Like, what's the V1 for the QA? Let's go through a product and then maybe strawman what we write up as the QA. Because eventually that could either be automated, or we have that could be a contractor, but. I think my feedback for you, William, you're awesome.
+- [30:17] Them: let
+- [30:19] Them: let Matt know that I added
+- [30:20] Them: like I'm gonna do a drop
+- [30:21] Them: drop down with a
+- [30:23] Them: through 10 or something
+- [30:25] Them: yeah
+- [30:26] Them: yeah
+- [30:46] You: You're literally one of my favorite people here. I think it's how do we keep taking work? I think you're such a great person. You take all the work. And I think the opportunity that I think I've given the feedback is: how do you do less work? I think your success is when you're like finished at four because you've kept strategically figuring out, like, hey, product team, help do this and it'll save me time, and then help do this and save me time. I'm sure you'll keep working hard. I don't doubt that ever.
+- [31:12] Them: the thing is
+- [31:13] Them: they've actually like I
+- [31:15] Them: have super instance
+- [31:16] Them: like there was the
+- [31:19] Them: been sort of
+- [31:20] Them: sidetracked though on some other things
+- [31:22] Them: like the
+- [31:23] Them: agent
+- [31:25] Them: incorporation on the
+- [31:26] Them: flow to have your agent submit
+- [31:28] Them: the flow like Trent
+- [31:29] Them: is getting to some of the
+- [31:31] Them: Trent hadn't been working on
+- [31:32] Them: anything on this sheet
+- [31:34] Them: and then I heard you
+- [31:35] Them: loud and clear so I'm trying to be
+- [31:36] Them: a little bit more vocal
+- [31:37] Them: about my feedback
+- [31:39] Them: for the process
+- [31:41] Them: I agree I
+- [31:46] Them: would like to I would like
+- [31:48] Them: to be my life
+- [31:48] You: My life. Yeah, what's made you tell me more about that?
+- [31:49] Them: I have not been done at
+- [31:50] Them: for for the past month, but
+- [31:52] Them: also I've been like happier at
+- [31:53] Them: work the last month and
+- [31:54] Them: I've been ever so
+- [31:58] Them: just feel like
+- [31:59] Them: I'm like doing something
+- [32:01] Them: you know like I think
+- [32:03] Them: I think high-level
+- [32:04] Them: management or like priorities
+- [32:06] Them: it's cool but it
+- [32:07] Them: is nice to just like
+- [32:09] Them: actually
+- [32:11] Them: I don't know
+- [32:14] Them: I think it's amazing over
+- [32:15] Them: on Sunday all the
+- [32:17] Them: radar products as a collection
+- [32:18] You: Yeah, maybe. Yeah. So.
+- [32:19] Them: or 5% of our stores
+- [32:20] Them: revenue, which I think it
+- [32:21] Them: great like
+- [32:23] Them: we used to self listed
+- [32:24] Them: with one point was like 20
+- [32:25] Them: Ish you know maybe
+- [32:28] Them: now it's the point where
+- [32:29] Them: just after a month like this
+- [32:30] Them: collection and yeah, it's like a
+- [32:32] Them: ton of tools, but
+- [32:33] Them: 5%
+- [32:34] Them: 5% and it will compound because
+- [32:36] Them: they're evergreen so
+- [32:37] Them: I just feel really good
+- [32:38] Them: about the results so I think
+- [32:40] Them: if we were able to just
+- [32:41] Them: take a little bit more quality
+- [32:43] Them: track here
+- [32:46] Them: can really hit the sweet spot
+- [32:48] You: It seems like there's a few different criteria here that we're getting clear on. So, my again, the thing that's still outstanding: one, we said earlier in this meeting the D-list criteria, that's outstanding, and the second thing is what, is the QA criteria? Like, what's the minimum? So, I'd like to have something. And if you want to go over right now, we can do one together. So, pick, you know, even take the number one product, and let's do it together to have a V1, but well.
+- [33:19] Them: yeah, I would
+- [33:20] Them: I would like your
+- [33:22] Them: thoughts on.
+- [33:26] Them: they have been
+- [33:27] Them: hyper fixated
+- [33:28] Them: McKenna and Abby on
+- [33:30] Them: price like on
+- [33:31] Them: and I just don't
+- [33:32] Them: think that
+- [33:34] Them: see things where I think we
+- [33:35] Them: can function like a market
+- [33:37] Them: and if they don't
+- [33:38] Them: sell because they priced it
+- [33:39] Them: wrong like obviously
+- [33:41] Them: there is a price point which I
+- [33:42] Them: think he needs to have a
+- [33:44] Them: know we're not gonna launch 1000
+- [33:46] Them: to your ones
+- [33:47] Them: but the best selling tear on
+- [33:48] Them: the best selling product
+- [33:49] Them: on commonly is like 100
+- [33:50] You: th. Yeah, we can I think there's different criteria that we have to eventually solve for, but right now it's working, so I'd rather focus on the QA stuff. So, again, I'm asking the same question. Again, what's our QA V1? This isn't this is there's dealing with the m
+- [33:51] Them: in terms of
+- [33:55] Them: invoices, not sales like
+- [33:56] Them: the highest transaction
+- [33:58] Them: gear is over $100
+- [33:59] Them: so I just don't think that there is
+- [34:01] Them: lot of Creedence to like oh my God
+- [34:02] Them: your one has to be 40
+- [34:04] Them: for radar
+- [34:13] Them: yeah like
+- [34:20] You: There's deal terms, there's who talks to people, there's delisting, and then well, QA, and then there's delisting. And what I'm seeing right now is that we don't check anything for QA, which is again, I'm at, I'm gonna stop saying, I want to see a view one of that pretty soon, and I want it executed on. Now, what I don't want to do is add even more time to your list because you're doing amazing. And I just want to figure out some level of a v1 solution. So, do you want to go over a product together, or do you want to do it yourself and then come back to me with what V1 could look like, my expectation to be clear.
+- [34:34] Them: that's true
+- [34:51] You: What's the expectation for a radar product? That it's not a scam? It doesn't. It functions at least what it says it does, like it's working? Yeah.
+- [35:05] Them: I think it's
+- [35:07] Them: you know there's some things that I'm
+- [35:08] Them: gonna draw on
+- [35:09] Them: probably to
+- [35:12] Them: like in
+- [35:15] Them: they own it
+- [35:19] Them: in English
+- [35:21] You: Guess what? But let's just get the V1 so you can give it to someone to do. Yeah, okay, because I love working with these parts.
+- [35:29] Them: matches features
+- [35:35] Them: will answer your
+- [35:37] Them: question this is something
+- [35:39] Them: don't really wanna
+- [35:42] Them: do this work to be honest with
+- [35:43] Them: you though like
+- [35:48] Them: yeah OK cause
+- [35:50] Them: I I love working
+- [35:51] Them: with these partners I wanna
+- [35:53] Them: to be involved in
+- [35:54] Them: setting them up for success
+- [35:55] Them: and whatever and but.
+- [35:56] Them: like I do think
+- [35:58] Them: that this is because there's already any
+- [35:59] Them: people who are like.
+- [36:01] Them: spending time looking at
+- [36:02] Them: these and.
+- [36:04] Them: qualifying them so
+- [36:05] Them: I just whatever this is
+- [36:07] Them: needs to be.
+- [36:09] Them: and then to be.
+- [36:12] Them: vent for a
+- [36:14] Them: moment
+- [36:17] Them: was a huge
+- [36:18] Them: backlog of these subs
+- [36:19] Them: and I told Kaitlyn
+- [36:20] Them: from the beginning that
+- [36:22] Them: there was gonna be
+- [36:24] Them: 20 to 40 subs
+- [36:25] Them: a day when we turned
+- [36:26] Them: radar live and we needed
+- [36:28] Them: to have
+- [36:31] Them: and McKenna review
+- [36:32] Them: and qualify
+- [36:33] Them: each 20 to 40 that
+- [36:35] Them: means 10 to 20 each
+- [36:37] Them: you know to look at them
+- [36:38] Them: and make a decision
+- [36:40] Them: and then we basically
+- [36:41] Them: did nothing for two weeks and
+- [36:42] Them: so we had hundreds and hundreds
+- [36:44] Them: of things pending partner
+- [36:45] Them: is asking what's the status what
+- [36:46] Them: the status?
+- [36:48] Them: and then they still
+- [36:49] Them: couldn't do it so we need to
+- [36:50] Them: break we brought in Krish
+- [36:52] Them: Kim's wife who has
+- [36:53] Them: lead qualification experience.
+- [36:55] Them: for the past week. She's just
+- [36:56] Them: been solely working on
+- [36:59] Them: stuff and then
+- [37:01] Them: determining if they like
+- [37:02] Them: quiz that score
+- [37:04] Them: is commence it with
+- [37:05] Them: our tier one tier 2
+- [37:07] Them: tier 34
+- [37:08] Them: or four and giving it to them and
+- [37:09] Them: then they've been reviewing her decision
+- [37:11] Them: and giving it to me and
+- [37:12] Them: to me that's just such a
+- [37:13] Them: fucked process and
+- [37:15] Them: we're still unable to get to
+- [37:16] Them: the bottom of the queue and
+- [37:18] Them: what's probably gonna happen
+- [37:19] Them: as Christian is gonna get us back to
+- [37:21] Them: Q0 and then we're still gonna
+- [37:22] Them: get 20 to 40 a day
+- [37:23] Them: and I'm
+- [37:26] Them: really exhausted because
+- [37:27] Them: I need to work with
+- [37:29] Them: Kaitlyn on her
+- [37:33] Them: me to design
+- [37:34] Them: with this process is going to be
+- [37:35] Them: because all we need
+- [37:37] Them: is a trust
+- [37:38] Them: individual with
+- [37:39] Them: an eye for quality
+- [37:41] Them: who can do
+- [37:44] Them: to 40 a day
+- [37:45] Them: which is not
+- [37:47] Them: crazy especially
+- [37:48] Them: because 20
+- [37:50] Them: of those 40 are like
+- [37:51] Them: you don't even need to open the
+- [37:53] You: Okay. I think. So. Alright, so maybe zooming out, William. I think the two things I and let's wrap it here. Who owns radar. That's a good question to answer. So number one, who is the owner here?
+- [37:53] Them: website to tell
+- [37:55] Them: I think
+- [37:56] Them: so yeah
+- [37:58] Them: this week I can do
+- [38:00] Them: that.
+- [38:18] Them: guess since Sean
+- [38:20] Them: out
+- [38:22] Them: operationally spend more
+- [38:23] You: Needs to be finalized this week. Number two, what I want to see is high-level. We have, right now it's all over, it's a little, it's not all over the place, but we need better, like, here's the people who qualify, here's the playbook who how they get on the site, here's how they get QA'd, here's how they get delisted. And it's boom, it's it's like a assembly line that has these documents coordinated. So right now it's a little bit separate and there there's
+- [38:54] You: Because I don't want less and less pages, not more and more, with more clarity. My other prep, and so that's what I'm looking for. Who's the owner? And then, what's the clear pages of how we're coordinating the process? So we're doing less work, not more. Because I don't want to spend even more on radar than we do on select and get even less results. The whole point is, how do we make it more self-serve, empower the partners to do all the work? And so that you know, our work is probably really the QA, right? Like, that's the part that's inspirational is done more because.
+- [39:24] You: No, I get that, but I want to keep it that way. Yeah, I think my again, my feedback to you, William, is: I think you could be the leader of radar if you want. I think also, if you don't like how things are done, it's working on how do I keep outsourcing or improving things so that I can keep backing off or spending it in the areas you like, which it sounds like you really like working with the partners.
+- [39:24] Them: because we are like
+- [39:27] Them: really far away from
+- [39:28] Them: that I don't think we're
+- [39:29] Them: like cause there's really only
+- [39:31] Them: Abby and McKenna like
+- [39:32] Them: a little tiny tiny little
+- [39:34] Them: at work but
+- [39:35] Them: it's kind of a one person
+- [39:38] Them: person
+- [39:55] You: Yeah, let's get the. It sounds like there's a few stages. Let's just have like stage one dock stage two dock and then have that a little bit tighter
+- [39:56] Them: have enjoyed that
+- [39:57] Them: I think
+- [39:59] Them: mean
+- [40:01] Them: do I do
+- [40:02] Them: a contractor could be doing
+- [40:04] Them: some of the stuff that I'm doing
+- [40:05] Them: now and have for the past month
+- [40:07] Them: like for sure but like the other
+- [40:08] Them: thing is that I've been able to
+- [40:10] Them: like dial in a whole
+- [40:11] Them: process document so that
+- [40:13] Them: anybody can do it and
+- [40:15] Them: have that ready
+- [40:17] Them: so it's all like
+- [40:24] You: Together, and then maybe by Friday having a V1 around this stuff. So, like, I've asked them to basically not. I think what my preference, which part are they not willing or able to do the qualification?
+- [40:31] Them: yep, I can
+- [40:31] Them: do that like the thing is
+- [40:32] Them: this is like I don't think it'd be
+- [40:34] Them: be Abby and McKenna are like
+- [40:36] Them: they're either
+- [40:37] Them: unable or unwilling
+- [40:39] Them: to do what needs to be done
+- [40:40] Them: in this process
+- [40:42] Them: so like and I'm not their
+- [40:43] Them: manager
+- [40:49] Them: can't keep up
+- [40:51] Them: I don't yeah I really don't understand
+- [40:52] Them: what the issue is because they are
+- [40:54] Them: a tons of things that are pen
+- [40:55] Them: that they could review and they could
+- [40:56] Them: make like
+- [40:58] Them: like I don't know
+- [40:59] Them: what their other job is
+- [41:01] Them: like with
+- [41:02] Them: quotas for selecting
+- [41:03] Them: launchpad so
+- [41:05] Them: I'm ignorant
+- [41:06] Them: but like
+- [41:10] Them: here you can
+- [41:10] Them: see the date right so these
+- [41:11] Them: are people submitted today
+- [41:13] Them: July 20 and then
+- [41:14] Them: July 19 right so
+- [41:16] Them: let's just say we wanted
+- [41:17] Them: to qualified everything
+- [41:18] Them: here that's the past
+- [41:19] Them: two days in full
+- [41:21] Them: right how many is that
+- [41:24] Them: like 20 maybe
+- [41:25] Them: like less 20
+- [41:26] Them: you want
+- [41:29] You: Hi, what? Wait a minute I'm gonna pop stop I'm gonna stop you just for a second. So when I hear you and things will improve, let's take a step back.
+- [41:30] Them: person could do
+- [41:31] Them: that and it could be a
+- [41:33] Them: part contract
+- [41:35] Them: contractor job
+- [41:36] Them: I don't know why they can't do
+- [41:37] Them: it with half of their day.
+- [41:40] Them: but somebody
+- [41:42] Them: can definitely.
+- [41:43] Them: do.
+- [41:45] Them: cause OK I have the SOP for on
+- [41:47] Them: boarding them if
+- [41:48] Them: we.
+- [41:54] You: By Friday, let's try to have an owner. Maybe you have radar. Number two, I'd love to see clear documents of like stage one is how we qualify them, stage two is how you do your checks, stage three is QA, stage four is DLD list. Um, that's there. My feedback to Abby, just to make it very clear to you, is that I want them on less calls with these people because that's not the priority. The whole point of self-submission is: let's get the customers deciding if it's a good product or not, not our team deciding it, which our team is already currently
+- [42:24] You: Doing, and we're still having inconsistent success with that. And yeah, I think so. That was my feedback to them: is tier one radars: 50 will go to the BDMs, and 50% will go live without the BDMs, and we're gonna see how that actually performs.
+- [42:45] You: But separately, it sounds like you need to have a better alignment with them of expectation or with Krishna about this backlog problem and take initiative to solve that. And then, lastly, my feedback with you overall is: you're such a stud. I love you here. I think the more that you're doing you do work and then you think, how do I help reduce the amount of work I have to actually do? It's gonna make you so strong. And being specific here, it's like you're doing all this deal setup stuff, like, hey, product team if you guys did this two things for me this week it would save me an hour
+- [43:12] Them: yeah
+- [43:15] You: Every week.
+- [43:20] Them: there are other
+- [43:20] Them: like that and I
+- [43:22] Them: hopefully that new column help
+- [43:23] Them: with that and I will make that
+- [43:24] Them: document this week. I'm not I'm
+- [43:26] Them: not trying to sound frustrated it
+- [43:27] Them: just like as I
+- [43:29] Them: I have my part of the process
+- [43:31] Them: down and documented there
+- [43:32] Them: rep requirements with.
+- [43:33] Them: bugs after
+- [43:34] Them: launched I can create.
+- [43:36] Them: like a no because I'm sort of
+- [43:37] Them: imagining you know they're sort of like
+- [43:39] Them: several parts of it
+- [43:41] Them: journey. This is one of
+- [43:42] Them: them on boarding them and
+- [43:43] Them: then there's like a maintain
+- [43:44] Them: them listing them
+- [43:46] Them: but for the step before
+- [43:48] Them: this, like what happens.
+- [43:48] You: Okay. Wait, I gotta go. We're two minutes over. Okay. Sorry. no, no. So, what's our next steps here, just to be on the same page?
+- [43:49] Them: to qualify them
+- [43:50] Them: to check the product
+- [43:51] Them: etc.
+- [43:54] Them: just think I'm gonna have to
+- [43:55] Them: figure out like for me
+- [43:56] Them: to build that SO
+- [43:58] Them: and what the what I think the
+- [44:00] Them: process should be
+- [44:01] Them: I'm just gonna sort of have to
+- [44:02] Them: know like who's gonna do.
+- [44:04] Them: it and I
+- [44:05] Them: don't wanna do it and
+- [44:07] Them: they can't do it.
+- [44:10] Them: don't think
+- [44:13] Them: sorry
+- [44:20] Them: will my
+- [44:21] Them: thing is I'm gonna talk with Kaitlyn
+- [44:23] Them: about ownership of
+- [44:25] Them: radar
+- [44:26] Them: The second thing is
+- [44:28] Them: I'm gonna just tell her what I'm working
+- [44:29] Them: on which is when she
+- [44:31] Them: back which is gonna be.
+- [44:33] Them: how do we qualify
+- [44:34] Them: these?
+- [44:37] Them: do we deal
+- [44:38] Them: with those
+- [44:39] Them: into the process?
+- [44:42] Them: of my little nest
+- [44:43] Them: documents and then I'll share
+- [44:44] Them: those with you
+- [44:47] Them: with you.
+- [44:49] You: I think this is your opportunity. and rush I don't think it's not about rushing William. I think it is about how do you get more strategic in your work? But I was kind of recommending it. Like you're jam-packed with work, which is great. And you really, I think what you're saying about Caitlin and Abby, I hear you. I hear the, or Abby McKenna, I hear the underlying thing you're saying.
+- [44:50] Them: by the end
+- [44:50] Them: of this week, I don't know every single
+- [44:52] Them: day is just jampacked with
+- [44:53] Them: me doing work
+- [44:55] Them: so that's
+- [44:56] Them: why I've not been able to be
+- [44:57] Them: more strategic
+- [44:59] Them: I mean, I wanna tell you I
+- [45:00] Them: could do it by Friday.
+- [45:03] Them: Friday.
+- [45:20] You: So I hear you, and it's been heard. So maybe look at it this week. Give me maybe Wednesday when you think you can get it done by.
+- [45:29] You: Like, by Wednesday, give me an okay. Thank you so much. It's all right. I gotta go though, William. I'm over time. Okay, good seeing you, man. Great stuff. See you.
+- [45:30] Them: I let you
+- [45:30] Them: know can I let?
+- [45:32] Them: I'll let you know on Wednesday when
+- [45:34] Them: I'll have it for you and
+- [45:35] Them: then.
+- [45:37] Them: that'll be good.
+- [45:38] Them: I will have news for you then.
+- [45:40] Them: OK, thanks and I'm not trying to be
+- [45:42] Them: frustrated. I just like
+- [45:43] Them: working hard. I'm like a horse
+- [45:45] Them: and I just like you're right I get
+- [45:46] Them: too sucked into stuff
+- [45:48] Them: and.
+- [45:51] Them: OK OK OK
+- [45:52] Them: thank you for meeting with me
+- [45:54] Them: Yeah no thank you. OK see
+- [45:55] Them: ya.
+
+## Nudges
+- [01:16] **talkTime** (high): You're still talking | feedback: wrong
+- [03:46] **noDecision** (med): Define next steps, assign owner. | ignored
+- [05:56] **questionLanded** (low): Great question — they opened up | ignored
+- [08:12] **refocused** (low): Good catch — room refocused | ignored
+- [09:27] **ownershipHanded** (low): Ownership handed — don't claw it back | ignored
+- [09:34] **questionLanded** (low): Great question — they opened up
+- [11:31] **questionParked** (med): Clarify approval process now. | ignored
+- [13:21] **ownershipHanded** (low): Ownership handed — don't claw it back
+- [13:21] **refocused** (low): Good catch — room refocused
+- [15:03] **questionLanded** (low): Great question — they opened up | ignored
+- [19:36] **questionParked** (med): Clarify product check process. | ignored
+- [30:06] **vagueAnswer** (med): That was a guess — pin it down | ignored
+- [30:20] **buriedSignal** (med): Address manual steps now.
+- [31:36] **voiceShare** (med): You've had the floor — hand it back
+- [32:00] **overrun** (high): 2min over — land it or rebook | ignored
+- [33:19] **talkTime** (high): You're still talking | ignored
+- [38:02] **buriedSignal** (med): Address backlog now. | ignored
+- [38:23] **commitmentLocked** (low): Clean close — commitments locked
+- [38:53] **talkTime** (high): You're still talking | ignored
+- [39:23] **stackedQuestions** (med): One question at a time
+- [39:54] **reflectedBack** (low): Nice reflect — they feel heard
+- [40:37] **noDecision** (med): Define owner, date.
+- [42:02] **overrun** (high): 12min over — land it or rebook | ignored
+- [42:24] **talkTime** (high): You're still talking | ignored
+- [42:53] **voiceShare** (med): You've had the floor — hand it back
+- [44:18] **reflectedBack** (low): Nice reflect — they feel heard
+- [47:02] **hedgeNotPinned** (med): Pin exact Wednesday date.

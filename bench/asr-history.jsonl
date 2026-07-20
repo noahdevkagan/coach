@@ -1,0 +1,1 @@
+{"corpus": "william-2026-07-20", "you": {"refWords": 2404, "hypWords": 2352, "errors": 397, "rate": 0.1651}, "them": {"refWords": 5296, "hypWords": 5044, "errors": 1039, "rate": 0.1962}, "combined": {"refWords": 7700, "hypWords": 7396, "errors": 1436, "rate": 0.1865}, "commit": "e61dd08", "date": "2026-07-20T19:27:55Z"}
