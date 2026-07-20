@@ -9,6 +9,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.6.2 — 2026-07-20
+
 - Coaching now reliably stops when your meeting ends — saying goodbye right before hanging up no longer made it miss the ending
 - No more "You're still talking" while you wait alone for others to join
 - Your saved coaching notes now actually tune the coach — pasted feedback teaches the signals it names, and the save button shows what it learned
