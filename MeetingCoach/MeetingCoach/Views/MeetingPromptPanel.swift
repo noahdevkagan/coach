@@ -9,7 +9,7 @@ final class MeetingPromptPanel: NSPanel {
 
     init() {
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 446, height: 78),
+            contentRect: NSRect(x: 0, y: 0, width: 398, height: 78),
             styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView],
             backing: .buffered,
             defer: true
@@ -31,7 +31,7 @@ final class MeetingPromptPanel: NSPanel {
         acceptsMouseMovedEvents = true  // hover-reveal close button
 
         if let screen = NSScreen.main {
-            let x = screen.visibleFrame.maxX - 462
+            let x = screen.visibleFrame.maxX - 414
             let y = screen.visibleFrame.maxY - 94
             setFrameOrigin(NSPoint(x: x, y: y))
         }
@@ -59,7 +59,7 @@ struct MeetingPromptView: View {
     @State private var hovering = false
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             // Pulsing waveform accent — alive, not alarming.
             HStack(spacing: 3) {
                 Capsule().fill(.green)
@@ -119,8 +119,8 @@ struct MeetingPromptView: View {
                                 .fixedSize()
                         }
                     }
-                    .padding(.leading, 12)
-                    .padding(.trailing, 10)
+                    .padding(.leading, 10)
+                    .padding(.trailing, 8)
                     .padding(.vertical, 7)
                     .contentShape(Rectangle())
                 }
@@ -156,14 +156,20 @@ struct MeetingPromptView: View {
                     .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
             )
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 12)
         .padding(.vertical, 11)
-        .frame(width: 438)
+        .frame(width: 390)
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        // A soft green gradient ring — matches the pulsing accent and reads
+        // "friendly nudge," not system alert.
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [.green.opacity(0.55), .mint.opacity(0.35), .green.opacity(0.55)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 1.5)
         )
         // Standard macOS notification UX: a tiny close button in the
         // top-left corner, revealed on hover.
