@@ -9,6 +9,11 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.6.1 — 2026-07-20
+
+- New recommended AI model: Qwen 3.5 — sharper coaching judgment, faster on Apple Silicon, and a smaller download
+- Model catalog refreshed: Qwen 3.5 in three sizes and IBM Granite 4 added, older models retired
+
 ## 0.6.0 — 2026-07-20
 
 - New: auto-start coaching — turn it on and coaching begins by itself when a meeting is detected, after a 10-second cancelable countdown
