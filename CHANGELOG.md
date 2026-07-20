@@ -9,6 +9,9 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Coaching now reliably stops when your meeting ends — saying goodbye right before hanging up no longer made it miss the ending
+- No more "You're still talking" while you wait alone for others to join
+
 ## 0.6.1 — 2026-07-20
 
 - New recommended AI model: Qwen 3.5 — sharper coaching judgment, faster on Apple Silicon, and a smaller download

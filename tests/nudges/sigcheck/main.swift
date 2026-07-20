@@ -44,6 +44,37 @@ if let firedAt, firedAt <= 70 {
     fail = true
 }
 
+// Two-way gate (2026-07-20 William meeting regression): the same monologue
+// with NO other speaker yet — waiting alone on the call — must never fire
+// talkTime. "You're still talking" to an empty room was marked wrong.
+var soloBuilder = TurnBuilder()
+var soloSignal = TalkTimeSignal()
+var soloUtts: [(arrival: Double, u: Utterance)] = [
+    (61.0, Utterance(t: 30, speaker: "You", text: "So the way I think about the partnership is that we bring the audience and they bring the product, and the pricing needs to reflect that split", endT: 60)),
+    (77.0, Utterance(t: 60, speaker: "You", text: "because our list did the heavy lifting on every launch.", endT: 76)),
+]
+var soloInserted: [Utterance] = []
+var soloFired = false
+clock = 0.0
+while clock <= 120 {
+    clock += 5
+    while let next = soloUtts.first, next.arrival <= clock {
+        soloInserted.append(next.u); soloUtts.removeFirst()
+    }
+    soloBuilder.rebuild(soloInserted)
+    let input = SignalInput(utterances: soloInserted, turns: soloBuilder.turns,
+                            fresh: soloInserted[...], elapsed: clock,
+                            context: PreCallContext(meetingGoal: "", scheduledDurationMinutes: 30),
+                            speakerLabelsReliable: true)
+    if soloSignal.evaluate(input) != nil { soloFired = true }
+}
+if !soloFired {
+    print("talkTime two-way gate: solo monologue (nobody else has spoken) never fires -> PASS")
+} else {
+    print("talkTime two-way gate: fired while waiting alone on the call -> FAIL")
+    fail = true
+}
+
 // Diarizer relabel must not duplicate turns: invalidateTurnCache() +
 // re-evaluate rebuilds the same history, so the turn count must not grow.
 var engine = SignalEngine(context: PreCallContext(meetingGoal: "", scheduledDurationMinutes: 30))

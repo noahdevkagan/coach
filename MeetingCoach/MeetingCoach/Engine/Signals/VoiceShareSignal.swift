@@ -27,6 +27,9 @@ struct VoiceShareSignal: SignalMonitor {
         guard input.speakerLabelsReliable else { return nil }
         guard input.elapsed >= warmupSeconds else { return nil }
         guard input.elapsed - lastFired >= cooldown else { return nil }
+        // "Hand it back" needs someone to hand it to — never fire before
+        // the other side has spoken at all (solo run-through, empty room).
+        guard input.turns.contains(where: { !$0.isYou }) else { return nil }
 
         let windowStart = input.elapsed - windowSeconds
         var youWords = 0
