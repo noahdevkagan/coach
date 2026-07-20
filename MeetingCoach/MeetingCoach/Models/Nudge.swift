@@ -27,10 +27,11 @@ struct Nudge: Identifiable, Codable {
         return type.rawValue
     }
 
-    /// What the UI badges show — rubric display name for custom signals.
+    /// What the UI badges show — human display names, never code ids
+    /// ("Stacked Qs", not "stackedQuestions"); rubric name for customs.
     var badgeLabel: String {
         if type == .custom { return customName ?? "Custom" }
-        return type.rawValue
+        return type.displayName
     }
 }
 

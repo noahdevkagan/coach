@@ -110,25 +110,22 @@ struct LiveTimelineView: View {
                 .frame(minWidth: 220, idealWidth: 280)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.textBackgroundColor))
+        .background(MCTheme.canvas)
     }
 
     private var nudgesPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
+            HStack(alignment: .firstTextBaseline) {
                 Text("Nudges")
-                    .font(.caption.bold()).foregroundStyle(.secondary)
+                    .font(MCTheme.paneTitle)
                 Spacer()
                 if !liveSession.nudges.isEmpty {
                     Text("\(liveSession.nudges.count)")
-                        .font(.caption2.monospacedDigit())
-                        .padding(.horizontal, 6).padding(.vertical, 1)
-                        .background(.blue.opacity(0.1)).foregroundStyle(.blue)
-                        .clipShape(Capsule())
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
                 }
             }
-            .padding(.horizontal).padding(.vertical, 8)
-            Divider()
+            .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 8)
 
             ScrollViewReader { proxy in
                 ScrollView {
@@ -193,8 +190,8 @@ struct LiveTimelineView: View {
                 if liveSession.isLive {
                     Circle().fill(.green).frame(width: 6, height: 6)
                 }
-                Text("Live Transcript")
-                    .font(.caption.bold()).foregroundStyle(.secondary)
+                Text("Transcript")
+                    .font(MCTheme.paneTitle)
                 Spacer()
                 TranscriptHeaderStats(liveSession: liveSession)
                 if !liveSession.isLive && liveSession.hasSession && !liveSession.turns.isEmpty {
@@ -211,7 +208,7 @@ struct LiveTimelineView: View {
                     .help("Export transcript as a text file")
                 }
             }
-            .padding(.horizontal).padding(.vertical, 8)
+            .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 8)
 
             // Degraded capture is easy to miss in the status caption — make
             // it loud: no You/Them separation until Screen Recording is on.
@@ -248,7 +245,7 @@ struct LiveTimelineView: View {
 
             LiveTranscriptPane(liveSession: liveSession)
         }
-        .background(Color(.controlBackgroundColor).opacity(0.5))
+        .background(MCTheme.canvas)
     }
 
     private func recapText(_ summary: String) -> String {
@@ -446,71 +443,54 @@ struct NudgeCardView: View {
                 .padding(.top, 5)
 
             // Content
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 5) {
                 Text(nudge.text)
-                    .font(.system(.body, weight: .semibold))
+                    .font(.system(.body, weight: .medium))
 
-                HStack(spacing: 8) {
-                    // Type badge
-                    Text(nudge.badgeLabel)
-                        .font(.caption2)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(urgencyColor.opacity(0.15))
-                        .foregroundStyle(urgencyColor)
-                        .clipShape(Capsule())
-
-                    // Urgency label
-                    Text(nudge.urgency.rawValue)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                HStack(spacing: 10) {
+                    // Type label — quiet small caps, no pill chrome.
+                    Text(nudge.badgeLabel.uppercased())
+                        .font(.caption2.weight(.medium))
+                        .kerning(0.6)
+                        .foregroundStyle(.tertiary)
 
                     Spacer()
 
-                }
-
-                // Feedback row — prominent buttons or result
-                if let feedback = nudge.feedback {
-                    HStack(spacing: 6) {
-                        Image(systemName: feedbackIcon(feedback))
-                            .font(.caption)
-                        Text(feedbackLabel(feedback))
-                            .font(.caption)
+                    // Feedback — quiet ghost buttons, or the recorded result.
+                    if let feedback = nudge.feedback {
+                        HStack(spacing: 4) {
+                            Image(systemName: feedbackIcon(feedback))
+                            Text(feedbackLabel(feedback))
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    } else {
+                        HStack(spacing: 2) {
+                            feedbackButton(.useful, help: "Useful", icon: "hand.thumbsup")
+                            feedbackButton(.annoying, help: "Meh", icon: "minus.circle")
+                            feedbackButton(.wrong, help: "Wrong", icon: "xmark.circle")
+                        }
                     }
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 2)
-                } else {
-                    HStack(spacing: 8) {
-                        feedbackButton(.useful, label: "Useful", icon: "hand.thumbsup.fill", color: .green)
-                        feedbackButton(.annoying, label: "Meh", icon: "minus.circle.fill", color: .gray)
-                        feedbackButton(.wrong, label: "Wrong", icon: "xmark.circle.fill", color: .red)
-                    }
-                    .padding(.top, 4)
                 }
             }
-
-            Spacer()
         }
-        .padding(12)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
         .cardStyle()
     }
 
-    private func feedbackButton(_ feedback: NudgeFeedback, label: String, icon: String, color: Color) -> some View {
+    private func feedbackButton(_ feedback: NudgeFeedback, help: String, icon: String) -> some View {
         Button {
             onFeedback(feedback)
         } label: {
-            HStack(spacing: 4) {
-                Image(systemName: icon)
-                Text(label)
-            }
-            .font(.caption)
-            .foregroundStyle(color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(color.opacity(0.1))
-            .clipShape(Capsule())
+            Image(systemName: icon)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(5)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help(help)
     }
 
     private func feedbackLabel(_ feedback: NudgeFeedback) -> String {
@@ -579,7 +559,7 @@ struct MeetingSummaryCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Label("Meeting Review", systemImage: "doc.text.magnifyingglass")
-                    .font(.headline)
+                    .font(.subheadline.weight(.semibold))
                 Spacer()
                 if let recap = recapText {
                     CopyButton(help: "Copy recap for Slack or email") { recap }
@@ -648,7 +628,7 @@ struct SidebarView: View {
                 .padding()
             }
             .background(isDragOver ? Color.blue.opacity(0.04) : .clear)
-            .background(.background)
+            .background(MCTheme.canvas)
             .onDrop(of: [.fileURL], isTargeted: $isDragOver) { providers in
                 handleDrop(providers, simulation: simulation)
             }
@@ -737,7 +717,7 @@ struct CoachingStyleSection: View {
     var body: some View {
         HStack(spacing: 6) {
             Label("Coaching Style", systemImage: "slider.horizontal.3")
-                .font(.headline)
+                .font(.subheadline.weight(.semibold))
             Spacer()
             Button("Customize…") {
                 showBuilder = true
@@ -790,7 +770,7 @@ struct TranscriptSection: View {
         } label: {
             HStack(spacing: 6) {
                 Label("Transcript", systemImage: "doc.text")
-                    .font(.headline)
+                    .font(.subheadline.weight(.semibold))
                 HelpDot(text: "Drop in a transcript from another tool (Zoom, Meet, Otter) to replay it through the coach and train it on your real meetings. It never leaves your Mac.")
                 if simulation.transcriptFileName != nil {
                     Image(systemName: "checkmark.circle.fill")
@@ -923,7 +903,7 @@ struct ModelSection: View {
                 } label: {
                     HStack(spacing: 6) {
                         Label("Model", systemImage: "cpu")
-                            .font(.headline)
+                            .font(.subheadline.weight(.semibold))
                         Spacer()
                         // Collapsed state still answers "which model?"
                         Text(settings.useMock ? "mock" : settings.selectedModel)
@@ -1436,7 +1416,7 @@ struct FeedbackSection: View {
         } label: {
             HStack(spacing: 6) {
                 Label("Coaching Notes", systemImage: "text.badge.checkmark")
-                    .font(.headline)
+                    .font(.subheadline.weight(.semibold))
                 HelpDot(text: "Your own notes — or feedback pasted from your favorite AI tool — teach Meeting Coach what good looks like for you. Everything stays private on your Mac.")
             }
         }
@@ -1567,19 +1547,39 @@ struct WelcomeSheet: View {
     }
 }
 
-// MARK: - Shared card style
+// MARK: - Shared design language
+
+/// App-wide surfaces and type. The look is paper-light: a warm off-white
+/// canvas with pure-white cards floating on it (dark mode stays on system
+/// surfaces). Section titles are serif — calm editorial, not chrome.
+enum MCTheme {
+    /// Warm paper behind every pane (light: cream, dark: system underpage).
+    static let canvas = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? .underPageBackgroundColor
+            : NSColor(red: 0.976, green: 0.969, blue: 0.953, alpha: 1)
+    })
+    /// Card surface (light: white, dark: system control background).
+    static let surface = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? .controlBackgroundColor
+            : .white
+    })
+    /// Serif pane/section title — the one typographic flourish.
+    static let paneTitle = Font.system(.title3, design: .serif).weight(.semibold)
+}
 
 /// One card language for the whole app: adaptive surface, continuous
 /// corners, hairline border — quiet CleanShot-style polish, no shadows.
 struct CardStyle: ViewModifier {
-    var cornerRadius: CGFloat = 10
+    var cornerRadius: CGFloat = 12
     func body(content: Content) -> some View {
         content
-            .background(Color(.controlBackgroundColor))
+            .background(MCTheme.surface)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
+                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
             )
     }
 }
