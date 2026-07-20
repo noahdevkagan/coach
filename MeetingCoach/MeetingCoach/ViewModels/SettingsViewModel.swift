@@ -28,26 +28,14 @@ final class SettingsViewModel {
 
     private var downloadTask: Task<Void, Never>?
 
-    /// Names of locally installed models (for quick lookup)
-    var installedModelNames: Set<String> {
-        Set(availableModels.map { $0.name })
-    }
-
     init() {
         self.semanticCoachEnabled = UserDefaults.standard.object(forKey: "semanticCoachEnabled") as? Bool ?? true
         self.selectedModel = UserDefaults.standard.string(forKey: "selectedModel")
             ?? "qwen2.5:7b-instruct"
         self.rubricPath = UserDefaults.standard.string(forKey: "rubricPath") ?? ""
         if self.rubricPath.isEmpty {
-            // Legacy dev-checkout rubric wins if present so an existing
-            // personal setup keeps coaching identically.
-            let legacyPath = NSString("~/dev/meeting-coach/rubrics/personal.yaml").expandingTildeInPath
-            if FileManager.default.fileExists(atPath: legacyPath) {
-                self.rubricPath = legacyPath
-            } else {
-                AppSupport.ensureLayout()
-                self.rubricPath = AppSupport.activeRubricURL.path
-            }
+            AppSupport.ensureLayout()
+            self.rubricPath = AppSupport.activeRubricURL.path
         }
     }
 

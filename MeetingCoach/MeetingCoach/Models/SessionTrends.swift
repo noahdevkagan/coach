@@ -15,6 +15,10 @@ struct SessionSummary: Identifiable {
     let nudgeKeyCounts: [String: Int]
     /// Feedback broken down per signal key (the advisor's evidence).
     let feedbackByKey: [String: [NudgeFeedback: Int]]
+    /// Displayed-but-untouched nudges per signal key (the "| ignored"
+    /// marker) — kept out of feedbackCounts so explicit-feedback consumers
+    /// are untouched. Defaulted so existing memberwise call sites compile.
+    var ignoredByKey: [String: Int] = [:]
 
     /// Parsed once at load — weekStats walks this per session per call.
     let durationMinutes: Double
@@ -29,8 +33,7 @@ struct SessionSummary: Identifiable {
 /// Reads and parses all saved session files for trend analysis.
 enum SessionTrends {
     static func loadAll() -> [SessionSummary] {
-        let dir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Documents/MeetingCoach")
+        let dir = AppSupport.sessionsDir
         guard let files = try? FileManager.default.contentsOfDirectory(
             at: dir, includingPropertiesForKeys: [.contentModificationDateKey],
             options: .skipsHiddenFiles
@@ -144,6 +147,15 @@ enum SessionTrends {
 
     // MARK: - Parsing
 
+    /// Hoisted out of parseSession — DateFormatter construction and regex
+    /// compilation per file/line dominate the parse for large histories.
+    private static let fileDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd_HH-mm"
+        return f
+    }()
+    private static let signalKeyRegex = try! NSRegularExpression(pattern: #"\*\*[\w:]+\*\*"#)
+
     private static func parseSession(at url: URL) -> SessionSummary? {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
         let lines = text.components(separatedBy: .newlines)
@@ -151,9 +163,7 @@ enum SessionTrends {
         // Parse date from filename: session_2026-06-30_11-55.md
         let filename = url.deletingPathExtension().lastPathComponent
         let dateStr = filename.replacingOccurrences(of: "session_", with: "")
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd_HH-mm"
-        guard let date = formatter.date(from: dateStr) else { return nil }
+        guard let date = fileDateFormatter.date(from: dateStr) else { return nil }
 
         // Parse header fields
         var duration = ""
@@ -177,6 +187,7 @@ enum SessionTrends {
         var nudgeKeyCounts: [String: Int] = [:]
         var feedbackCounts: [NudgeFeedback: Int] = [:]
         var feedbackByKey: [String: [NudgeFeedback: Int]] = [:]
+        var ignoredByKey: [String: Int] = [:]
         var inNudges = false
         var totalNudges = 0
 
@@ -189,7 +200,9 @@ enum SessionTrends {
 
             // Parse signal key: **talkTime** or **custom:my_signal**
             var key: String?
-            if let typeMatch = line.range(of: #"\*\*[\w:]+\*\*"#, options: .regularExpression) {
+            let range = NSRange(line.startIndex..., in: line)
+            if let m = Self.signalKeyRegex.firstMatch(in: line, range: range),
+               let typeMatch = Range(m.range, in: line) {
                 let raw = String(line[typeMatch]).replacingOccurrences(of: "*", with: "")
                 key = raw
                 nudgeKeyCounts[raw, default: 0] += 1
@@ -210,6 +223,8 @@ enum SessionTrends {
                 if let key {
                     feedbackByKey[key, default: [:]][feedback, default: 0] += 1
                 }
+            } else if line.hasSuffix("| ignored"), let key {
+                ignoredByKey[key, default: 0] += 1
             }
         }
 
@@ -223,6 +238,7 @@ enum SessionTrends {
             talkShare: talkShare,
             nudgeKeyCounts: nudgeKeyCounts,
             feedbackByKey: feedbackByKey,
+            ignoredByKey: ignoredByKey,
             durationMinutes: SessionSummary.minutes(from: duration)
         )
     }

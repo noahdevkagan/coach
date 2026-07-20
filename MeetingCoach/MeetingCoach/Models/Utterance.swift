@@ -1,5 +1,11 @@
 import Foundation
 
+/// Call-relative seconds as "mm:ss" — the one timestamp format every model
+/// and view uses. (Shared here; it was copy-pasted onto five types once.)
+func mmss(_ t: TimeInterval) -> String {
+    String(format: "%02d:%02d", Int(t) / 60, Int(t) % 60)
+}
+
 struct Utterance: Identifiable, Sendable {
     let id = UUID()
     let t: TimeInterval        // seconds from meeting start
@@ -21,9 +27,5 @@ struct Utterance: Identifiable, Sendable {
         return ["you", "me", "self"].contains(lower)
     }
 
-    var formattedTime: String {
-        let mm = Int(t) / 60
-        let ss = Int(t) % 60
-        return String(format: "%02d:%02d", mm, ss)
-    }
+    var formattedTime: String { mmss(t) }
 }

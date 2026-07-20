@@ -55,6 +55,9 @@ final class LiveSessionViewModel {
     private var timerTask: Task<Void, Never>?
     private var signalEngine: SignalEngine?
     private var dismissTask: Task<Void, Never>?
+    /// Overlay fatigue guard — consecutive ignored nudges quiet the overlay
+    /// for the rest of the session until the user interacts again.
+    private var backoff = NudgeBackoff()
 
     // Tier-2 semantic coaching (local LLM heartbeat)
     private var semanticCoach: SemanticCoach?
@@ -306,6 +309,7 @@ final class LiveSessionViewModel {
         error = nil
         meetingSummary = nil
         elapsedTime = 0
+        backoff = NudgeBackoff()
     }
 
     func dismissPostSession() {
@@ -362,7 +366,9 @@ final class LiveSessionViewModel {
         guard u.duration > 1.5 else { return nil }
         // Overlapping spans in time order, merging near-adjacent same-speaker runs.
         var spans: [(speaker: String, start: TimeInterval, end: TimeInterval)] = []
-        for seg in segments.sorted(by: { $0.start < $1.start }) {
+        // Segments arrive sorted from SpeakerDiarizer.publish — re-sorting
+        // here per utterance was O(n·m·log m) across a session for nothing.
+        for seg in segments {
             let s = max(u.t, seg.start), e = min(u.endT, seg.end)
             guard e - s > 0.2 else { continue }
             if let last = spans.last, last.speaker == seg.speaker, s - last.end < 0.5 {
@@ -427,7 +433,11 @@ final class LiveSessionViewModel {
     func recordFeedback(nudgeId: UUID, feedback: NudgeFeedback) {
         if let i = nudges.firstIndex(where: { $0.id == nudgeId }) {
             nudges[i].feedback = feedback
+            // Explicit feedback (overlay or post-hoc feed buttons)
+            // overrides an earlier machine-observed ignore.
+            nudges[i].wasIgnored = nil
         }
+        backoff.userInteracted()
         if activeNudge?.id == nudgeId {
             dismissActiveNudge()
         }
@@ -601,12 +611,27 @@ final class LiveSessionViewModel {
            Self.urgencyRank(nudge.urgency) <= Self.urgencyRank(current.urgency) {
             return
         }
+        // Fatigue backoff: after consecutive ignored nudges the overlay
+        // goes quiet for a growing gap — the nudge stays feed-only.
+        guard backoff.shouldDisplay(urgency: nudge.urgency,
+                                    isPositive: nudge.type.isPositive,
+                                    isFocusType: focusTypes.contains(nudge.type),
+                                    now: elapsedTime) else {
+            return
+        }
         activeNudge = nudge
         // Auto-dismiss after 6 seconds
         dismissTask?.cancel()
         dismissTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(6))
             guard let self, self.activeNudge?.id == nudge.id else { return }
+            // Held the overlay for the full window, untouched — that's an
+            // ignore. Displaced nudges never reach here (the id guard).
+            if let i = self.nudges.firstIndex(where: { $0.id == nudge.id }),
+               self.nudges[i].feedback == nil {
+                self.nudges[i].wasIgnored = true
+                self.backoff.nudgeIgnored()
+            }
             self.dismissActiveNudge()
         }
     }
@@ -668,8 +693,7 @@ final class LiveSessionViewModel {
     private func saveSession() {
         guard !utterances.isEmpty else { return }
 
-        let dir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Documents/MeetingCoach")
+        let dir = AppSupport.sessionsDir
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
         let formatter = DateFormatter()
@@ -714,7 +738,10 @@ final class LiveSessionViewModel {
         if !nudges.isEmpty {
             lines.append("## Nudges")
             for n in nudges {
-                let feedbackStr = n.feedback.map { " | feedback: \($0.rawValue)" } ?? ""
+                // Mutually exclusive suffixes: explicit feedback wins over
+                // the machine-observed ignore marker.
+                let feedbackStr = n.feedback.map { " | feedback: \($0.rawValue)" }
+                    ?? (n.wasIgnored == true ? " | ignored" : "")
                 lines.append("- [\(n.formattedTime)] **\(n.typeKey)** (\(n.urgency.rawValue)): \(n.text)\(feedbackStr)")
             }
             lines.append("")
@@ -723,6 +750,6 @@ final class LiveSessionViewModel {
         let content = lines.joined(separator: "\n")
         try? content.write(to: file, atomically: true, encoding: .utf8)
         savedPath = file.path
-        status = "Session saved to ~/Documents/MeetingCoach/"
+        status = "Session saved to \(dir.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))/"
     }
 }

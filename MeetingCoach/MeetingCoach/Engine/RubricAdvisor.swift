@@ -45,6 +45,9 @@ enum RubricAdvisor {
     static let wrongRate = 0.6
     static let annoyingRate = 0.6
     static let usefulRate = 0.8
+    /// Displayed-but-untouched nudges before the weakest rule (chronic
+    /// ignoring, no explicit ratings) proposes a longer cooldown.
+    static let minIgnored = 8
     /// The adaptive clamp ceiling — pinned here for 3+ sessions and still
     /// firing means bounded auto-tuning has given up on this signal.
     static let adaptiveCeiling = 2.0
@@ -57,6 +60,7 @@ enum RubricAdvisor {
         var wrong = 0
         var annoying = 0
         var useful = 0
+        var ignored = 0
         var sessionsWithSignal = 0
         var adaptiveMultiplier = 1.0
         var firedInRecentSessions = false
@@ -78,6 +82,7 @@ enum RubricAdvisor {
                     e.annoying += feedback[.annoying] ?? 0
                     e.useful += feedback[.useful] ?? 0
                 }
+                e.ignored += session.ignoredByKey[key] ?? 0
                 byKey[key] = e
             }
         }
@@ -115,6 +120,17 @@ enum RubricAdvisor {
                         "This one keeps earning \"Useful\" — it can fire a little sooner.",
                         "You rated \(e.useful) of \(e.rated) \"Useful\" across \(e.sessionsWithSignal) sessions.")
             }
+        }
+
+        // Chronic ignoring with no explicit ratings — the weakest rule:
+        // the user never engages, so keep the signal but slow it down.
+        // Customs are skipped (their only structural knob is disable, too
+        // harsh for a passive signal).
+        if e.rated < minRated, e.ignored >= minIgnored,
+           e.sessionsWithSignal >= minSessions, !isCustom {
+            return (.raiseCooldown,
+                    "You rarely engage with this nudge — a longer cooldown keeps it out of the way.",
+                    "\(e.ignored) of these came and went without a tap across \(e.sessionsWithSignal) sessions.")
         }
 
         // Adaptive tuning pinned at its ceiling and the signal still fires:

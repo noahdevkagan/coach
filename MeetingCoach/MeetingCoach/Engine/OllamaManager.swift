@@ -240,11 +240,6 @@ final class OllamaManager {
         }
     }
 
-    /// Check if a system-installed ollama is already running.
-    private func systemOllamaAvailable() -> Bool {
-        systemOllamaModelCount() != nil
-    }
-
     /// nil when nothing answers on the port; otherwise how many models the
     /// server there offers. Distinguishes a leftover embedded engine (has
     /// our models) from a bare system Ollama (usually has none).

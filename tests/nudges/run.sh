@@ -47,6 +47,7 @@ swiftc -O -o "$OUT/sigcheck" \
   "$SRC/Engine/SignalEngine.swift" \
   "$SRC/Engine/TuningTypes.swift" \
   "$SRC/Engine/AdaptiveThresholds.swift" \
+  "$SRC/Engine/NudgeBackoff.swift" \
   "$SRC/Models/Utterance.swift" \
   "$SRC/Models/Nudge.swift" \
   "$SRC/Models/PreCallContext.swift" \

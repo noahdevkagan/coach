@@ -20,11 +20,7 @@ struct Turn: Identifiable {
     var wordCount: Int
     var utteranceCount: Int
 
-    var formattedTime: String {
-        let mm = Int(t) / 60
-        let ss = Int(t) % 60
-        return String(format: "%02d:%02d", mm, ss)
-    }
+    var formattedTime: String { mmss(t) }
 }
 
 /// Builds turns incrementally. Appending is O(1); a full rebuild is used when

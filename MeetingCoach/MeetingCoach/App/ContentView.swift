@@ -198,6 +198,8 @@ struct LiveTimelineView: View {
                 Spacer()
                 TranscriptHeaderStats(liveSession: liveSession)
                 if !liveSession.isLive && liveSession.hasSession && !liveSession.turns.isEmpty {
+                    CopyButton(help: "Copy transcript") { transcriptText() }
+
                     Button {
                         exportTranscript()
                     } label: {
@@ -218,9 +220,9 @@ struct LiveTimelineView: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Can't hear the meeting — mic only")
+                        Text("Only hearing your mic — not the meeting")
                             .font(.caption.bold())
-                        Text("Grant Screen Recording so the coach can tell you apart from them, then restart the session.")
+                        Text("MeetingCoach can't hear the other participants, so it can't tell who's speaking. Grant Screen Recording, then restart the session.")
                             .font(.caption2).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -258,16 +260,10 @@ struct LiveTimelineView: View {
         )
     }
 
-    private func exportTranscript() {
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.plainText]
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd_HH-mm"
-        panel.nameFieldStringValue = "transcript_\(formatter.string(from: Date())).txt"
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-
-        // Per-utterance blocks with real time-of-day ranges — reads like a
-        // Zoom transcript, not a wall of coalesced turns.
+    // Per-utterance blocks with real time-of-day ranges — reads like a
+    // Zoom transcript, not a wall of coalesced turns. Shared by the copy
+    // and download buttons so the two can never drift apart.
+    private func transcriptText() -> String {
         let clock = DateFormatter()
         clock.dateFormat = "HH:mm:ss"
         let start = liveSession.sessionStartDate
@@ -278,12 +274,21 @@ struct LiveTimelineView: View {
             let s = Int(offset)
             return String(format: "%02d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
         }
-        let text = liveSession.utterances
+        return liveSession.utterances
             .map { u in
                 "\(stamp(u.t)) --> \(stamp(max(u.endT, u.t + 1)))\n\(u.speaker): \(u.text)"
             }
             .joined(separator: "\n\n")
-        try? text.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    private func exportTranscript() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.plainText]
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm"
+        panel.nameFieldStringValue = "transcript_\(formatter.string(from: Date())).txt"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        try? transcriptText().write(to: url, atomically: true, encoding: .utf8)
     }
 }
 
@@ -323,6 +328,38 @@ private struct TranscriptHeaderStats: View {
 
 /// Renders the pre-built turns from the view model — no per-frame re-joining,
 /// stable identity per turn.
+/// One committed turn in the live transcript. Extracted into its own view
+/// so SwiftUI's struct diffing skips unchanged rows: the paragraph split
+/// (an O(text) sentence/word pass) re-runs only for the turn whose text is
+/// still coalescing — not for every turn on every utterance, which made the
+/// pane O(session²) over an hour-long call.
+private struct TranscriptTurnRow: View {
+    let turn: Turn
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                Text(turn.formattedTime)
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+                Text(turn.speaker)
+                    .font(.caption2.bold())
+                    .foregroundStyle(speakerColor(turn.speaker))
+            }
+            // Long unattributed turns (mic-only mode) read as a wall —
+            // break into paragraphs for display only; signal analysis
+            // still sees one turn.
+            ForEach(Array(paragraphs(turn.text).enumerated()), id: \.offset) { _, para in
+                Text(para)
+                    .font(.callout)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.bottom, 2)
+            }
+        }
+    }
+}
+
 private struct LiveTranscriptPane: View {
     var liveSession: LiveSessionViewModel
 
@@ -353,26 +390,7 @@ private struct LiveTranscriptPane: View {
                     // partials grow into full paragraphs, so the hole is big).
                     VStack(alignment: .leading, spacing: 10) {
                         ForEach(liveSession.turns) { turn in
-                            VStack(alignment: .leading, spacing: 2) {
-                                HStack(spacing: 4) {
-                                    Text(turn.formattedTime)
-                                        .font(.system(.caption2, design: .monospaced))
-                                        .foregroundStyle(.tertiary)
-                                    Text(turn.speaker)
-                                        .font(.caption2.bold())
-                                        .foregroundStyle(speakerColor(turn.speaker))
-                                }
-                                // Long unattributed turns (mic-only mode) read
-                                // as a wall — break into paragraphs for display
-                                // only; signal analysis still sees one turn.
-                                ForEach(Array(paragraphs(turn.text).enumerated()), id: \.offset) { _, para in
-                                    Text(para)
-                                        .font(.callout)
-                                        .textSelection(.enabled)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                        .padding(.bottom, 2)
-                                }
-                            }
+                            TranscriptTurnRow(turn: turn)
                         }
                         // Live pending line(s): what the recognizer hears right
                         // now, before it's committed as a turn — dictation feel.
@@ -521,13 +539,41 @@ struct NudgeCardView: View {
     }
 }
 
+/// Small icon button that copies text and flashes a "Copied ✓" confirmation
+/// for 2s — shared by the transcript header and the recap card.
+struct CopyButton: View {
+    let help: String
+    let text: () -> String
+    @State private var copied = false
+
+    var body: some View {
+        if copied {
+            Label("Copied", systemImage: "checkmark")
+                .font(.caption)
+                .foregroundStyle(.green)
+        }
+        Button {
+            RecapExporter.copyToPasteboard(text())
+            copied = true
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(2))
+                copied = false
+            }
+        } label: {
+            Image(systemName: "doc.on.doc")
+                .font(.caption)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .help(help)
+    }
+}
+
 struct MeetingSummaryCard: View {
     let summary: String
     /// Full shareable recap (summary + session facts + footer). When set,
     /// copy/share controls appear in the card header.
     var recapText: String?
-
-    @State private var copied = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -536,25 +582,7 @@ struct MeetingSummaryCard: View {
                     .font(.headline)
                 Spacer()
                 if let recap = recapText {
-                    if copied {
-                        Label("Copied", systemImage: "checkmark")
-                            .font(.caption)
-                            .foregroundStyle(.green)
-                    }
-                    Button {
-                        RecapExporter.copyToPasteboard(recap)
-                        copied = true
-                        Task { @MainActor in
-                            try? await Task.sleep(for: .seconds(2))
-                            copied = false
-                        }
-                    } label: {
-                        Image(systemName: "doc.on.doc")
-                            .font(.caption)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-                    .help("Copy recap for Slack or email")
+                    CopyButton(help: "Copy recap for Slack or email") { recap }
 
                     ShareLink(item: recap) {
                         Image(systemName: "square.and.arrow.up")
@@ -1374,6 +1402,10 @@ struct LiveSection: View {
 struct FeedbackSection: View {
     @Bindable var simulation: SimulationViewModel
     @Bindable var liveSession: LiveSessionViewModel
+    /// Loaded once on appear (and bumped on save) — TrainingStore.load()
+    /// hits disk + JSON-decodes, far too heavy for a view body that
+    /// re-renders per utterance during simulation playback.
+    @State private var trainingCount = 0
 
     private var activeUtterances: [Utterance] {
         if liveSession.hasSession {
@@ -1446,13 +1478,13 @@ struct FeedbackSection: View {
 
                 Spacer()
 
-                let count = TrainingStore.load().count
-                if count > 0 {
-                    Text("\(count) example\(count == 1 ? "" : "s")")
+                if trainingCount > 0 {
+                    Text("\(trainingCount) example\(trainingCount == 1 ? "" : "s")")
                         .font(.caption2).foregroundStyle(.tertiary)
                 }
             }
         }
+        .onAppear { trainingCount = TrainingStore.load().count }
     }
 
     private func saveTraining() {
@@ -1473,6 +1505,7 @@ struct FeedbackSection: View {
         )
 
         TrainingStore.append(example)
+        trainingCount += 1
         simulation.feedbackSaved = true
         mclog("[Training] Saved example with \(signals.count) parsed signals, source=\(sourceLabel)")
     }

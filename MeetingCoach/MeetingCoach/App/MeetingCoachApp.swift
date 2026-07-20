@@ -72,14 +72,19 @@ struct MeetingCoachApp: App {
         }
         .windowResizability(.contentSize)
 
-        // Preferences (⌘,). Progress moved to the main window's idle pane;
-        // this keeps the learned-sensitivity details reachable.
+        // Preferences (⌘,): General (transcript folder, detection behavior)
+        // and Stats (session trends + learned sensitivity).
         Settings {
-            ScrollView {
-                SessionTrendsView()
-                    .padding()
+            TabView {
+                GeneralSettingsView(detection: detection)
+                    .tabItem { Label("General", systemImage: "gear") }
+                ScrollView {
+                    SessionTrendsView()
+                        .padding()
+                }
+                .tabItem { Label("Stats", systemImage: "chart.bar.xaxis") }
             }
-            .frame(width: 420, height: 480)
+            .frame(width: 460, height: 520)
         }
     }
 
@@ -100,10 +105,24 @@ struct MenuBarLabel: View {
 
     var body: some View {
         Image(systemName: symbol)
-            .onAppear { detection.bind(liveSession: liveSession) }
+            .onAppear {
+                detection.bind(liveSession: liveSession)
+                // Countdown expiry uses the same start path as the pill's
+                // "Start Coaching" button.
+                detection.onAutoStart = { startFromDetection() }
+            }
             .onChange(of: detection.meetingDetected) { _, detected in
                 if detected { showPrompt() } else { hidePrompt() }
             }
+    }
+
+    private func startFromDetection() {
+        detection.sessionStarted()
+        openWindow(id: "main")
+        NSApp.activate(ignoringOtherApps: true)
+        liveSession.startLive(context: liveSession.preCallContext,
+                              settings: settings,
+                              ollamaManager: ollamaManager)
     }
 
     private var symbol: String {
@@ -122,14 +141,10 @@ struct MenuBarLabel: View {
         if promptPanel == nil { promptPanel = MeetingPromptPanel() }
         guard let panel = promptPanel else { return }
         // Rebuild content each detection — the source app can differ.
-        let view = MeetingPromptView(source: detection.detectedSource,
+        let view = MeetingPromptView(detection: detection,
+                                     source: detection.detectedSource,
                                      icon: detection.detectedIcon) {
-            detection.sessionStarted()
-            openWindow(id: "main")
-            NSApp.activate(ignoringOtherApps: true)
-            liveSession.startLive(context: liveSession.preCallContext,
-                                  settings: settings,
-                                  ollamaManager: ollamaManager)
+            startFromDetection()
         } onStartWithGoal: {
             detection.sessionStarted()
             liveSession.showPreCallForm = true
@@ -188,6 +203,8 @@ struct MenuBarView: View {
 
         Divider()
         Toggle("Auto-detect meetings", isOn: $detection.isEnabled)
+        Toggle("Auto-start coaching", isOn: $detection.autoStartEnabled)
+            .disabled(!detection.isEnabled)
         Button("Open Meeting Coach") {
             openWindow(id: "main")
             NSApp.activate(ignoringOtherApps: true)

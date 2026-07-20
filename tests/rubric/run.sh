@@ -39,6 +39,7 @@ swiftc -O -o "$OUT/advisorcheck" \
   "$SRC/Engine/AdaptiveThresholds.swift" \
   "$SRC/Models/SessionTrends.swift" \
   "$SRC/Models/AppSupport.swift" \
+  "$SRC/Models/Utterance.swift" \
   "$SRC/Models/Nudge.swift"
 "$OUT/advisorcheck"
 

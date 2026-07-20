@@ -123,4 +123,112 @@ _ = runEnded([(0, app), (100, quiet)], detector: &d12, to: 200)
 let p12 = run([(300, app)], detector: &d12, from: 300, to: 330)
 check(p12 == [305], "prompts again for the next meeting", "got \(p12)")
 
+// MARK: - Window evidence
+
+/// Copy of `s` with the tri-state window evidence set.
+func win(_ s: MeetingSignals, _ w: Bool?) -> MeetingSignals {
+    var c = s
+    c.meetingWindowPresent = w
+    return c
+}
+
+/// Tick 1s steps; return every non-.none event with its time.
+func runEvents(_ timeline: [(Double, MeetingSignals)], detector: inout MeetingDetector,
+               from start: Double = 0, to end: Double) -> [(Double, MeetingDetector.Event)] {
+    var events: [(Double, MeetingDetector.Event)] = []
+    var t = start
+    while t <= end {
+        let signals = timeline.last(where: { $0.0 <= t })?.1 ?? quiet
+        let e = detector.tick(signals, now: t)
+        if e != .none { events.append((t, e)) }
+        t += 1
+    }
+    return events
+}
+
+// 13. Both end signals agree (mic released AND meeting window gone) →
+//     confident end after the short 15s debounce, not 60s.
+var d13 = MeetingDetector()
+d13.sessionStarted()
+let e13 = runEnded([(0, win(app, true)), (100, win(quiet, false))], detector: &d13, to: 300)
+check(e13 == [115], "mic release + window gone ends at 15s", "got \(e13)")
+
+// 14. Muted participant: mic released but the meeting window persists →
+//     never auto-ends; fires .endedAmbiguous at 300s, stays live, and
+//     re-fires 300s later while the situation persists.
+var d14 = MeetingDetector()
+d14.sessionStarted()
+let ev14 = runEvents([(0, win(app, true)), (100, win(quiet, true))], detector: &d14, to: 750)
+check(ev14.map(\.1) == [.endedAmbiguous, .endedAmbiguous]
+      && ev14.map(\.0) == [400, 700],
+      "window persists → ambiguous at 300s, re-fires, never .ended", "got \(ev14)")
+check(d14.isLive, "ambiguous end leaves the session live", "got \(d14.state)")
+
+// 15. A meeting window arms a session whose mic was never attributed
+//     (muted browser participant) — window disappearing then ends it.
+var d15 = MeetingDetector()
+d15.sessionStarted()
+let e15 = runEnded([(0, win(quiet, true)), (50, win(quiet, false))], detector: &d15, to: 300)
+check(e15 == [50], "window evidence arms and ends an unattributed session", "got \(e15)")
+
+// 16. Window gone but the app still holds the mic warm (Zoom/Slack
+//     post-call) → ends after the 90s linger debounce.
+var d16 = MeetingDetector()
+d16.sessionStarted()
+let e16 = runEnded([(0, win(app, true)), (100, win(app, false))], detector: &d16, to: 400)
+check(e16 == [190], "mic lingering after window gone ends at 90s", "got \(e16)")
+
+// 17. Fail-safe: absence is only trusted after a window was SEEN — false
+//     from the start (heuristic never matched) behaves exactly like the
+//     mic-only 60s path of test 9.
+var d17 = MeetingDetector()
+d17.sessionStarted()
+let e17 = runEnded([(0, win(app, false)), (100, win(quiet, false))], detector: &d17, to: 300)
+check(e17 == [160], "unseen window absence degrades to the 60s mic path", "got \(e17)")
+
+// 18. Window flapping right after a mic release (Space switch) under the
+//     fast debounce doesn't end the session; the persistent-window
+//     ambiguous path takes over.
+var d18 = MeetingDetector()
+d18.sessionStarted()
+let ev18 = runEvents([(0, win(app, true)), (100, win(quiet, true)),
+                      (105, win(quiet, false)), (110, win(quiet, true))],
+                     detector: &d18, to: 500)
+check(!ev18.map(\.1).contains(.ended) && ev18.contains(where: { $0.1 == .endedAmbiguous }),
+      "brief window flap doesn't end; ambiguous path resumes", "got \(ev18)")
+
+// 19. End signals compound: 40s into the mic-quiet 60s wait the window
+//     disappears → threshold drops to 15s (already exceeded) → immediate.
+var d19 = MeetingDetector()
+d19.sessionStarted()
+let e19 = runEnded([(0, win(app, true)), (100, win(quiet, nil)), (140, win(quiet, false))],
+                   detector: &d19, to: 300)
+check(e19 == [140], "window vanishing mid-quiet ends immediately", "got \(e19)")
+
+// MARK: - Window heuristics (pure title/owner matching)
+
+let zoomWin = WindowInfo(ownerName: "zoom.us", title: "Zoom Meeting")
+let huddleWin = WindowInfo(ownerName: "Slack", title: "Huddle with growth team")
+let meetWin = WindowInfo(ownerName: "Google Chrome", title: "Meet – xyz-abcd-efg")
+let docWin = WindowInfo(ownerName: "Google Chrome", title: "Q3 plan - Google Docs")
+
+check(MeetingWindowHeuristics.evaluate(windows: [docWin, zoomWin], zoomRunning: true,
+                                       slackRunning: false, micHolderIsBrowser: false) == true,
+      "zoom meeting window matches")
+check(MeetingWindowHeuristics.evaluate(windows: [docWin], zoomRunning: true,
+                                       slackRunning: false, micHolderIsBrowser: false) == false,
+      "zoom running without meeting window is decisive absence")
+check(MeetingWindowHeuristics.evaluate(windows: [huddleWin], zoomRunning: false,
+                                       slackRunning: true, micHolderIsBrowser: false) == true,
+      "slack huddle window matches")
+check(MeetingWindowHeuristics.evaluate(windows: [meetWin], zoomRunning: false,
+                                       slackRunning: false, micHolderIsBrowser: true) == true,
+      "meet tab title matches")
+check(MeetingWindowHeuristics.evaluate(windows: [docWin], zoomRunning: false,
+                                       slackRunning: false, micHolderIsBrowser: true) == nil,
+      "browser absence is never decisive (active-tab titles)")
+check(MeetingWindowHeuristics.evaluate(windows: [docWin], zoomRunning: true,
+                                       slackRunning: false, micHolderIsBrowser: true) == nil,
+      "zoom idling while the meeting is in a browser stays unknown")
+
 exit(fail ? 1 : 0)

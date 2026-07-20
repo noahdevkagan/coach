@@ -166,7 +166,7 @@ struct SimulationTimelineView: View {
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
-                Text(formatTime(simulation.currentTime))
+                Text(mmss(simulation.currentTime))
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(.tertiary)
             }
@@ -220,11 +220,6 @@ struct SimulationTimelineView: View {
         }
     }
 
-    private func formatTime(_ t: TimeInterval) -> String {
-        let mm = Int(t) / 60
-        let ss = Int(t) % 60
-        return String(format: "%02d:%02d", mm, ss)
-    }
 }
 
 // MARK: - Sim Nudge Card (v2)

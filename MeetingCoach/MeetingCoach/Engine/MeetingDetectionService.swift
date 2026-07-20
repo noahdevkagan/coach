@@ -14,6 +14,7 @@ import UserNotifications
 @MainActor @Observable
 final class MeetingDetectionService {
     static let enabledKey = "autoDetectMeetings"
+    static let autoStartKey = "autoStartCoaching"
 
     /// Default ON for fresh installs — detection is permissionless (mic
     /// state + app list, no TCC prompts) and the "Meeting detected" pill is
@@ -33,6 +34,26 @@ final class MeetingDetectionService {
         }
     }
 
+    /// Opt-in: when a meeting is detected, start coaching automatically
+    /// after a short cancelable countdown instead of waiting for a click.
+    /// Only fires on the per-process attribution path (14.4+) — the
+    /// pre-14.4 fallback is too false-positive-prone to auto-record on.
+    var autoStartEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(autoStartEnabled, forKey: Self.autoStartKey)
+            if !autoStartEnabled { cancelAutoStart() }
+        }
+    }
+
+    /// Seconds until coaching auto-starts; nil when no countdown is running.
+    /// The detection pill renders this and offers the cancel.
+    private(set) var autoStartCountdown: Int?
+
+    /// Fired when the countdown completes — wired to the same start path
+    /// as the pill's "Start Coaching" button.
+    @ObservationIgnored var onAutoStart: (() -> Void)?
+    @ObservationIgnored private var autoStartTask: Task<Void, Never>?
+
     /// True when a meeting looks live and the user hasn't started/dismissed.
     private(set) var meetingDetected = false
 
@@ -48,12 +69,13 @@ final class MeetingDetectionService {
     private var pollTask: Task<Void, Never>?
 
     init() {
+        autoStartEnabled = UserDefaults.standard.bool(forKey: Self.autoStartKey)
         if UserDefaults.standard.object(forKey: Self.enabledKey) == nil {
             isEnabled = true
         } else {
             isEnabled = UserDefaults.standard.bool(forKey: Self.enabledKey)
         }
-        mclog("[Detect] auto-detect enabled=\(isEnabled)")
+        mclog("[Detect] auto-detect enabled=\(isEnabled) autoStart=\(autoStartEnabled)")
         if isEnabled { startPolling() }
     }
 
@@ -65,6 +87,15 @@ final class MeetingDetectionService {
             // muted) — only stop when the room has also gone quiet. If
             // people are still talking, skip; the detector rearms and
             // fires again on the next sustained release.
+            //
+            // "Talking" must include IN-FLIGHT speech: Parakeet commits in
+            // large chunks (100s+ mid-monologue), so the last committed
+            // utterance can be minutes old while someone is mid-sentence.
+            // A non-empty live partial is direct evidence of active speech.
+            guard session.livePartials.values.allSatisfy(\.isEmpty) else {
+                mclog("[Detect] Mic released but speech in flight — not auto-stopping")
+                return
+            }
             let lastHeard = session.utterances.last?.t ?? 0
             guard session.elapsedTime - lastHeard >= 20 else {
                 mclog("[Detect] Mic released but speech within 20s — not auto-stopping")
@@ -82,14 +113,43 @@ final class MeetingDetectionService {
 
     /// User clicked "Not now" — quiet for the cooldown window.
     func dismissPrompt() {
+        cancelAutoStart()
         meetingDetected = false
         detector.dismissed(now: Date().timeIntervalSinceReferenceDate)
     }
 
     /// A session is starting (from the prompt or manually).
     func sessionStarted() {
+        cancelAutoStart()
         meetingDetected = false
+        windowAbsentStreak = 0
+        liveMicHolderIsBrowser = nil
         detector.sessionStarted()
+    }
+
+    // MARK: - Auto-start countdown
+
+    /// Ten second cancelable runway between "meeting detected" and capture
+    /// starting — a false positive costs one click instead of a recording.
+    private func beginAutoStartCountdown() {
+        cancelAutoStart()
+        autoStartTask = Task { @MainActor [weak self] in
+            for remaining in (1...10).reversed() {
+                guard let self, !Task.isCancelled else { return }
+                self.autoStartCountdown = remaining
+                try? await Task.sleep(for: .seconds(1))
+            }
+            guard let self, !Task.isCancelled else { return }
+            self.autoStartCountdown = nil
+            mclog("[Detect] Auto-starting coaching")
+            self.onAutoStart?()
+        }
+    }
+
+    private func cancelAutoStart() {
+        autoStartTask?.cancel()
+        autoStartTask = nil
+        autoStartCountdown = nil
     }
 
     // MARK: - Polling
@@ -112,24 +172,52 @@ final class MeetingDetectionService {
 
     private func tick() {
         let now = Date().timeIntervalSinceReferenceDate
-        let (signals, attributed) = sampleSignals()
+        let (rawSignals, attributed) = sampleSignals()
+        var signals = rawSignals
 
         if isSessionLive() {
             meetingDetected = false
             // Starts that didn't route through us (main window button)
             // still put the detector in live mode.
             if !detector.isLive { detector.sessionStarted() }
+            // Window evidence only matters while live — skip CGWindowList
+            // entirely in every other state.
+            signals.meetingWindowPresent = sampleWindowEvidence(signals: rawSignals,
+                                                                attributed: attributed)
             // End-of-meeting watch needs per-process attribution — the
             // fallback's device-level mic bit is always on while WE hold
             // the mic to record, so it can never see the meeting end.
-            if attributed, detector.tick(signals, now: now) == .ended {
-                onMeetingEnded?()
+            // (Window evidence compounds with attribution on 14.4+; it is
+            // deliberately not enough on its own for the pre-14.4 path.)
+            if attributed {
+                switch detector.tick(signals, now: now) {
+                case .ended:
+                    onMeetingEnded?()
+                case .endedAmbiguous:
+                    // Mic long released but a meeting window is still on
+                    // screen (muted participant?) — too ambiguous to stop.
+                    mclog("[Detect] Mic released but meeting window still visible — not auto-stopping")
+                default:
+                    break
+                }
+                // Log arming transitions — when an auto-stop surprises
+                // someone, this line says what evidence armed the watch.
+                if case .live(let armed, let windowSeen, _) = detector.state,
+                   armed != loggedArmed || windowSeen != loggedWindowSeen {
+                    mclog("[Detect] end-watch armed=\(armed) windowSeen=\(windowSeen) "
+                          + "micHolder=\(micUserForPrompt ?? "none") app=\(signals.meetingAppRunning) "
+                          + "browser=\(signals.browserFrontmost) window=\(signals.meetingWindowPresent.map(String.init) ?? "nil")")
+                    loggedArmed = armed
+                    loggedWindowSeen = windowSeen
+                }
             }
             return
         }
         // The session stopped without the detector hearing about it —
         // suppress re-prompting until this meeting's signals drop.
         if detector.isLive { detector.sessionEnded() }
+        windowAbsentStreak = 0
+        liveMicHolderIsBrowser = nil
 
         let event = detector.tick(signals, now: now)
         if event == .prompt {
@@ -150,10 +238,15 @@ final class MeetingDetectionService {
             }
             meetingDetected = true
             mclog("[Detect] Meeting detected (\(signals.meetingAppRunning ? "app" : "browser") + mic)")
+            // Auto-start needs the attribution path's confidence — the
+            // pre-14.4 fallback would auto-record on Slack merely running.
+            let autoStarting = autoStartEnabled && attributed
+            if autoStarting { beginAutoStartCountdown() }
             playChirp()
-            postNotification()
+            postNotification(autoStarting: autoStarting)
         } else if meetingDetected, case .idle = detector.state {
             // Signals dropped before the user acted — clear the prompt.
+            cancelAutoStart()
             meetingDetected = false
         }
     }
@@ -197,6 +290,73 @@ final class MeetingDetectionService {
                 browserFrontmost: micInUse && Self.browserFrontmost()
             )
             return (signals, attributed: false)
+        }
+    }
+
+    // MARK: - Window evidence (live sessions only)
+
+    /// Consecutive "no meeting window" samples — absence only reaches the
+    /// detector after two in a row, so a Space transition or enumeration
+    /// hiccup can't flap the signal.
+    @ObservationIgnored private var windowAbsentStreak = 0
+
+    /// Last-logged end-watch arming state (dedupes the diagnostic log).
+    @ObservationIgnored private var loggedArmed = false
+    @ObservationIgnored private var loggedWindowSeen = false
+
+    /// Whether the live meeting's mic evidence came from a browser (nil
+    /// until attribution is seen this session). Browser window titles only
+    /// reflect the active tab, so browser absence is never decisive.
+    @ObservationIgnored private var liveMicHolderIsBrowser: Bool?
+
+    /// Tri-state window evidence for the live session, smoothed. Titles in
+    /// CGWindowList are only populated with Screen Recording permission —
+    /// which the app already needs for system audio, so this asks for
+    /// nothing new; without it we return nil and behavior is unchanged.
+    private func sampleWindowEvidence(signals: MeetingSignals, attributed: Bool) -> Bool? {
+        if attributed, signals.micInUse {
+            liveMicHolderIsBrowser = !signals.meetingAppRunning
+        }
+        guard CGPreflightScreenCaptureAccess() else {
+            windowAbsentStreak = 0
+            return nil
+        }
+        let raw = MeetingWindowHeuristics.evaluate(
+            windows: Self.meetingWindowSnapshot(),
+            zoomRunning: Self.appRunning(prefix: "us.zoom.xos"),
+            slackRunning: Self.appRunning(prefix: "com.tinyspeck.slackmacgap"),
+            micHolderIsBrowser: liveMicHolderIsBrowser ?? true)
+        switch raw {
+        case .some(true):
+            windowAbsentStreak = 0
+            return true
+        case .some(false):
+            windowAbsentStreak += 1
+            return windowAbsentStreak >= 2 ? false : nil
+        case .none:
+            windowAbsentStreak = 0
+            return nil
+        }
+    }
+
+    /// All-Spaces window snapshot (owner + title) — `.optionAll`, not
+    /// on-screen-only, so a meeting window minimized or on another Space
+    /// doesn't read as absent.
+    private static func meetingWindowSnapshot() -> [WindowInfo] {
+        guard let list = CGWindowListCopyWindowInfo([.optionAll, .excludeDesktopElements],
+                                                    kCGNullWindowID) as? [[String: Any]]
+        else { return [] }
+        return list.compactMap { info in
+            guard let owner = info[kCGWindowOwnerName as String] as? String,
+                  let title = info[kCGWindowName as String] as? String, !title.isEmpty
+            else { return nil }
+            return WindowInfo(ownerName: owner, title: title)
+        }
+    }
+
+    private static func appRunning(prefix: String) -> Bool {
+        NSWorkspace.shared.runningApplications.contains {
+            $0.bundleIdentifier?.hasPrefix(prefix) ?? false
         }
     }
 
@@ -347,18 +507,14 @@ final class MeetingDetectionService {
     }
 
     /// Display name + real icon of the first running known meeting app.
+    /// Reuses the displayNames table — a second inline copy drifted once.
     static func meetingAppInfo() -> (name: String, icon: NSImage?)? {
-        let names: [(prefix: String, display: String)] = [
-            ("us.zoom.xos", "Zoom"), ("com.microsoft.teams", "Microsoft Teams"),
-            ("com.cisco.webex", "Webex"), ("com.webex.meetingmanager", "Webex"),
-            ("com.ringcentral", "RingCentral"), ("com.skype.skype", "Skype"),
-            ("com.hnc.Discord", "Discord"), ("com.loom.desktop", "Loom"),
-        ]
         for app in NSWorkspace.shared.runningApplications {
-            guard let id = app.bundleIdentifier else { continue }
-            if let match = names.first(where: { id.hasPrefix($0.prefix) }) {
-                return (match.display, app.icon)
-            }
+            guard let id = app.bundleIdentifier,
+                  meetingBundlePrefixes.contains(where: { id.hasPrefix($0) }),
+                  let display = displayName(forBundleID: id)
+            else { continue }
+            return (display, app.icon)
         }
         return nil
     }
@@ -398,10 +554,12 @@ final class MeetingDetectionService {
         }
     }
 
-    private func postNotification() {
+    private func postNotification(autoStarting: Bool = false) {
         let content = UNMutableNotificationContent()
         content.title = "Meeting detected"
-        content.body = "Start coaching? Open the Meeting Coach menu bar icon."
+        content.body = autoStarting
+            ? "Coaching starts in 10 seconds — click the pill to cancel."
+            : "Start coaching? Open the Meeting Coach menu bar icon."
         let request = UNNotificationRequest(identifier: "meeting-detected-\(UUID().uuidString)",
                                             content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)

@@ -7,16 +7,18 @@ struct Nudge: Identifiable, Codable {
     let urgency: NudgeUrgency
     let timestamp: TimeInterval   // call-relative
     var feedback: NudgeFeedback?
+    /// Machine-observed, not user-stated: the nudge held the overlay for
+    /// its full display window and the user never touched it. Cleared if
+    /// feedback arrives later (feed buttons). Optional so old encoded data
+    /// still decodes; deliberately NOT a NudgeFeedback case so explicit
+    /// feedback ratios stay undiluted.
+    var wasIgnored: Bool?
     /// Set only for type == .custom: the rubric signal id (snake_case) and
     /// its display name. Optional so old encoded data still decodes.
     var customId: String?
     var customName: String?
 
-    var formattedTime: String {
-        let mm = Int(timestamp) / 60
-        let ss = Int(timestamp) % 60
-        return String(format: "%02d:%02d", mm, ss)
-    }
+    var formattedTime: String { mmss(timestamp) }
 
     /// Stable per-signal key for persistence and adaptive thresholds:
     /// the rawValue for built-ins, "custom:<id>" for rubric-defined signals.

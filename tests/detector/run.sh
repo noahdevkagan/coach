@@ -10,5 +10,6 @@ OUT=tests/detector/.build
 mkdir -p "$OUT"
 swiftc -O -o "$OUT/detectorcheck" \
   tests/detector/main.swift \
-  MeetingCoach/MeetingCoach/Engine/MeetingDetector.swift
+  MeetingCoach/MeetingCoach/Engine/MeetingDetector.swift \
+  MeetingCoach/MeetingCoach/Engine/MeetingWindowHeuristics.swift
 "$OUT/detectorcheck"

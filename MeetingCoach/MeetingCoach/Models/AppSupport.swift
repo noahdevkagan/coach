@@ -28,6 +28,28 @@ enum AppSupport {
         }
     }
 
+    // MARK: - Session transcripts
+
+    /// User-visible transcripts default to ~/Documents/MeetingCoach; the
+    /// folder is relocatable from Settings. The app is not sandboxed, so a
+    /// plain stored path is sufficient. Existing files are not migrated on
+    /// change — the user moves them (or not) in Finder.
+    static let sessionFolderKey = "sessionFolderPath"
+
+    static var sessionsDir: URL {
+        if let path = UserDefaults.standard.string(forKey: sessionFolderKey),
+           !path.isEmpty {
+            return URL(fileURLWithPath: (path as NSString).expandingTildeInPath,
+                       isDirectory: true)
+        }
+        return FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/MeetingCoach", isDirectory: true)
+    }
+
+    static func setSessionsDir(_ url: URL) {
+        UserDefaults.standard.set(url.path, forKey: sessionFolderKey)
+    }
+
     /// Snapshot the current active rubric into rubrics/history/ before a
     /// structural change (builder save, advisor patch). Returns the backup URL.
     @discardableResult

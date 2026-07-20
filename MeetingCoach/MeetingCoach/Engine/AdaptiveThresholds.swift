@@ -26,7 +26,19 @@ enum AdaptiveThresholds {
         let grouped = Dictionary(grouping: nudges, by: \.typeKey)
         for (key, typeNudges) in grouped {
             let feedbacks = typeNudges.compactMap(\.feedback)
-            guard !feedbacks.isEmpty else { continue }
+            guard !feedbacks.isEmpty else {
+                // No explicit feedback for this key this session: ignores
+                // are a weak negative — half the "annoying" step, and only
+                // when at least 3 displayed nudges all went untouched. A
+                // single explicit click outweighs a session of silence.
+                let ignored = typeNudges.filter { $0.wasIgnored == true }.count
+                if ignored >= 3 {
+                    let current = dict[key] ?? 1.0
+                    dict[key] = min(max(current * 1.05, clampRange.lowerBound),
+                                    clampRange.upperBound)
+                }
+                continue
+            }
 
             let usefulCount = feedbacks.filter { $0 == .useful }.count
             let annoyingCount = feedbacks.filter { $0 == .annoying }.count
@@ -53,27 +65,10 @@ enum AdaptiveThresholds {
         save(dict)
     }
 
-    /// Get all current multipliers for display.
-    static func allMultipliers() -> [NudgeType: Double] {
-        let dict = load()
-        var result: [NudgeType: Double] = [:]
-        for type in NudgeType.allCases {
-            result[type] = dict[type.rawValue] ?? 1.0
-        }
-        return result
-    }
-
     /// Every learned multiplier by signal key, custom signals included —
-    /// what the Learned Sensitivity panel shows (allMultipliers can't carry
-    /// "custom:<id>" entries).
+    /// what the Learned Sensitivity panel shows.
     static func allMultipliersByKey() -> [String: Double] {
         load()
-    }
-
-    /// Reset all multipliers to default.
-    static func resetAll() {
-        UserDefaults.standard.removeObject(forKey: key)
-        cache = nil
     }
 
     // MARK: - Private

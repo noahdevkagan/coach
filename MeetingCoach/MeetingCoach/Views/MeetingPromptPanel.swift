@@ -43,7 +43,11 @@ final class MeetingPromptPanel: NSPanel {
 
 /// Content of the detection pill: pulsing accent, the detected app's real
 /// icon, and a compound action — start now, or drop down for goal/dismiss.
+/// With auto-start enabled the subtitle becomes a live countdown and
+/// dismissing doubles as the cancel.
 struct MeetingPromptView: View {
+    /// Observed for the live auto-start countdown.
+    var detection: MeetingDetectionService
     let source: String
     /// Real icon of the detected meeting app (Zoom, Teams, the browser…).
     var icon: NSImage?
@@ -102,10 +106,18 @@ struct MeetingPromptView: View {
                         Text("Start Coaching")
                             .font(.callout.weight(.semibold))
                             .fixedSize()
-                        Text("& open Meeting Coach")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .fixedSize()
+                        if let remaining = detection.autoStartCountdown {
+                            Text("auto-starts in \(remaining)s")
+                                .font(.caption2)
+                                .foregroundStyle(.green)
+                                .fixedSize()
+                                .contentTransition(.numericText(countsDown: true))
+                        } else {
+                            Text("& open Meeting Coach")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .fixedSize()
+                        }
                     }
                     .padding(.leading, 12)
                     .padding(.trailing, 10)
@@ -122,7 +134,8 @@ struct MeetingPromptView: View {
                         Button("Start with a goal…", action: onStartWithGoal)
                         Divider()
                     }
-                    Button("Not now", action: onDismiss)
+                    Button(detection.autoStartCountdown != nil ? "Cancel auto-start" : "Not now",
+                           action: onDismiss)
                 } label: {
                     Image(systemName: "chevron.down")
                         .font(.caption.weight(.semibold))

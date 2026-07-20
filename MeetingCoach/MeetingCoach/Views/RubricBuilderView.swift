@@ -10,10 +10,6 @@ struct RubricBuilderView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var vm = RubricBuilderViewModel()
 
-    private var hasModel: Bool {
-        !settings.availableModels.isEmpty && !settings.useMock
-    }
-
     var body: some View {
         VStack(spacing: 0) {
             header

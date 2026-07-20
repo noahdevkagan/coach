@@ -9,11 +9,7 @@ struct CoachingCall: Identifiable, Sendable {
     let nudge: String
     let reason: TriggerReason
 
-    var formattedTime: String {
-        let mm = Int(t) / 60
-        let ss = Int(t) % 60
-        return String(format: "%02d:%02d", mm, ss)
-    }
+    var formattedTime: String { mmss(t) }
 
     var tierColor: String {
         // Tier A signals (structural) vs Tier B (tone/intent)

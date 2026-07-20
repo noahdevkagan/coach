@@ -110,4 +110,48 @@ if firedCount == 2 {
     print("positive phrase cap: 4 triggers -> \(firedCount) fires (want 2) -> FAIL")
     fail = true
 }
+
+// Overlay fatigue backoff: consecutive ignores stretch the display gap,
+// any interaction resets it, urgent/focus nudges always break through.
+func backoffCheck(_ ok: Bool, _ label: String, _ detail: String = "") {
+    print("backoff \(label): \(ok ? "PASS" : "FAIL\(detail.isEmpty ? "" : " — \(detail)")")")
+    if !ok { fail = true }
+}
+
+var bo = NudgeBackoff()
+backoffCheck(bo.requiredGap == 0, "no throttle before any ignores")
+for _ in 0..<3 { bo.nudgeIgnored() }
+backoffCheck(bo.requiredGap == 0, "first 3 consecutive ignores are free", "got \(bo.requiredGap)")
+bo.nudgeIgnored()
+backoffCheck(bo.requiredGap == 60, "4th ignore -> 60s gap", "got \(bo.requiredGap)")
+bo.nudgeIgnored()
+backoffCheck(bo.requiredGap == 120, "5th ignore -> 120s gap", "got \(bo.requiredGap)")
+bo.nudgeIgnored()
+backoffCheck(bo.requiredGap == 240, "6th ignore -> 240s gap", "got \(bo.requiredGap)")
+bo.nudgeIgnored(); bo.nudgeIgnored()
+backoffCheck(bo.requiredGap == 300, "gap caps at 300s", "got \(bo.requiredGap)")
+bo.userInteracted()
+backoffCheck(bo.requiredGap == 0, "any interaction resets the gap", "got \(bo.requiredGap)")
+
+// Gate behavior: throttled nudge is suppressed and does NOT advance the
+// display clock; exempt nudges pass regardless and do advance it.
+var bo2 = NudgeBackoff()
+for _ in 0..<4 { bo2.nudgeIgnored() }                       // gap now 60s
+backoffCheck(bo2.shouldDisplay(urgency: .med, isPositive: false, isFocusType: false, now: 100),
+             "first display after backoff passes (no prior display)")
+backoffCheck(!bo2.shouldDisplay(urgency: .med, isPositive: false, isFocusType: false, now: 130),
+             "nudge inside the 60s gap is suppressed")
+backoffCheck(!bo2.shouldDisplay(urgency: .high, isPositive: true, isFocusType: false, now: 131),
+             "positive nudges are not exempt")
+backoffCheck(bo2.shouldDisplay(urgency: .high, isPositive: false, isFocusType: false, now: 132),
+             "high-urgency correction breaks through")
+backoffCheck(bo2.shouldDisplay(urgency: .low, isPositive: false, isFocusType: true, now: 133),
+             "focus-goal nudge breaks through")
+var bo3 = NudgeBackoff()
+for _ in 0..<4 { bo3.nudgeIgnored() }
+_ = bo3.shouldDisplay(urgency: .med, isPositive: false, isFocusType: false, now: 100)
+_ = bo3.shouldDisplay(urgency: .med, isPositive: false, isFocusType: false, now: 130) // suppressed
+backoffCheck(bo3.shouldDisplay(urgency: .med, isPositive: false, isFocusType: false, now: 161),
+             "suppressed display doesn't advance the clock (161 - 100 >= 60)")
+
 exit(fail ? 1 : 0)

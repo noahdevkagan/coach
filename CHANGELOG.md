@@ -9,6 +9,16 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.6.0 — 2026-07-20
+
+- New: auto-start coaching — turn it on and coaching begins by itself when a meeting is detected, after a 10-second cancelable countdown
+- Meeting-end detection got smarter: coaching stops within seconds of leaving a Zoom, Meet, or huddle — and never cuts you off mid-sentence
+- Nudges quiet down when you ignore them, in the moment and over time
+- Copy the whole transcript with one click after a call
+- Settings got tabs: pick where transcripts are saved, and your stats live next door
+- Clearer warning when the app can only hear your mic
+- Faster and lighter, especially in hour-long sessions
+
 ## 0.5.8 — 2026-07-17
 
 - Everything now lives in one main window — no more separate windows to juggle
