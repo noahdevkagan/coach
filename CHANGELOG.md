@@ -9,6 +9,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.7.0 — 2026-07-21
+
 - A calmer, simpler MeetingCoach: the live transcript is now the main event, with your talk-time split and elapsed time shown as quiet ambient info — not warnings
 - Far fewer interruptions: only a handful of high-value nudges fire by default (talk time, one question at a time, action items, locking a real date, one genuine win). Everything else moved to Coaching Style, off by default — re-enable any signal you miss
 - Zero setup to start: no goal step, no AI-nudges toggle, no focus picker. Goal setup and coaching customization live under Advanced; AI nudges and the meeting summary switch on automatically when a local model is installed
