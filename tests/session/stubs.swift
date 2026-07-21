@@ -27,6 +27,9 @@ final class AudioCaptureManager {
     var contextualHints: [String] = []
     var isMicOnly = false
     private(set) var stopped = false
+    /// Mirrors the real manager's engine attribution (recorded into saved
+    /// sessions); tests can override to assert the header line.
+    var engineLabel = "stub"
 
     var onUtterance: ((Utterance) -> Void)?
     var onPartialText: ((String, String) -> Void)?

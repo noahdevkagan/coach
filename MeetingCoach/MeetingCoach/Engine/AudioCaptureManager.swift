@@ -45,6 +45,11 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     private var micPipeline: (any TranscriptionPipeline)?
     private var sysPipeline: (any TranscriptionPipeline)?
     private var usingParakeet = false
+    /// Which engine this session actually transcribed with — recorded into
+    /// the saved session so accuracy regressions (bench/transcription.sh)
+    /// can be attributed to the engine, not guessed at. "SFSpeech" here on
+    /// a Parakeet-capable Mac means the session hit the fallback path.
+    private(set) var engineLabel = "unknown"
 
     // Audio sources
     private var engine: AVAudioEngine?
@@ -102,7 +107,8 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             emitStatus("Higher-accuracy transcription downloading — ready next session")
             mclog("[Capture] Parakeet not cached — starting on SFSpeech, downloading in background")
         }
-        mclog("[Capture] Transcription engine: \(usingParakeet ? "Parakeet" : "SFSpeech")")
+        engineLabel = usingParakeet ? "Parakeet" : "SFSpeech"
+        mclog("[Capture] Transcription engine: \(engineLabel)")
 
         // Mic pipeline. Without system audio there is no You/Them separation,
         // so keep the old generic label.

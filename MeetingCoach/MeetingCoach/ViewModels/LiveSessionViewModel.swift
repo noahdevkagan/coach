@@ -70,6 +70,9 @@ final class LiveSessionViewModel {
     /// app-level object alive.
     private weak var lastSettings: SettingsViewModel?
     private weak var lastOllamaManager: OllamaManager?
+    /// Stashed at stop (the capture manager is torn down before save) so
+    /// the saved session records which transcription engine actually ran.
+    private var sessionEngineLabel: String?
 
     var elapsedFormatted: String {
         let mm = Int(elapsedTime) / 60
@@ -216,6 +219,7 @@ final class LiveSessionViewModel {
 
     func stopLive() {
         isLive = false
+        sessionEngineLabel = captureManager?.engineLabel
         captureManager?.stop()
         captureManager = nil
         demoTask?.cancel()
@@ -765,6 +769,7 @@ final class LiveSessionViewModel {
         lines.append("**Duration:** \(elapsedFormatted)")
         lines.append("**Utterances:** \(utterances.count)")
         lines.append("**Nudges:** \(nudges.count)")
+        lines.append("**Engine:** \(sessionEngineLabel ?? "unknown")")
         if let share = talkStats.sessionShare {
             lines.append("**Talk ratio:** \(Int(share * 100))% you")
         }
