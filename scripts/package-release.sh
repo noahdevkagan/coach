@@ -110,6 +110,17 @@ if [ -d "$SPARKLE_FW" ]; then
   codesign "${SIGN_FLAGS[@]}" "$SPARKLE_FW"
 fi
 
+# The MCP agent server rides in Contents/MacOS next to the main executable.
+# CI archives it unsigned (its dev identity only exists locally), and the
+# outer app signature refuses a bundle with any unsigned nested Mach-O —
+# sign it here like every other embedded binary. Hardened runtime, no
+# entitlements: it only reads session files over stdio.
+MCP_HELPER="$APP/Contents/MacOS/meetingcoach-mcp"
+if [ -f "$MCP_HELPER" ]; then
+  echo "==> Signing MCP agent server…"
+  codesign "${SIGN_FLAGS[@]}" "$MCP_HELPER"
+fi
+
 # Any other bundled frameworks (e.g. Yams if built dynamically). Frameworks/
 # may not exist (SwiftPM links Yams statically) — guard so `find` on a missing
 # dir doesn't kill the script under pipefail. Sign deepest-first so nested
