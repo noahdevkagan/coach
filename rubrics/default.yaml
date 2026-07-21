@@ -1,7 +1,7 @@
 # Meeting Coach — default rubric (generic, for other users)
 # Personal and company specifics stripped. A neutral starting point users edit.
 
-version: 1
+version: 2
 name: default
 
 cadence:
@@ -53,3 +53,30 @@ end_of_meeting:
     description: A playback of every decision with its owner and date.
   - id: closer_prompt
     prompt: "Anything important that you don't think was fully heard today?"
+
+# v2 default cut — out of the box only the high-bar signals coach: talk time
+# (tuned rarer), stacked questions, next steps, commitment locked (the single
+# green), and hedge-not-pinned (absent keys = enabled). Everything else is
+# off until re-enabled in Coaching Style. Must mirror DefaultBuiltins.cut in
+# Engine/TuningTypes.swift — yamlcheck asserts they match.
+builtins:
+  alignmentReached: { enabled: false, threshold_multiplier: 1.0, cooldown_multiplier: 1.0 }
+  buriedSignal: { enabled: false, threshold_multiplier: 1.0, cooldown_multiplier: 1.0 }
+  commitmentGap: { enabled: false, threshold_multiplier: 1.0, cooldown_multiplier: 1.0 }
+  goingQuiet: { enabled: false, threshold_multiplier: 1.0, cooldown_multiplier: 1.0 }
+  interruption: { enabled: false, threshold_multiplier: 1.0, cooldown_multiplier: 1.0 }
+  missingDiscovery: { enabled: false, threshold_multiplier: 1.0, cooldown_multiplier: 1.0 }
+  noDecision: { enabled: false, threshold_multiplier: 1.0, cooldown_multiplier: 1.0 }
+  overrun: { enabled: false, threshold_multiplier: 1.0, cooldown_multiplier: 1.0 }
+  ownershipHanded: { enabled: false, threshold_multiplier: 1.0, cooldown_multiplier: 1.0 }
+  questionLanded: { enabled: false, threshold_multiplier: 1.0, cooldown_multiplier: 1.0 }
+  questionParked: { enabled: false, threshold_multiplier: 1.0, cooldown_multiplier: 1.0 }
+  reflectedBack: { enabled: false, threshold_multiplier: 1.0, cooldown_multiplier: 1.0 }
+  refocused: { enabled: false, threshold_multiplier: 1.0, cooldown_multiplier: 1.0 }
+  repetitionLoop: { enabled: false, threshold_multiplier: 1.0, cooldown_multiplier: 1.0 }
+  talkTime: { enabled: true, threshold_multiplier: 1.5, cooldown_multiplier: 2.0 }
+  timeCheck: { enabled: false, threshold_multiplier: 1.0, cooldown_multiplier: 1.0 }
+  unansweredQuestion: { enabled: false, threshold_multiplier: 1.0, cooldown_multiplier: 1.0 }
+  vagueAnswer: { enabled: false, threshold_multiplier: 1.0, cooldown_multiplier: 1.0 }
+  voiceShare: { enabled: false, threshold_multiplier: 1.0, cooldown_multiplier: 1.0 }
+  yesMan: { enabled: false, threshold_multiplier: 1.0, cooldown_multiplier: 1.0 }

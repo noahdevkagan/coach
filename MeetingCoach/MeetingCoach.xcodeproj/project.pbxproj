@@ -22,6 +22,7 @@
 		1C1FD0E1B619D8BD0BDE9FF4 /* PreCallContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0302009AC6EADB2189C6E775 /* PreCallContext.swift */; };
 		1F9054E3DCAD7089CBA0CBA2 /* Utterance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81D33EEE89EF224DC87FCF6E /* Utterance.swift */; };
 		1FD450DC57AD4C53698800D3 /* MeetingCoachApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAF9E10DE86916E79704CA2C /* MeetingCoachApp.swift */; };
+		230953F58905C232A72F61EF /* SearchResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38AF9EC84551A2A07E86DADF /* SearchResultsView.swift */; };
 		251A55DA15B1192554DF63E1 /* SimulationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F470B6BBEAFEE5A9526BABF7 /* SimulationViewModel.swift */; };
 		27B1368F1ECD54E49385BA3E /* GoingQuietSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4A0318F6463431087594DA0 /* GoingQuietSignal.swift */; };
 		2916A44AB67B6A20284FA249 /* demo_nudges.json in Resources */ = {isa = PBXBuildFile; fileRef = 59A325315611300C1A9E2C53 /* demo_nudges.json */; };
@@ -37,6 +38,7 @@
 		42613F60A3CB14497FC859C2 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 52193459BBD760AF1CA7B7F7 /* FluidAudio */; };
 		46BB0140FA3D0C6D5953EA48 /* NextStepsSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C6B8636393601795161557 /* NextStepsSignal.swift */; };
 		47D5418F46BB2B90178F534E /* CoachingOverlayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E80054B1508EFBBFD8D840F3 /* CoachingOverlayPanel.swift */; };
+		48DFEC114082BF96EBEF74C8 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D25D2CC8CBD4346DBFB9924 /* main.swift */; };
 		4C4CE6FBC1FF6641932BEC3B /* TrainingExample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C9A04C9B391284F7BCDBD2E /* TrainingExample.swift */; };
 		5786720067BE8A950F4165ED /* SignalEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2E43CC253B7430EF30361 /* SignalEngine.swift */; };
 		5FCEF8098F7F2F2A4A90B811 /* RubricBuilderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0AE8468D0484EFAC70C4D7F /* RubricBuilderView.swift */; };
@@ -51,10 +53,12 @@
 		831AAAE68BDAAC75DC37FB2B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B601F828AB17A262298DF0AE /* ContentView.swift */; };
 		85E59446014AE47DD1E5A810 /* SessionTrendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A2619C7DBDE479D92329B84 /* SessionTrendsView.swift */; };
 		8A631782D7199EBCE5560A50 /* Nudge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 736B9D6AC7AFE9AA6A2D5725 /* Nudge.swift */; };
+		8CA26EBEB1039CBE90A0D285 /* TranscriptSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48F9343259F30B3410C031F9 /* TranscriptSearch.swift */; };
 		92904ECCEF60B928FB98FB5A /* RubricAdvisorApply.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E3C38C1B54A15F61FEB493A /* RubricAdvisorApply.swift */; };
 		93AE13A08E89B2CF091A7274 /* ollama in Resources */ = {isa = PBXBuildFile; fileRef = 69834923A05B2FEECE228263 /* ollama */; };
 		95BAA399EE14E37A99CF1834 /* Rubric.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAC07F7931A467E07514A5B8 /* Rubric.swift */; };
 		965F05D47B12F506C3B6CE55 /* DemoScript.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8143978E87DDB116AC0D3FD8 /* DemoScript.swift */; };
+		97BBFAF4DAC944901C41F097 /* TranscriptSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48F9343259F30B3410C031F9 /* TranscriptSearch.swift */; };
 		98104496237EA3D2AEC65205 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 99FF311B3C3C0B29ECF0C296 /* Assets.xcassets */; };
 		A1D971DC2241B73DC1713D26 /* TranscriptAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FFBE4A37EC6EEE8D7A7516D /* TranscriptAnalysis.swift */; };
 		A36D1448B1484E7ACF6E53D5 /* MeetingDetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A12E30BEB51DFB2F939AE4 /* MeetingDetectionService.swift */; };
@@ -71,6 +75,7 @@
 		C4B5DD336F4BEA94B577F930 /* PositiveSignals.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6012F4265B831203CEF29D7 /* PositiveSignals.swift */; };
 		C7D931047233C23F27CBE934 /* HighStakesSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AC5039B5EC737FFECE6A190 /* HighStakesSignal.swift */; };
 		CAD8C8E966931110E2D6415E /* SimulationTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42E54C36F44DC42BE2B8D5D9 /* SimulationTimelineView.swift */; };
+		CE29BF1EE8DA68A7A94EA4E2 /* AppSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F05A5F9043EE4F2C14B8D5 /* AppSupport.swift */; };
 		CFFBB860B8F9AB35E34F7AEA /* StackedQuestionsSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC33A03F287BAB0CDBCFC8FD /* StackedQuestionsSignal.swift */; };
 		D18015A9C5944D5D37845BC9 /* PromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78FD64A28567F115FD3944A4 /* PromptBuilder.swift */; };
 		D77C09AA85DC5397A7D1B114 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 2ADB653C496B73D902CC4DFD /* Sparkle */; };
@@ -83,6 +88,16 @@
 		FE81E3B044352DA913F1A58B /* RepetitionLoopSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A77874939901EA598BC1814 /* RepetitionLoopSignal.swift */; };
 		FF20EDCA009AC9F00BC2968E /* OllamaClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A1BF8C4DA14D327E81E1832 /* OllamaClient.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		235DA6B56489FA2DC3B584A1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A788D3D8979D0C513FC93730 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 29B4751C5667EE113948EC15;
+			remoteInfo = "meetingcoach-mcp";
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		0039986CEDE49DF43FF2342E /* MeetingWindowHeuristics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingWindowHeuristics.swift; sourceTree = "<group>"; };
@@ -104,15 +119,19 @@
 		31809EA09C75CBBA15B69874 /* RubricBuilderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RubricBuilderViewModel.swift; sourceTree = "<group>"; };
 		35350EAFCF72EF5D24FA7AA1 /* GeneralSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralSettingsView.swift; sourceTree = "<group>"; };
 		35B1ADEF0B99BDEB25D36FE4 /* FeedbackFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackFormView.swift; sourceTree = "<group>"; };
+		38AF9EC84551A2A07E86DADF /* SearchResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultsView.swift; sourceTree = "<group>"; };
 		42E54C36F44DC42BE2B8D5D9 /* SimulationTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulationTimelineView.swift; sourceTree = "<group>"; };
+		48F9343259F30B3410C031F9 /* TranscriptSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptSearch.swift; sourceTree = "<group>"; };
 		59A325315611300C1A9E2C53 /* demo_nudges.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = demo_nudges.json; sourceTree = "<group>"; };
 		5C9A04C9B391284F7BCDBD2E /* TrainingExample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingExample.swift; sourceTree = "<group>"; };
 		5CD2E43CC253B7430EF30361 /* SignalEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignalEngine.swift; sourceTree = "<group>"; };
+		5D25D2CC8CBD4346DBFB9924 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		5D5E9BDD00E23D1F8DEC8F23 /* VoiceShareSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceShareSignal.swift; sourceTree = "<group>"; };
 		5D799074E6B06F54801EAD00 /* CoachingCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachingCall.swift; sourceTree = "<group>"; };
 		61CBD7F2B9C7BC596D8D6984 /* MeetingCoach.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MeetingCoach.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6506F84B219D29F99152C209 /* TimeCheckSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeCheckSignal.swift; sourceTree = "<group>"; };
 		67120DB8C352138595D0B749 /* LiveSessionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSessionViewModel.swift; sourceTree = "<group>"; };
+		68FD97A461F0CDDDFC997439 /* meetingcoach-mcp */ = {isa = PBXFileReference; includeInIndex = 0; path = "meetingcoach-mcp"; sourceTree = BUILT_PRODUCTS_DIR; };
 		69834923A05B2FEECE228263 /* ollama */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ollama; path = MeetingCoach/Resources/ollama; sourceTree = SOURCE_ROOT; };
 		6A1BF8C4DA14D327E81E1832 /* OllamaClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaClient.swift; sourceTree = "<group>"; };
 		736B9D6AC7AFE9AA6A2D5725 /* Nudge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Nudge.swift; sourceTree = "<group>"; };
@@ -185,6 +204,7 @@
 				25F544EB2BBE998E71984423 /* PreCallFormView.swift */,
 				0B4B0AF697805859194CB8FB /* ProgressDashboardView.swift */,
 				C0AE8468D0484EFAC70C4D7F /* RubricBuilderView.swift */,
+				38AF9EC84551A2A07E86DADF /* SearchResultsView.swift */,
 				7A2619C7DBDE479D92329B84 /* SessionTrendsView.swift */,
 				42E54C36F44DC42BE2B8D5D9 /* SimulationTimelineView.swift */,
 				D2B794F3FFF35F998081042B /* TalkCharts.swift */,
@@ -270,6 +290,7 @@
 				9E3C38C1B54A15F61FEB493A /* RubricAdvisorApply.swift */,
 				C383A162604A3D3AE197F2A2 /* SessionTrends.swift */,
 				5C9A04C9B391284F7BCDBD2E /* TrainingExample.swift */,
+				48F9343259F30B3410C031F9 /* TranscriptSearch.swift */,
 				826E23E63EE91A96C88BA0F1 /* Trigger.swift */,
 				81D33EEE89EF224DC87FCF6E /* Utterance.swift */,
 			);
@@ -290,9 +311,18 @@
 		B94B9DCB71F9C50EE8C8B356 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				68FD97A461F0CDDDFC997439 /* meetingcoach-mcp */,
 				61CBD7F2B9C7BC596D8D6984 /* MeetingCoach.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		C68A2F067F5AC35731743405 /* mcp-server */ = {
+			isa = PBXGroup;
+			children = (
+				5D25D2CC8CBD4346DBFB9924 /* main.swift */,
+			);
+			path = "mcp-server";
 			sourceTree = "<group>";
 		};
 		DBC9BADF442D5516D4C8BEC1 /* Signals */ = {
@@ -322,6 +352,7 @@
 			isa = PBXGroup;
 			children = (
 				69834923A05B2FEECE228263 /* ollama */,
+				C68A2F067F5AC35731743405 /* mcp-server */,
 				59CB2AB05B7F9A533618B1AD /* MeetingCoach */,
 				B94B9DCB71F9C50EE8C8B356 /* Products */,
 			);
@@ -330,6 +361,23 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		29B4751C5667EE113948EC15 /* meetingcoach-mcp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D0107E33351FD334D60F74C4 /* Build configuration list for PBXNativeTarget "meetingcoach-mcp" */;
+			buildPhases = (
+				5054F22ED6D25A739725D41B /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "meetingcoach-mcp";
+			packageProductDependencies = (
+			);
+			productName = "meetingcoach-mcp";
+			productReference = 68FD97A461F0CDDDFC997439 /* meetingcoach-mcp */;
+			productType = "com.apple.product-type.tool";
+		};
 		D1A8716762363953800FC52D /* MeetingCoach */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 2B40B58F29436042B2DADE30 /* Build configuration list for PBXNativeTarget "MeetingCoach" */;
@@ -338,10 +386,12 @@
 				B9B6D1CF78696895E5DA41AF /* Sources */,
 				0874089BE662ED1DAB699DEB /* Resources */,
 				7DC22CA249D6D735BC064D04 /* Frameworks */,
+				1AB0B55174E14AD2592325A2 /* Embed MCP helper */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				BE9842CC711FEDA2704C0A99 /* PBXTargetDependency */,
 			);
 			name = MeetingCoach;
 			packageProductDependencies = (
@@ -362,6 +412,10 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
+					29B4751C5667EE113948EC15 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Manual;
+					};
 					D1A8716762363953800FC52D = {
 						DevelopmentTeam = "";
 						ProvisioningStyle = Manual;
@@ -388,6 +442,7 @@
 			projectRoot = "";
 			targets = (
 				D1A8716762363953800FC52D /* MeetingCoach */,
+				29B4751C5667EE113948EC15 /* meetingcoach-mcp */,
 			);
 		};
 /* End PBXProject section */
@@ -409,6 +464,25 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		1AB0B55174E14AD2592325A2 /* Embed MCP helper */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embed MCP helper";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/meetingcoach-mcp",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -f \"${BUILT_PRODUCTS_DIR}/meetingcoach-mcp\" ]; then\n  cp \"${BUILT_PRODUCTS_DIR}/meetingcoach-mcp\" \\\n     \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/meetingcoach-mcp\"\nfi\n";
+		};
 		58CD54DE9EE83E8C0C8C703D /* Ensure ollama resource dir exists */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -430,6 +504,16 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		5054F22ED6D25A739725D41B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CE29BF1EE8DA68A7A94EA4E2 /* AppSupport.swift in Sources */,
+				8CA26EBEB1039CBE90A0D285 /* TranscriptSearch.swift in Sources */,
+				48DFEC114082BF96EBEF74C8 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		B9B6D1CF78696895E5DA41AF /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -477,6 +561,7 @@
 				92904ECCEF60B928FB98FB5A /* RubricAdvisorApply.swift in Sources */,
 				5FCEF8098F7F2F2A4A90B811 /* RubricBuilderView.swift in Sources */,
 				0283EBAC26A5C0417A1983DA /* RubricBuilderViewModel.swift in Sources */,
+				230953F58905C232A72F61EF /* SearchResultsView.swift in Sources */,
 				A4FE039B5DC3EE1C8C2793AD /* SemanticCoach.swift in Sources */,
 				C333FB6099F885862570B759 /* SessionTrends.swift in Sources */,
 				85E59446014AE47DD1E5A810 /* SessionTrendsView.swift in Sources */,
@@ -493,6 +578,7 @@
 				4C4CE6FBC1FF6641932BEC3B /* TrainingExample.swift in Sources */,
 				A1D971DC2241B73DC1713D26 /* TranscriptAnalysis.swift in Sources */,
 				FBBB2B4DB3372B0DD8A7CEE8 /* TranscriptParser.swift in Sources */,
+				97BBFAF4DAC944901C41F097 /* TranscriptSearch.swift in Sources */,
 				B1EEF82CF42D4472D319BA92 /* Trigger.swift in Sources */,
 				41742BA1758E72F5F58444E1 /* TuningTypes.swift in Sources */,
 				16BE255C6A7E0741602AAD26 /* UnansweredQuestionSignal.swift in Sources */,
@@ -504,6 +590,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BE9842CC711FEDA2704C0A99 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 29B4751C5667EE113948EC15 /* meetingcoach-mcp */;
+			targetProxy = 235DA6B56489FA2DC3B584A1 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		1A6CE085C39F387BB7510917 /* Release */ = {
@@ -683,6 +777,44 @@
 			};
 			name = Debug;
 		};
+		BE23F78E18921AAB58266038 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development: noah kagan (6S468FFG82)";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.2;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.coach.meetingcoach-mcp";
+				PRODUCT_NAME = "meetingcoach-mcp";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		F0DEF0EB438D78CA5B5CA4FE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development: noah kagan (6S468FFG82)";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.2;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.coach.meetingcoach-mcp";
+				PRODUCT_NAME = "meetingcoach-mcp";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -700,6 +832,15 @@
 			buildConfigurations = (
 				689AAD1AFBFD3577E27EC7C7 /* Debug */,
 				3A2AF766C28B4FC6E9EDA989 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D0107E33351FD334D60F74C4 /* Build configuration list for PBXNativeTarget "meetingcoach-mcp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F0DEF0EB438D78CA5B5CA4FE /* Debug */,
+				BE23F78E18921AAB58266038 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

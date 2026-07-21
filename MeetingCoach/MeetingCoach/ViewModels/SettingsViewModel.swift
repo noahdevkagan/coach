@@ -43,6 +43,15 @@ final class SettingsViewModel {
             AppSupport.ensureLayout()
             self.rubricPath = AppSupport.activeRubricURL.path
         }
+        // One-time v2 migration to the default cut. Only the app-managed
+        // active.yaml is touched — a custom rubricPath is the user's own
+        // file and is never rewritten. No-op once migrated (or if the user
+        // ever tuned builtins themselves).
+        if self.rubricPath == AppSupport.activeRubricURL.path {
+            Rubric.migrateToV2(at: AppSupport.activeRubricURL) { label in
+                AppSupport.backupActiveRubric(label: label)
+            }
+        }
     }
 
     func save() {

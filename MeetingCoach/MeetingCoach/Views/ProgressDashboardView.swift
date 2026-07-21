@@ -36,7 +36,9 @@ struct ProgressDashboardView: View {
                 } else {
                     statTiles
                     suggestionSection
-                    focusSection
+                    // focusSection intentionally not shown: focus goals are
+                    // off the zero-config main path (v2 pivot). The picker
+                    // code stays below for the Advanced era to re-wire.
                     topPatterns
                     talkTrend
                     recentSessions
@@ -46,7 +48,7 @@ struct ProgressDashboardView: View {
             .frame(maxWidth: 620, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
-        .background(Color(.textBackgroundColor))
+        .background(MCTheme.canvas)
         .onAppear(perform: reload)
     }
 
@@ -61,17 +63,17 @@ struct ProgressDashboardView: View {
 
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Get your first coaching session")
+            Text("Every meeting, transcribed live")
                 .font(.title3.bold())
                 .frame(maxWidth: .infinity)
                 .multilineTextAlignment(.center)
 
             onboardStep(1, "Join any meeting",
                         "We detect Zoom & Meet and ask — or click Go Live any time.")
-            onboardStep(2, "Get nudged live",
-                        "A small overlay coaches you in the moment: talk less, land your point, lock decisions. Rate nudges 👍/👎 to train it.")
-            onboardStep(3, "Watch yourself improve",
-                        "Finish the call — your streaks, patterns, and talk time build right here.")
+            onboardStep(2, "Live transcript + a quiet coach",
+                        "Your words appear as you speak. The coach only chimes in when something's genuinely worth saying.")
+            onboardStep(3, "Recap, search, improve",
+                        "Every session ends with a summary and action items — and every word is searchable later.")
 
             if let liveSession {
                 Button {
@@ -86,12 +88,7 @@ struct ProgressDashboardView: View {
         }
         .padding(28)
         .frame(maxWidth: 440)
-        .background(Color(.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
-        )
+        .cardStyle(cornerRadius: 12)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 32)
     }
@@ -356,12 +353,7 @@ private struct StatTile: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(Color(.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
-        )
+        .cardStyle()
     }
 }
 

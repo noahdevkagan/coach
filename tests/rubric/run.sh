@@ -47,5 +47,6 @@ echo "-- building yamlcheck rig (compiles the app's Rubric.swift)"
 (
   cd tests/rubric/yamlcheck
   swift build -c release 2>&1 | tail -1
-  .build/release/yamlcheck ../../../rubrics/default.yaml
+  .build/release/yamlcheck ../../../rubrics/default.yaml \
+    ../../../MeetingCoach/MeetingCoach/Resources/default_rubric.yaml
 )

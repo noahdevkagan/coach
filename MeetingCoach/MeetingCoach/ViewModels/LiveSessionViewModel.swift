@@ -65,6 +65,11 @@ final class LiveSessionViewModel {
 
     /// Signal types sharpened by the active focus goals (set per session).
     private var focusTypes: Set<NudgeType> = []
+    /// Held across the session so stopLive can auto-generate the recap —
+    /// weak: both outlive sessions anyway, and the VM must never keep an
+    /// app-level object alive.
+    private weak var lastSettings: SettingsViewModel?
+    private weak var lastOllamaManager: OllamaManager?
 
     var elapsedFormatted: String {
         let mm = Int(elapsedTime) / 60
@@ -129,8 +134,17 @@ final class LiveSessionViewModel {
         }
         signalEngine = SignalEngine(context: context, tuning: tuning)
 
-        // Tier-2 semantic coaching: local LLM heartbeat (optional, toggleable)
-        if let settings, let ollamaManager, settings.semanticCoachEnabled {
+        // Tier-2 semantic coaching: silent progressive enhancement, never a
+        // user decision. Runs iff a local model is actually available (or
+        // mock mode); a Mac with no model gets the deterministic coach with
+        // no toggle, no warning, no ritual. semanticCoachEnabled survives
+        // as an internal kill-switch only (defaults true, no UI).
+        // An unchecked model list stays optimistic — the heartbeat degrades
+        // gracefully if the engine turns out to be empty.
+        let modelAvailable = settings.map {
+            $0.useMock || !$0.hasCheckedModels || !$0.availableModels.isEmpty
+        } ?? false
+        if let settings, let ollamaManager, settings.semanticCoachEnabled, modelAvailable {
             semanticCoach = SemanticCoach(model: settings.selectedModel,
                                           tuning: tuning,
                                           customSignals: rubric.customSemanticSignals,
@@ -142,6 +156,11 @@ final class LiveSessionViewModel {
         } else {
             semanticCoach = nil
         }
+
+        // Kept for the auto-recap on Stop — every session should end with
+        // a summary without anyone pressing a button.
+        lastSettings = settings
+        lastOllamaManager = ollamaManager
 
         resetSessionState()
         status = "Starting — 10 coaching signals loaded"
@@ -245,6 +264,13 @@ final class LiveSessionViewModel {
 
         saveSession()
         showPostSession = true
+
+        // Auto-recap: every session ends with a summary, no button. The
+        // no-model path gets the instant deterministic review inside
+        // generateReview, so this never blocks on an engine.
+        if let settings = lastSettings, let ollamaManager = lastOllamaManager {
+            generateReview(ollamaManager: ollamaManager, settings: settings)
+        }
     }
 
     // MARK: - Demo replay

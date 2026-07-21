@@ -177,12 +177,6 @@ struct MenuBarView: View {
             Button("Meeting detected — Start coaching") {
                 startCoaching()
             }
-            Button("Start with context…") {
-                detection.sessionStarted()
-                liveSession.showPreCallForm = true
-                openWindow(id: "main")
-                NSApp.activate(ignoringOtherApps: true)
-            }
             Button("Not now") {
                 detection.dismissPrompt()
             }

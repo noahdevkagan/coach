@@ -130,10 +130,10 @@ struct MeetingPromptView: View {
                     .frame(height: 28)
 
                 Menu {
-                    if let onStartWithGoal {
-                        Button("Start with a goal…", action: onStartWithGoal)
-                        Divider()
-                    }
+                    // Goal setup moved behind Advanced in the main window —
+                    // the detection pill offers exactly one decision: start
+                    // or don't. (onStartWithGoal kept in the API so the
+                    // Advanced path can still deep-link a goal start.)
                     Button(detection.autoStartCountdown != nil ? "Cancel auto-start" : "Not now",
                            action: onDismiss)
                 } label: {

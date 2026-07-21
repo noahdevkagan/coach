@@ -64,6 +64,22 @@ targets:
       - package: Yams
       - package: Sparkle
       - package: FluidAudio
+      # Build the MCP helper alongside the app; the post-build script below
+      # copies it into Contents/MacOS. Not linked — it's a standalone tool.
+      - target: meetingcoach-mcp
+        link: false
+        embed: false
+    postBuildScripts:
+      # Embed the agent server. Runs before Xcode's CodeSign step, and the
+      # helper target signs its own product, so the app seal covers it.
+      - name: "Embed MCP helper"
+        script: |
+          if [ -f "${BUILT_PRODUCTS_DIR}/meetingcoach-mcp" ]; then
+            cp "${BUILT_PRODUCTS_DIR}/meetingcoach-mcp" \
+               "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/meetingcoach-mcp"
+          fi
+        outputFiles:
+          - "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/meetingcoach-mcp"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.coach.MeetingCoach
@@ -93,6 +109,31 @@ targets:
           CODE_SIGN_STYLE: "Manual"
           DEVELOPMENT_TEAM: ""
           ENABLE_APP_SANDBOX: "NO"
+
+  # Agent access: minimal stdio MCP server over saved sessions. Compiles the
+  # app's real TranscriptSearch + AppSupport so agent search and in-app
+  # search can never drift. See mcp-server/main.swift.
+  meetingcoach-mcp:
+    type: tool
+    platform: macOS
+    sources:
+      - path: mcp-server
+      - path: MeetingCoach/Models/TranscriptSearch.swift
+      - path: MeetingCoach/Models/AppSupport.swift
+    settings:
+      base:
+        PRODUCT_NAME: meetingcoach-mcp
+        SWIFT_VERSION: "6.0"
+        MACOSX_DEPLOYMENT_TARGET: "14.2"
+      configs:
+        debug:
+          CODE_SIGN_IDENTITY: "Apple Development: noah kagan (6S468FFG82)"
+          CODE_SIGN_STYLE: "Manual"
+          DEVELOPMENT_TEAM: ""
+        release:
+          CODE_SIGN_IDENTITY: "Apple Development: noah kagan (6S468FFG82)"
+          CODE_SIGN_STYLE: "Manual"
+          DEVELOPMENT_TEAM: ""
 
 schemes:
   MeetingCoach:

@@ -49,7 +49,7 @@ extension Rubric {
     /// rubric file is configured or the configured path is missing, so a fresh
     /// install coaches with person-neutral signals instead of an empty rubric.
     static let builtInDefault = Rubric(
-        name: "default", version: 1,
+        name: "default", version: 2,
         cadence: Cadence(), window: TranscriptWindow(),
         output: OutputConfig(maxCallsPerTrigger: 3, minConfidenceToShow: 0.6),
         signals: [
@@ -73,7 +73,45 @@ extension Rubric {
                    description: "A commitment stated as a range or soft language.",
                    nudge: "That was a range, not a firm commitment. Worth pinning down.",
                    needsDiarization: false, minConfidence: 0.8),
-        ])
+        ],
+        builtins: DefaultBuiltins.cut)
+}
+
+// MARK: - v2 migration (the default cut)
+
+extension Rubric {
+    /// Pre-v2 rubrics ran every built-in signal. v2 ships the curated
+    /// default cut (DefaultBuiltins.cut) so out of the box only a few
+    /// high-bar nudges fire. Only rubrics that never touched builtins are
+    /// migrated — a user-tuned builtins block is a choice and is preserved
+    /// verbatim. The patch is textual so params, end_of_meeting, and
+    /// comments survive untouched (round-tripping must never drop fields).
+    /// Returns true if the file was rewritten.
+    @discardableResult
+    static func migrateToV2(at url: URL, backup: (String) -> Void = { _ in }) -> Bool {
+        guard let text = try? String(contentsOf: url, encoding: .utf8),
+              let rubric = try? parseRubric(text),
+              rubric.version < 2, rubric.builtins.isEmpty else { return false }
+        backup("pre-v2-cut")
+        var out = text
+        if let range = out.range(of: "version: \(rubric.version)") {
+            out.replaceSubrange(range, with: "version: 2")
+        } else {
+            out = "version: 2\n" + out
+        }
+        if !out.hasSuffix("\n") { out += "\n" }
+        out += "\n# v2 default cut — only the high-bar signals coach by default;\n"
+        out += "# re-enable any of the rest in Coaching Style.\n"
+        out += DefaultBuiltins.yamlBlock() + "\n"
+        do {
+            try out.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            mclog("[Rubric] v2 migration failed for \(url.lastPathComponent): \(error.localizedDescription)")
+            return false
+        }
+        mclog("[Rubric] migrated \(url.lastPathComponent) to the v2 default cut")
+        return true
+    }
 }
 
 func loadRubric(from url: URL) throws -> Rubric {

@@ -105,4 +105,27 @@ if let base, let relaxed, relaxed > base {
     fail = true
 }
 
+// 4. The SHIPPED v2 default cut (DefaultBuiltins.cut — the exact map the
+//    default rubrics carry) against the real engine: a 240s monologue that
+//    makes stock fire several now-disabled signals must, under the cut,
+//    fire keeps only — and talkTime must still get through even at
+//    1.5x rubric * up-to-2.0x adaptive (30s * 3 = 90s < 240s).
+let disabledKeys = Set(DefaultBuiltins.cut.filter { !$0.value.enabled }.keys)
+let stockLong = replay(tuning: [:], until: 240)
+let cutFired = replay(tuning: DefaultBuiltins.cut, until: 240)
+let stockDisabledHits = stockLong.filter { disabledKeys.contains($0.rawValue) }
+let cutDisabledHits = cutFired.filter { disabledKeys.contains($0.rawValue) }
+if !stockDisabledHits.isEmpty && cutDisabledHits.isEmpty {
+    print("default cut: stock fires \(Set(stockDisabledHits.map(\.rawValue)).sorted()) — all silent under the cut -> PASS")
+} else {
+    print("default cut: stock disabled-hits=\(stockDisabledHits.count) (want >0), cut disabled-hits=\(cutDisabledHits.map(\.rawValue)) (want none) -> FAIL")
+    fail = true
+}
+if cutFired.contains(.talkTime) {
+    print("default cut: talkTime still fires under 1.5x (\(cutFired.count) total vs \(stockLong.count) stock) -> PASS")
+} else {
+    print("default cut: talkTime never fired in 240s monologue (want fire) -> FAIL")
+    fail = true
+}
+
 exit(fail ? 1 : 0)

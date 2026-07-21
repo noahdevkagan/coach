@@ -10,6 +10,12 @@ struct ContentView: View {
     @State private var overlayPanel: CoachingOverlayPanel?
     @AppStorage("hasSeenDemo") private var hasSeenDemo = false
     @State private var showWelcome = false
+    @State private var searchQuery = ""
+
+    private var activeSearch: String {
+        let q = searchQuery.trimmingCharacters(in: .whitespaces)
+        return q.count >= 2 ? q : ""
+    }
 
     var body: some View {
         HSplitView {
@@ -17,12 +23,18 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 SidebarView(simulation: simulation, settings: settings,
                             liveSession: liveSession, ollamaManager: ollamaManager,
+                            searchQuery: $searchQuery,
                             onToggleOverlay: toggleOverlay)
             }
             .frame(minWidth: 280, idealWidth: 300, maxWidth: 340)
+            .background(MCTheme.canvas)
 
-            // Main content — live session, loaded transcript, or progress
-            if liveSession.isLive || liveSession.hasSession {
+            // Main content — search wins (clearing the box returns you),
+            // then live session, loaded transcript, or progress
+            if !activeSearch.isEmpty {
+                SearchResultsView(query: activeSearch)
+                    .frame(minWidth: 400)
+            } else if liveSession.isLive || liveSession.hasSession {
                 LiveTimelineView(liveSession: liveSession)
                     .frame(minWidth: 400)
             } else if simulation.transcriptFileName != nil {
@@ -101,13 +113,14 @@ struct LiveTimelineView: View {
 
     var body: some View {
         HSplitView {
-            // Left: nudges feed
-            nudgesPanel
-                .frame(minWidth: 280)
-
-            // Right: live transcript
+            // Left, dominant: the live transcript — the product.
             transcriptPanel
-                .frame(minWidth: 220, idealWidth: 280)
+                .frame(minWidth: 380)
+
+            // Right, narrow: the coach rail. Quiet by design — a few
+            // high-bar nudges, not a feed to monitor.
+            nudgesPanel
+                .frame(minWidth: 200, idealWidth: 250, maxWidth: 340)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(MCTheme.canvas)
@@ -116,8 +129,10 @@ struct LiveTimelineView: View {
     private var nudgesPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Nudges")
-                    .font(MCTheme.paneTitle)
+                Text("COACH")
+                    .font(.caption.weight(.semibold))
+                    .kerning(1.0)
+                    .foregroundStyle(.tertiary)
                 Spacer()
                 if !liveSession.nudges.isEmpty {
                     Text("\(liveSession.nudges.count)")
@@ -125,8 +140,7 @@ struct LiveTimelineView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 8)
-            Divider().opacity(0.5)
+            .padding(.horizontal, 18).padding(.top, 16).padding(.bottom, 2)
 
             ScrollViewReader { proxy in
                 ScrollView {
@@ -144,7 +158,8 @@ struct LiveTimelineView: View {
                             .padding(.bottom, 4).id("summary-loading")
                         }
 
-                        // Nudge feed
+                        // Nudge feed — the empty state says the quiet part:
+                        // silence is the default, not a malfunction.
                         if liveSession.nudges.isEmpty {
                             VStack(spacing: 8) {
                                 if liveSession.isLive {
@@ -152,13 +167,15 @@ struct LiveTimelineView: View {
                                         .font(.system(size: 28))
                                         .foregroundStyle(.green.opacity(0.4))
                                         .symbolEffect(.pulse)
-                                    Text("Listening for patterns...")
+                                    Text("Quiet unless something's\nworth saying")
                                         .font(.caption).foregroundStyle(.tertiary)
+                                        .multilineTextAlignment(.center)
                                 } else if liveSession.hasSession {
                                     Text("Session ended").font(.caption).foregroundStyle(.tertiary)
                                 } else {
-                                    Text("Go live to start scanning")
+                                    Text("Nudges appear here —\nonly the ones that matter")
                                         .font(.caption).foregroundStyle(.tertiary)
+                                        .multilineTextAlignment(.center)
                                 }
                             }
                             .frame(maxWidth: .infinity)
@@ -183,20 +200,16 @@ struct LiveTimelineView: View {
                 }
             }
         }
-        .background(MCTheme.surface)
+        .background(MCTheme.canvas)
     }
 
     private var transcriptPanel: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                if liveSession.isLive {
-                    Circle().fill(.green).frame(width: 6, height: 6)
-                }
-                Text("Transcript")
-                    .font(MCTheme.paneTitle)
-                Spacer()
-                TranscriptHeaderStats(liveSession: liveSession)
-                if !liveSession.isLive && liveSession.hasSession && !liveSession.turns.isEmpty {
+        VStack(alignment: .leading, spacing: 10) {
+            // Slim utility row — no pane title, the transcript IS the pane.
+            if !liveSession.isLive && liveSession.hasSession && !liveSession.turns.isEmpty {
+                HStack {
+                    Spacer()
+                    TranscriptHeaderStats(liveSession: liveSession)
                     CopyButton(help: "Copy transcript") { transcriptText() }
 
                     Button {
@@ -210,7 +223,6 @@ struct LiveTimelineView: View {
                     .help("Export transcript as a text file")
                 }
             }
-            .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 8)
 
             // Degraded capture is easy to miss in the status caption — make
             // it loud: no You/Them separation until Screen Recording is on.
@@ -236,18 +248,18 @@ struct LiveTimelineView: View {
                 .padding(8)
                 .background(Color.orange.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
-                .padding(.horizontal).padding(.bottom, 6)
             }
 
-            // Talk balance: rolling share bar + session sparkline.
-            // Isolated in a child view so per-utterance talkStats mutations
-            // re-render only this strip, not the whole timeline.
-            TalkBalanceSection(liveSession: liveSession)
-            Divider()
+            // Ambient strip: elapsed + talk split as calm, always-on info —
+            // never a judgment (no warning colors here; the overlay keeps
+            // its own cue). Isolated in a child view so per-second clock
+            // ticks and talkStats mutations re-render only this strip.
+            AmbientStatsStrip(liveSession: liveSession)
 
             LiveTranscriptPane(liveSession: liveSession)
         }
-        .background(MCTheme.surface)
+        .padding(12)
+        .background(MCTheme.canvas)
     }
 
     private func recapText(_ summary: String) -> String {
@@ -291,36 +303,77 @@ struct LiveTimelineView: View {
     }
 }
 
-/// Talk balance strip for the transcript panel: the meter bar plus a small
-/// sparkline of how the share moved across the session. Reads talkStats
-/// itself so its ~per-second updates don't re-render the parent panel.
-private struct TalkBalanceSection: View {
+/// Ambient stats for the transcript panel: elapsed time and the You/Them
+/// talk split, always visible during a session with no setup. Deliberately
+/// neutral — this is information, not coaching; the talkTime nudge and the
+/// floating overlay own the judgment. Reads talkStats itself so its
+/// ~per-second updates don't re-render the parent panel.
+private struct AmbientStatsStrip: View {
     var liveSession: LiveSessionViewModel
 
     var body: some View {
-        if let share = liveSession.talkStats.recentShare ?? liveSession.talkStats.sessionShare {
-            VStack(alignment: .leading, spacing: 3) {
-                TalkMeterBar(share: share)
-                let history = liveSession.talkStats.history
-                if history.count >= 4 {
-                    ShareTrendLine(points: history.map { (x: $0.t, share: $0.share) })
-                        .frame(height: 14)
+        if liveSession.isLive || liveSession.hasSession {
+            HStack(alignment: .center, spacing: 16) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(liveSession.elapsedFormatted)
+                        .font(.system(.title3, design: .rounded).weight(.semibold))
+                        .monospacedDigit()
+                    Text(liveSession.isLive ? "ELAPSED" : "DURATION")
+                        .font(.caption2).kerning(0.8).foregroundStyle(.tertiary)
+                }
+
+                if let share = liveSession.talkStats.recentShare ?? liveSession.talkStats.sessionShare {
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack {
+                            Text("You ").font(.caption2.weight(.semibold)).foregroundStyle(Color.blue)
+                            + Text("\(Int(share * 100))%").font(.caption2.monospacedDigit().weight(.semibold))
+                            Spacer()
+                            Text("Them ").font(.caption2.weight(.semibold)).foregroundStyle(Color.purple)
+                            + Text("\(100 - Int(share * 100))%").font(.caption2.monospacedDigit().weight(.semibold))
+                        }
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Color.purple.opacity(0.3))
+                                Capsule()
+                                    .fill(Color.blue.opacity(0.65))
+                                    .frame(width: max(3, geo.size.width * share))
+                            }
+                        }
+                        .frame(height: 5)
+                        .animation(.easeOut(duration: 0.4), value: share)
+                    }
+                } else if liveSession.isLive {
+                    Text("listening…")
+                        .font(.caption).foregroundStyle(.tertiary)
+                    Spacer()
+                } else {
+                    Spacer()
+                }
+
+                if liveSession.isLive {
+                    HStack(spacing: 5) {
+                        Circle().fill(.green).frame(width: 6, height: 6)
+                        Text("Listening")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.green)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(Capsule().fill(Color.green.opacity(0.12)))
                 }
             }
-            .padding(.horizontal).padding(.bottom, 6)
+            .padding(.horizontal, 14).padding(.vertical, 10)
+            .cardStyle()
         }
     }
 }
 
-/// Isolated so the 1-second clock tick only re-renders these two Texts,
-/// not the whole transcript panel.
+/// Isolated so per-utterance updates only re-render this Text, not the
+/// whole transcript panel. Elapsed time lives in the ambient strip now.
 private struct TranscriptHeaderStats: View {
     var liveSession: LiveSessionViewModel
 
     var body: some View {
         Text("\(liveSession.utterances.count) lines")
-            .font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
-        Text(liveSession.elapsedFormatted)
             .font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
     }
 }
@@ -336,25 +389,29 @@ private struct TranscriptTurnRow: View {
     let turn: Turn
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 4) {
-                Text(turn.formattedTime)
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(.tertiary)
-                Text(turn.speaker)
-                    .font(.caption2.bold())
-                    .foregroundStyle(speakerColor(turn.speaker))
-            }
+        // Columnar: speaker | time | text — reads like a chat log, scans by
+        // color down the speaker gutter.
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(turn.speaker)
+                .font(.caption.bold())
+                .foregroundStyle(speakerColor(turn.speaker))
+                .frame(minWidth: 42, alignment: .leading)
+            Text(turn.formattedTime)
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(.tertiary)
+                .frame(width: 40, alignment: .leading)
             // Long unattributed turns (mic-only mode) read as a wall —
             // break into paragraphs for display only; signal analysis
             // still sees one turn.
-            ForEach(Array(paragraphs(turn.text).enumerated()), id: \.offset) { _, para in
-                Text(para)
-                    .font(.callout)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.bottom, 2)
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Array(paragraphs(turn.text).enumerated()), id: \.offset) { _, para in
+                    Text(para)
+                        .font(.callout)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
+            Spacer(minLength: 0)
         }
     }
 }
@@ -380,6 +437,7 @@ private struct LiveTranscriptPane: View {
                     .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .cardStyle()
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
@@ -387,29 +445,34 @@ private struct LiveTranscriptPane: View {
                     // positions, and removing the tall pending row when it
                     // commits leaves phantom blank space mid-list (Parakeet
                     // partials grow into full paragraphs, so the hole is big).
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 0) {
                         ForEach(liveSession.turns) { turn in
                             TranscriptTurnRow(turn: turn)
+                                .padding(.horizontal, 14).padding(.vertical, 9)
+                            Divider().opacity(0.35).padding(.leading, 14)
                         }
                         // Live pending line(s): what the recognizer hears right
                         // now, before it's committed as a turn — dictation feel.
                         ForEach(pendingLines, id: \.speaker) { line in
-                            VStack(alignment: .leading, spacing: 2) {
-                                if line.speaker != "Meeting" {
-                                    Text(line.speaker)
-                                        .font(.caption2.bold())
-                                        .foregroundStyle(speakerColor(line.speaker).opacity(0.6))
-                                }
+                            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                                Text(line.speaker == "Meeting" ? "" : line.speaker)
+                                    .font(.caption.bold())
+                                    .foregroundStyle(speakerColor(line.speaker).opacity(0.6))
+                                    .frame(minWidth: 42, alignment: .leading)
                                 Text(line.text)
                                     .font(.callout.italic())
                                     .foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
+                                Spacer(minLength: 0)
                             }
+                            .padding(.horizontal, 14).padding(.vertical, 9)
                         }
                         Color.clear.frame(height: 1).id("transcript-bottom")
                     }
-                    .padding(12)
+                    .padding(.vertical, 4)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .cardStyle()
                 .onChange(of: liveSession.turns.count) { _, _ in
                     proxy.scrollTo("transcript-bottom", anchor: .bottom)
                 }
@@ -596,13 +659,15 @@ struct SidebarView: View {
     @Bindable var settings: SettingsViewModel
     @Bindable var liveSession: LiveSessionViewModel
     @Bindable var ollamaManager: OllamaManager
+    @Binding var searchQuery: String
     var onToggleOverlay: () -> Void
     @State private var isDragOver = false
+    @State private var showAdvanced = false
 
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 12) {
                     // Engine auto-starts when Go Live / review needs it,
                     // so only surface transient or error states here
                     switch ollamaManager.status {
@@ -612,28 +677,66 @@ struct SidebarView: View {
                         OllamaStatusBar(manager: ollamaManager)
                     }
 
-                    // Live coaching — the main feature
+                    // Live coaching — the main feature. Everything else is
+                    // configuration, and configuration lives behind the
+                    // Advanced door pinned at the bottom: nobody has to
+                    // think before Go Live.
                     LiveSection(liveSession: liveSession,
                                 settings: settings,
                                 onToggleOverlay: onToggleOverlay,
                                 ollamaManager: ollamaManager)
+                        .padding(12)
+                        .cardStyle()
 
-                    Divider()
-                    CoachingStyleSection(settings: settings, ollamaManager: ollamaManager)
-                    Divider()
-                    TranscriptSection(simulation: simulation, isDragOverEntireView: isDragOver)
-                    Divider()
-                    FeedbackSection(simulation: simulation, liveSession: liveSession)
-                    Divider()
-                    ModelSection(settings: settings)
+                    SessionsSection(searchQuery: $searchQuery, liveSession: liveSession)
                 }
-                .padding()
+                .padding(12)
             }
             .background(isDragOver ? Color.blue.opacity(0.04) : .clear)
             .background(MCTheme.canvas)
             .onDrop(of: [.fileURL], isTargeted: $isDragOver) { providers in
                 handleDrop(providers, simulation: simulation)
             }
+
+            Divider()
+            DisclosureGroup(isExpanded: $showAdvanced) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        if !liveSession.isLive {
+                            Button {
+                                liveSession.showPreCallForm = true
+                            } label: {
+                                Label("Start with a goal…", systemImage: "target")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.blue)
+                            .help("Optional: tell the coach the meeting goal, length, and who's in the room")
+                            Divider()
+                        }
+                        CoachingStyleSection(settings: settings, ollamaManager: ollamaManager)
+                        Divider()
+                        TranscriptSection(simulation: simulation, isDragOverEntireView: isDragOver)
+                        Divider()
+                        FeedbackSection(simulation: simulation, liveSession: liveSession)
+                        Divider()
+                        ModelSection(settings: settings)
+                        Text("AI nudges and the meeting summary switch on automatically when a model is installed.")
+                            .font(.caption2).foregroundStyle(.tertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Divider()
+                        McpSection()
+                    }
+                    .padding(.top, 10)
+                }
+                .frame(maxHeight: 320)
+            } label: {
+                Label("Advanced", systemImage: "slider.horizontal.3")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 8)
+            .background(MCTheme.canvas)
 
             Divider()
             // Real bundle version (stamped from the release tag by CI) — never
@@ -670,6 +773,66 @@ struct SidebarView: View {
             }
         }
         return true
+    }
+}
+
+// MARK: - Sessions (search + recent chats)
+
+/// Sidebar card: one search box over every saved chat, plus the most recent
+/// sessions a click away. The transcript archive is the product — it should
+/// never feel like files in a folder.
+private struct SessionsSection: View {
+    @Binding var searchQuery: String
+    var liveSession: LiveSessionViewModel
+    @State private var recent: [URL] = []
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("SESSIONS")
+                .font(.caption2.weight(.semibold))
+                .kerning(1.0)
+                .foregroundStyle(.tertiary)
+
+            TextField("Search chats…", text: $searchQuery)
+                .textFieldStyle(.roundedBorder)
+                .controlSize(.small)
+
+            if liveSession.isLive {
+                HStack {
+                    Text("This meeting").font(.caption)
+                    Spacer()
+                    Text("live").font(.caption2.bold()).foregroundStyle(.green)
+                }
+            }
+
+            ForEach(recent.prefix(4), id: \.self) { url in
+                Button {
+                    NSWorkspace.shared.open(url)
+                } label: {
+                    HStack {
+                        Text(TranscriptSearch.title(for: url))
+                            .font(.caption).foregroundStyle(.primary).lineLimit(1)
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption2).foregroundStyle(.tertiary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Open the saved transcript")
+            }
+
+            if recent.isEmpty && !liveSession.isLive {
+                Text("Saved chats appear here.")
+                    .font(.caption2).foregroundStyle(.tertiary)
+            }
+        }
+        .padding(12)
+        .cardStyle()
+        // Refresh when a session ends and saves.
+        .task(id: liveSession.hasSession && !liveSession.isLive) {
+            recent = TranscriptSearch.sessionFiles()
+        }
     }
 }
 
@@ -730,6 +893,47 @@ struct CoachingStyleSection: View {
         }
         .sheet(isPresented: $showBuilder) {
             RubricBuilderView(settings: settings, ollamaManager: ollamaManager)
+        }
+    }
+}
+
+// MARK: - Agent access (MCP)
+
+/// Advanced row: agent access to saved chats over MCP. Copies a ready
+/// `claude mcp add` command pointing at the bundled server, which gives
+/// agents list / search / read over saved transcripts. Local stdio only —
+/// nothing listens on a port, nothing leaves the Mac.
+struct McpSection: View {
+    @State private var copied = false
+
+    private var helperPath: String? {
+        Bundle.main.url(forAuxiliaryExecutable: "meetingcoach-mcp")?.path
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Label("Agent access · MCP", systemImage: "point.3.connected.trianglepath.dotted")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                if let path = helperPath {
+                    Button(copied ? "Copied ✓" : "Copy setup command") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(
+                            "claude mcp add meetingcoach -- \"\(path)\"",
+                            forType: .string)
+                        copied = true
+                    }
+                    .font(.caption)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.blue)
+                }
+            }
+            Text(helperPath == nil
+                 ? "Agent server not found in this build."
+                 : "Lets Claude and other agents search and read your saved transcripts. Runs locally over stdio; nothing leaves this Mac.")
+                .font(.caption2).foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -1196,11 +1400,6 @@ struct LiveSection: View {
     var onToggleOverlay: () -> Void
     @Bindable var ollamaManager: OllamaManager
 
-    /// The semantic coach needs a reachable local model (or mock mode).
-    private var aiNudgesUnavailable: Bool {
-        !settings.useMock && settings.hasCheckedModels && settings.availableModels.isEmpty
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if liveSession.isLive {
@@ -1297,25 +1496,12 @@ struct LiveSection: View {
                     }
                 }
 
-                Button("Set a goal first…") {
-                    liveSession.showPreCallForm = true
-                }
-                .font(.caption)
-                .buttonStyle(.plain)
-                .foregroundStyle(.blue)
-                .help("Optional: tell the coach the meeting goal, length, and who's in the room")
-
-                Toggle("AI nudges", isOn: $settings.semanticCoachEnabled)
-                    .font(.caption)
-                    .toggleStyle(.switch)
-                    .controlSize(.mini)
-                    .disabled(aiNudgesUnavailable)
-                    .help("AI re-reads the conversation each minute for subtle moments — undecided topics, soft commitments. Uses more battery.")
-                if aiNudgesUnavailable {
-                    Text("Needs a local model — instant nudges still work without one.")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
+                // No goal step, no AI-nudges toggle: the app decides. Goal
+                // setup lives under Advanced; the semantic coach runs
+                // automatically whenever a local model is installed.
+                Text("Transcript saves automatically.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
 
             // Post-session: save/delete + review
@@ -1525,7 +1711,7 @@ struct WelcomeSheet: View {
                 )
             Text("Welcome to Meeting Coach")
                 .font(.title2.bold())
-            Text("It listens to your meetings and nudges you in the moment — talk less, land your point, lock decisions. Everything runs on your Mac; audio never leaves it.")
+            Text("A live transcript and recap for every meeting — zero setup. The coach stays quiet unless something's genuinely worth saying. Everything runs on your Mac; audio never leaves it.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: 400)
@@ -1597,6 +1783,7 @@ extension View {
 private func speakerColor(_ speaker: String) -> Color {
     let lower = speaker.trimmingCharacters(in: .whitespaces).lowercased()
     if ["you", "me", "self", "noah kagan"].contains(lower) { return .blue }
+    if lower == "them" { return .purple }
     if lower == "meeting" { return .secondary }
     // Diarized speakers: stable distinct color per index.
     if lower.hasPrefix("speaker "), let n = Int(lower.dropFirst("speaker ".count)) {

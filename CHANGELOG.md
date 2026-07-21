@@ -9,6 +9,13 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- A calmer, simpler MeetingCoach: the live transcript is now the main event, with your talk-time split and elapsed time shown as quiet ambient info — not warnings
+- Far fewer interruptions: only a handful of high-value nudges fire by default (talk time, one question at a time, action items, locking a real date, one genuine win). Everything else moved to Coaching Style, off by default — re-enable any signal you miss
+- Zero setup to start: no goal step, no AI-nudges toggle, no focus picker. Goal setup and coaching customization live under Advanced; AI nudges and the meeting summary switch on automatically when a local model is installed
+- Your recap now generates itself when you stop — summary, action items, and talk split, no button
+- Search your chats: one search box over every saved conversation, grouped by meeting with the moment highlighted
+- Connect Claude and other AI agents to your meetings: a built-in MCP server lets agents list, search, and read your saved transcripts — fully local, over stdio, nothing leaves your Mac. Setup: open Advanced → Agent access → copy the `claude mcp add` command (or point your agent at `MeetingCoach.app/Contents/MacOS/meetingcoach-mcp`)
+
 ## 0.6.3 — 2026-07-20
 
 - Stopping a session keeps your whole transcript on screen — including the words you were still saying when you hit Stop (they now land in the saved session too)
