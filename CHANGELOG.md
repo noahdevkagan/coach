@@ -9,6 +9,18 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.8.0 — 2026-07-24
+
+- Your post-meeting review is now a proper card — summary, key takeaways, and next steps you can check off (they stay checked). Both the instant review and the AI review use it, and old saved reviews render in the same clean layout
+- Sessions name themselves: "Lindsay · radar & group" instead of a date, worked out from who you talked to and what about, with the date shown alongside. Right-click to rename
+- Click a session to read it right in the app — color-coded transcript, its review up top, and one click copies the whole meeting for Slack, email, or an AI tool
+- New under Advanced: Questions to Ask — paste the questions you always want covered and they show as a live checklist that ticks off as you ask them (per-meeting questions live in the goal form)
+- Nudge cards can show the exact words behind a nudge ("What was said"), say what window they're judging ("last 5 min"), and take thumbs up/down feedback
+- The floating overlay returns if you closed it mid-meeting and moves to the screen your call is on; praise stays up a little longer
+- Joining a Google Meet in the browser now prompts in about 10 seconds (was 40) and the prompt names the platform — Meet, Hangouts, or Zoom-in-browser
+- Coaching Notes now save on their own — tell the coach "watch my talk time" without pairing a transcript
+- Agent access (MCP) setup moved to Settings → General
+
 ## 0.7.0 — 2026-07-21
 
 - A calmer, simpler MeetingCoach: the live transcript is now the main event, with your talk-time split and elapsed time shown as quiet ambient info — not warnings
