@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <span class="logo">🛒 SmartCart</span>
+  </header>
+
+  <section class="hero">
+    <div class="saved-label">Verified savings so far</div>
+    <div class="saved-amount" id="totalSaved">$0.00</div>
+  </section>
+
+  <section class="toggles">
+    <label class="row">
+      <span>Find &amp; verify coupons at checkout</span>
+      <input type="checkbox" id="couponsEnabled" />
+    </label>
+    <label class="row">
+      <span>Compare Amazon prices with major sites</span>
+      <input type="checkbox" id="compareEnabled" />
+    </label>
+  </section>
+
+  <button id="scanBtn" class="primary">Scan this page for coupons</button>
+
+  <section class="log">
+    <div class="log-title">Recent wins</div>
+    <ul id="logList"><li class="empty">No savings recorded yet.</li></ul>
+  </section>
+
+  <footer>
+    <a href="#" id="optionsLink">Settings</a>
+    <span class="muted">Local-only · no account</span>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>

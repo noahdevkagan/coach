@@ -1,0 +1,63 @@
+.smartcart-panel {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  width: 300px;
+  max-height: 70vh;
+  overflow: auto;
+  background: #ffffff;
+  color: #1f2430;
+  border: 1px solid #e6e8ee;
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(20, 25, 40, 0.18);
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  z-index: 2147483646;
+}
+.smartcart-panel .sc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid #f0f1f5;
+}
+.smartcart-panel .sc-logo { font-weight: 700; }
+.smartcart-panel .sc-close {
+  border: 0; background: transparent; font-size: 20px; line-height: 1;
+  cursor: pointer; color: #8a90a2;
+}
+.smartcart-panel .sc-body { padding: 12px 14px; }
+.smartcart-panel .sc-offer { font-weight: 600; margin-bottom: 10px; }
+.smartcart-panel .sc-test-all,
+.smartcart-panel .sc-apply-one {
+  border: 0; border-radius: 9px; cursor: pointer; font-weight: 600;
+}
+.smartcart-panel .sc-test-all {
+  width: 100%; padding: 10px; background: #ff6a3d; color: #fff; font-size: 14px;
+}
+.smartcart-panel .sc-test-all:hover { background: #f2572a; }
+.smartcart-panel .sc-list { margin-top: 12px; }
+.smartcart-panel .sc-code-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0; border-top: 1px solid #f4f5f8;
+}
+.smartcart-panel .sc-code-row code {
+  background: #f3f4f8; padding: 2px 6px; border-radius: 6px; font-weight: 700;
+}
+.smartcart-panel .sc-desc { flex: 1; color: #6b7280; font-size: 12px; }
+.smartcart-panel .sc-apply-one {
+  padding: 5px 10px; background: #eef0f5; color: #1f2430;
+}
+.smartcart-panel .sc-apply-one:hover { background: #e3e6ee; }
+.smartcart-panel .sc-status {
+  padding: 10px 14px; border-top: 1px solid #f0f1f5;
+  color: #374151; min-height: 18px; font-size: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  .smartcart-panel {
+    background: #1c1f27; color: #e7e9f0; border-color: #2c303b;
+  }
+  .smartcart-panel .sc-head, .smartcart-panel .sc-status { border-color: #2c303b; }
+  .smartcart-panel .sc-code-row { border-color: #262a34; }
+  .smartcart-panel .sc-code-row code { background: #2a2e39; }
+  .smartcart-panel .sc-apply-one { background: #2a2e39; color: #e7e9f0; }
+}

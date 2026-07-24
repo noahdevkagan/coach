@@ -1,0 +1,59 @@
+:root {
+  --accent: #ff6a3d;
+  --ink: #1f2430;
+  --muted: #8a90a2;
+  --line: #eef0f5;
+}
+* { box-sizing: border-box; }
+body {
+  width: 320px;
+  margin: 0;
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+  background: #fff;
+}
+header { padding: 14px 16px 6px; }
+.logo { font-weight: 700; font-size: 15px; }
+.hero {
+  margin: 6px 16px 14px;
+  padding: 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #fff2ec, #ffe8de);
+  text-align: center;
+}
+.saved-label { color: #b4531f; font-size: 12px; font-weight: 600; }
+.saved-amount { font-size: 30px; font-weight: 800; color: #b4531f; margin-top: 4px; }
+.toggles { padding: 0 16px; }
+.row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 10px 0; border-top: 1px solid var(--line);
+}
+.row:first-child { border-top: 0; }
+input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); }
+.primary {
+  display: block; width: calc(100% - 32px); margin: 12px 16px;
+  padding: 11px; border: 0; border-radius: 11px; cursor: pointer;
+  background: var(--accent); color: #fff; font-weight: 700; font-size: 14px;
+}
+.primary:hover { background: #f2572a; }
+.log { padding: 0 16px 4px; }
+.log-title { font-weight: 600; color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+#logList { list-style: none; margin: 0; padding: 0; max-height: 160px; overflow: auto; }
+#logList li {
+  display: flex; justify-content: space-between; gap: 8px;
+  padding: 7px 0; border-top: 1px solid var(--line); font-size: 12px;
+}
+#logList li .win { color: #14a05a; font-weight: 700; }
+#logList li.empty { color: var(--muted); border-top: 0; }
+footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-top: 1px solid var(--line);
+}
+footer a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.muted { color: var(--muted); font-size: 11px; }
+@media (prefers-color-scheme: dark) {
+  body { background: #1c1f27; color: #e7e9f0; --line: #2c303b; }
+  .hero { background: linear-gradient(135deg, #33240f, #3a2413); }
+  .saved-label, .saved-amount { color: #f0b072; }
+  input[type="checkbox"] { accent-color: var(--accent); }
+}

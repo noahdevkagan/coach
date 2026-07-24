@@ -1,0 +1,54 @@
+.smartcart-amz {
+  position: fixed;
+  right: 18px;
+  top: 90px;
+  width: 300px;
+  background: #ffffff;
+  color: #1f2430;
+  border: 1px solid #e6e8ee;
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(20, 25, 40, 0.18);
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  z-index: 2147483646;
+  overflow: hidden;
+}
+.smartcart-amz .sca-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 14px; font-weight: 700; background: #232f3e; color: #fff;
+}
+.smartcart-amz .sca-close {
+  border: 0; background: transparent; color: #cbd2dd; font-size: 20px;
+  line-height: 1; cursor: pointer;
+}
+.smartcart-amz .sca-body { padding: 6px 8px; }
+.smartcart-amz .sca-loading { padding: 16px; color: #6b7280; text-align: center; }
+.smartcart-amz .sca-row {
+  display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto;
+  gap: 0 8px; padding: 9px 10px; border-radius: 10px; text-decoration: none;
+  color: inherit;
+}
+.smartcart-amz .sca-row:hover { background: #f5f6fa; }
+.smartcart-amz .sca-best { background: #eafaf0; }
+.smartcart-amz .sca-best:hover { background: #ddf6e6; }
+.smartcart-amz .sca-store { font-weight: 600; }
+.smartcart-amz .sca-price { font-weight: 700; text-align: right; }
+.smartcart-amz .sca-ship { grid-column: 1 / -1; font-size: 11px; color: #6b7280; }
+.smartcart-amz .sca-badge {
+  margin-left: 6px; background: #14a05a; color: #fff; font-size: 10px;
+  padding: 1px 6px; border-radius: 20px; vertical-align: middle;
+}
+.smartcart-amz .sca-save {
+  margin: 6px 8px; padding: 8px 10px; background: #fff5ec; color: #b4531f;
+  border-radius: 10px; font-weight: 600; font-size: 12px;
+}
+.smartcart-amz .sca-foot {
+  padding: 9px 14px; font-size: 11px; color: #8a90a2; border-top: 1px solid #f0f1f5;
+}
+@media (prefers-color-scheme: dark) {
+  .smartcart-amz { background: #1c1f27; color: #e7e9f0; border-color: #2c303b; }
+  .smartcart-amz .sca-row:hover { background: #262a34; }
+  .smartcart-amz .sca-best { background: #14311f; }
+  .smartcart-amz .sca-ship, .smartcart-amz .sca-foot { color: #9aa1b1; }
+  .smartcart-amz .sca-foot { border-color: #2c303b; }
+  .smartcart-amz .sca-save { background: #33240f; color: #f0b072; }
+}

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SmartCart Settings</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <main>
+    <h1>🛒 SmartCart settings</h1>
+
+    <section class="card">
+      <h2>Live price data (optional)</h2>
+      <p>
+        Out of the box, the Amazon price check links you to each retailer's search.
+        Add a <a href="https://serpapi.com/" target="_blank" rel="noopener">SerpAPI</a>
+        key to pull <em>live</em> Google Shopping prices (with shipping) inline.
+      </p>
+      <label class="field">
+        <span>SerpAPI key</span>
+        <input type="password" id="serpApiKey" placeholder="paste key — stored locally only" />
+      </label>
+      <label class="field">
+        <span>Fallback shipping estimate ($)</span>
+        <input type="number" id="shippingEstimate" min="0" step="0.01" placeholder="0.00" />
+        <small>Used when a retailer doesn't report shipping.</small>
+      </label>
+    </section>
+
+    <section class="card">
+      <h2>Features</h2>
+      <label class="toggle">
+        <input type="checkbox" id="couponsEnabled" />
+        <span>Find &amp; verify coupons at checkout</span>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" id="compareEnabled" />
+        <span>Compare Amazon prices with major sites</span>
+      </label>
+    </section>
+
+    <section class="card">
+      <h2>Privacy</h2>
+      <p class="muted">
+        SmartCart stores everything in your browser only. No account, no telemetry.
+        The only network calls are to retailer search pages and — if you add a key —
+        to SerpAPI for price data.
+      </p>
+      <button id="clearData" class="danger">Clear saved data &amp; learned coupons</button>
+    </section>
+
+    <p id="saved" class="saved-note" hidden>Saved ✓</p>
+  </main>
+  <script src="options.js"></script>
+</body>
+</html>

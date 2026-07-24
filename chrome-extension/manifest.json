@@ -1,0 +1,55 @@
+{
+  "manifest_version": 3,
+  "name": "SmartCart — Coupons & Amazon Price Compare",
+  "version": "0.1.0",
+  "description": "Finds and verifies working coupon codes at checkout, and compares Amazon prices against major retailers including shipping.",
+  "permissions": ["storage", "activeTab", "scripting", "tabs", "notifications"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "SmartCart",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "options_page": "options/options.html",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/store-detect.js", "content/coupon.js"],
+      "css": ["content/coupon.css"],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "*://*.amazon.com/*",
+        "*://*.amazon.co.uk/*",
+        "*://*.amazon.ca/*"
+      ],
+      "js": ["content/amazon.js"],
+      "css": ["content/amazon.css"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["data/coupons.json", "icons/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
