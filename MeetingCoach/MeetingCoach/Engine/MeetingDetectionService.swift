@@ -225,7 +225,15 @@ final class MeetingDetectionService {
             if let id = micUserForPrompt,
                let app = NSRunningApplication.runningApplications(withBundleIdentifier: id).first {
                 // Attribution path: name/icon of the process holding the mic.
-                detectedSource = Self.displayName(forBundleID: id) ?? app.localizedName ?? "Meeting"
+                // A browser holding the mic names the platform, not the
+                // browser — "Google Meet", not "Google Chrome" (tab titles
+                // need Screen Recording; falls back to the browser name).
+                let platform: String? = Self.browserBase(for: id) != nil
+                    && CGPreflightScreenCaptureAccess()
+                    ? MeetingWindowHeuristics.browserMeetingPlatform(Self.meetingWindowSnapshot())
+                    : nil
+                detectedSource = platform
+                    ?? Self.displayName(forBundleID: id) ?? app.localizedName ?? "Meeting"
                 detectedIcon = app.icon
             } else if signals.meetingAppRunning, let (name, icon) = Self.meetingAppInfo() {
                 detectedSource = name
@@ -234,7 +242,12 @@ final class MeetingDetectionService {
                 detectedSource = "Meeting app"
                 detectedIcon = nil
             } else {
-                detectedSource = "Browser meeting"
+                // Name the platform from the tab title when possible (titles
+                // need Screen Recording permission; falls back to generic).
+                let platform = CGPreflightScreenCaptureAccess()
+                    ? MeetingWindowHeuristics.browserMeetingPlatform(Self.meetingWindowSnapshot())
+                    : nil
+                detectedSource = platform ?? "Browser meeting"
                 detectedIcon = NSWorkspace.shared.frontmostApplication?.icon
             }
             meetingDetected = true

@@ -24,17 +24,65 @@ final class CoachingOverlayPanel: NSPanel {
         hasShadow = true
         sharingType = .none  // invisible in screen shares
 
-        // Position at top-right of main screen
-        if let screen = NSScreen.main {
-            let x = screen.visibleFrame.maxX - 320
-            let y = screen.visibleFrame.maxY - 86
-            setFrameOrigin(NSPoint(x: x, y: y))
-        }
+        positionAtTopRight(of: NSScreen.main)
+
+        // A display being plugged/unplugged can strand the panel on a
+        // screen that no longer exists — re-clamp onto a live one.
+        // (Selector-based: this notification posts on the main thread.)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(screenConfigChanged),
+            name: NSApplication.didChangeScreenParametersNotification, object: nil)
+    }
+
+    @objc private func screenConfigChanged() {
+        if screen == nil { positionAtTopRight(of: NSScreen.main) }
     }
 
     // Allow the panel to become key for dragging but not steal focus
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    /// Move to the screen holding the frontmost app's window — the one the
+    /// user is actually looking at (a fullscreen call on a second display).
+    /// If the panel is already visible on that screen, leave it where the
+    /// user put it (they may have dragged it).
+    func repositionToActiveScreen() {
+        guard let target = Self.screenOfFrontmostWindow() ?? NSScreen.main else { return }
+        if isVisible, screen == target { return }
+        positionAtTopRight(of: target)
+    }
+
+    private func positionAtTopRight(of screen: NSScreen?) {
+        guard let screen else { return }
+        let x = screen.visibleFrame.maxX - 320
+        let y = screen.visibleFrame.maxY - 86
+        setFrameOrigin(NSPoint(x: x, y: y))
+    }
+
+    /// The screen containing the frontmost app's biggest on-screen window.
+    /// Window bounds (unlike titles) need no Screen Recording permission.
+    private static func screenOfFrontmostWindow() -> NSScreen? {
+        guard let app = NSWorkspace.shared.frontmostApplication,
+              let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements],
+                                                    kCGNullWindowID) as? [[String: Any]]
+        else { return nil }
+        // CG coords: origin top-left of the primary display, y down.
+        // Cocoa: origin bottom-left, y up. Convert through primary height.
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+        for info in list {
+            guard let pid = info[kCGWindowOwnerPID as String] as? pid_t,
+                  pid == app.processIdentifier,
+                  let boundsDict = info[kCGWindowBounds as String] as? NSDictionary,
+                  let bounds = CGRect(dictionaryRepresentation: boundsDict),
+                  bounds.width > 200, bounds.height > 150   // skip status items / tooltips
+            else { continue }
+            let center = NSPoint(x: bounds.midX, y: primaryHeight - bounds.midY)
+            if let screen = NSScreen.screens.first(where: { $0.frame.contains(center) }) {
+                return screen
+            }
+        }
+        return nil
+    }
 }
 
 /// SwiftUI view shown inside the overlay panel: a single-line nudge display
@@ -118,11 +166,15 @@ struct CoachingOverlayView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .frame(minWidth: 280, maxWidth: 300, minHeight: 36)
+        // Tint wash under the material while a nudge shows — positives get
+        // an unmistakable green; corrections a lighter cue.
+        .background(activeNudge.map { nudgeColor($0).opacity($0.type.isPositive ? 0.22 : 0.12) } ?? Color.clear)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(activeNudge.map { nudgeColor($0).opacity(0.3) } ?? Color.primary.opacity(0.08), lineWidth: 1)
+                .stroke(activeNudge.map { nudgeColor($0).opacity(0.55) } ?? Color.primary.opacity(0.08),
+                        lineWidth: activeNudge == nil ? 1 : 1.5)
         )
         .padding(6)
         .animation(.easeInOut(duration: 0.3), value: activeNudge?.id)

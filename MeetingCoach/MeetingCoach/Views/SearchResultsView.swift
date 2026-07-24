@@ -5,6 +5,8 @@ import SwiftUI
 /// session, newest first — the payoff for "transcript is the product."
 struct SearchResultsView: View {
     let query: String
+    /// Open a session — the host decides where (main-pane viewer).
+    var onOpen: (URL) -> Void = { NSWorkspace.shared.open($0) }
     @State private var hits: [TranscriptHit] = []
 
     private var groups: [(file: URL, title: String, hits: [TranscriptHit])] {
@@ -14,7 +16,11 @@ struct SearchResultsView: View {
             if byFile[hit.file] == nil { order.append(hit.file) }
             byFile[hit.file, default: []].append(hit)
         }
-        return order.map { (file: $0, title: TranscriptSearch.title(for: $0), hits: byFile[$0] ?? []) }
+        return order.map {
+            (file: $0,
+             title: byFile[$0]?.first?.sessionTitle ?? TranscriptSearch.title(for: $0),
+             hits: byFile[$0] ?? [])
+        }
     }
 
     var body: some View {
@@ -52,7 +58,7 @@ struct SearchResultsView: View {
                                         .foregroundStyle(.secondary)
                                     Spacer()
                                     Button("Open") {
-                                        NSWorkspace.shared.open(group.file)
+                                        onOpen(group.file)
                                     }
                                     .font(.caption)
                                     .buttonStyle(.plain)

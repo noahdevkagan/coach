@@ -55,8 +55,31 @@ struct GeneralSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            Section("Agent access (MCP)") {
+                if let path = mcpHelperPath {
+                    Button(mcpCopied ? "Copied ✓" : "Copy setup command") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(
+                            "claude mcp add meetingcoach -- \"\(path)\"",
+                            forType: .string)
+                        mcpCopied = true
+                    }
+                }
+                Text(mcpHelperPath == nil
+                     ? "Agent server not found in this build."
+                     : "Lets Claude and other agents search and read your saved transcripts. Runs locally over stdio; nothing leaves this Mac.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
+    }
+
+    @State private var mcpCopied = false
+
+    private var mcpHelperPath: String? {
+        Bundle.main.url(forAuxiliaryExecutable: "meetingcoach-mcp")?.path
     }
 
     private func chooseFolder() {

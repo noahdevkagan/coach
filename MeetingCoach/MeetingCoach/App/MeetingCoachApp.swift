@@ -31,7 +31,39 @@ struct MeetingCoachApp: App {
             UserDefaults.standard.set(true, forKey: key)
         }
         #endif
+        #if DEBUG
+        // Dock icon gets a "D" badge so a dev build is never mistaken for
+        // the installed copy when both are running (menu bar already shows
+        // a hammer; the Dock and app switcher need the same tell).
+        DispatchQueue.main.async { Self.applyDevDockBadge() }
+        #endif
     }
+
+    #if DEBUG
+    private static func applyDevDockBadge() {
+        guard let base = NSApp.applicationIconImage else { return }
+        let badged = NSImage(size: base.size, flipped: false) { rect in
+            base.draw(in: rect)
+            let d = rect.width * 0.44
+            let inset = rect.width * 0.04
+            let badgeRect = NSRect(x: rect.maxX - d - inset, y: inset,
+                                   width: d, height: d)
+            NSColor.systemOrange.setFill()
+            NSBezierPath(ovalIn: badgeRect).fill()
+            let label = NSAttributedString(
+                string: "D",
+                attributes: [
+                    .font: NSFont.boldSystemFont(ofSize: d * 0.66),
+                    .foregroundColor: NSColor.white,
+                ])
+            let size = label.size()
+            label.draw(at: NSPoint(x: badgeRect.midX - size.width / 2,
+                                   y: badgeRect.midY - size.height / 2))
+            return true
+        }
+        NSApp.applicationIconImage = badged
+    }
+    #endif
 
     var body: some Scene {
         // Window, not WindowGroup: openWindow(id:) on a WindowGroup mints a

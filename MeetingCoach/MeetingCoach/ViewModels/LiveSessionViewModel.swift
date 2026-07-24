@@ -31,9 +31,14 @@ final class LiveSessionViewModel {
     var elapsedTime: TimeInterval = 0
     var preCallContext = PreCallContext()
 
-    /// End-of-meeting summary
-    var meetingSummary: String?
+    /// End-of-meeting review (structured — both the deterministic and the
+    /// LLM path produce the same MeetingReview shape).
+    var meetingReview: MeetingReview?
     var isGeneratingSummary = false
+
+    /// Indices into preCallContext.plannedQuestions that have been covered
+    /// (keyword overlap against the user's turns, re-derived each tick).
+    var askedPlannedQuestions: Set<Int> = []
     var savedPath: String?
     var showPostSession = false
 
@@ -103,6 +108,15 @@ final class LiveSessionViewModel {
 
         isDemo = false
         preCallContext = context
+        // Standing questions from Advanced ("Questions to Ask") join any
+        // per-call ones from the form — pasted once, tracked every call.
+        let standing = (UserDefaults.standard.string(forKey: "plannedQuestionsText") ?? "")
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        for q in standing where !preCallContext.plannedQuestions.contains(q) {
+            preCallContext.plannedQuestions.append(q)
+        }
 
         // The active rubric tunes the deterministic monitors and defines any
         // custom semantic signals. Missing/invalid rubric = stock behavior.
@@ -345,7 +359,7 @@ final class LiveSessionViewModel {
         isLive = false
         demoTask = nil
         status = "Demo finished — a real session looks just like this"
-        meetingSummary = instantReview(durationMinutes: max(1, Int(elapsedTime / 60)))
+        meetingReview = instantReview(durationMinutes: max(1, Int(elapsedTime / 60)))
     }
 
     func deleteSession() {
@@ -370,7 +384,8 @@ final class LiveSessionViewModel {
         activeNudge = nil
         talkStats.reset()
         error = nil
-        meetingSummary = nil
+        meetingReview = nil
+        askedPlannedQuestions = []
         elapsedTime = 0
         backoff = NudgeBackoff()
     }
@@ -516,7 +531,7 @@ final class LiveSessionViewModel {
     func generateReview(ollamaManager: OllamaManager, settings: SettingsViewModel) {
         guard !utterances.isEmpty else { return }
         isGeneratingSummary = true
-        meetingSummary = nil
+        meetingReview = nil
 
         let durationMin = max(1, Int(elapsedTime) / 60)
 
@@ -568,38 +583,109 @@ final class LiveSessionViewModel {
                     }
                 }
             }
-            finishReview(summary ?? instantReview(durationMinutes: durationMin))
+            if let summary {
+                finishReview(MeetingReview.parse(llmText: summary,
+                                                 talkShare: talkStats.sessionShare))
+            } else {
+                finishReview(instantReview(durationMinutes: durationMin))
+            }
         }
     }
 
     /// Single epilogue for every review path: publish, stop the spinner,
     /// and persist into the session file.
-    private func finishReview(_ summary: String) {
-        meetingSummary = summary
+    private func finishReview(_ review: MeetingReview) {
+        meetingReview = review
         isGeneratingSummary = false
+        persistReview()
+    }
+
+    /// Toggle one Suggested Next Step's checkbox and persist immediately —
+    /// checked state survives restarts as "- [x]" task lines in the file.
+    func toggleActionItem(_ id: UUID) {
+        guard var review = meetingReview,
+              let i = review.actionItems.firstIndex(where: { $0.id == id }) else { return }
+        review.actionItems[i].isDone.toggle()
+        meetingReview = review
         persistReview()
     }
 
     /// Write the review into the saved session file under "## Review" so
     /// trends and the rubric advisor can mine it later. Replaces any earlier
-    /// review section — reviews can be regenerated.
+    /// review section — reviews can be regenerated (and checkbox toggles
+    /// re-persist through the same path).
     private func persistReview() {
-        guard let path = savedPath, let summary = meetingSummary,
+        guard let path = savedPath, let review = meetingReview,
               var content = try? String(contentsOfFile: path, encoding: .utf8) else { return }
         if let range = content.range(of: "\n## Review") {
             content = String(content[..<range.lowerBound])
         }
         content = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        content += "\n\n## Review\n\n\(summary)\n"
+        content += "\n\n## Review\n\n\(review.recapMarkdown)\n"
         try? content.write(toFile: path, atomically: true, encoding: .utf8)
     }
 
-    private func instantReview(durationMinutes: Int) -> String {
-        DeterministicReview.generate(nudges: nudges,
-                                     utterances: utterances,
-                                     context: preCallContext,
-                                     durationMinutes: durationMinutes,
-                                     talkShare: talkStats.sessionShare)
+    private func instantReview(durationMinutes: Int) -> MeetingReview {
+        DeterministicReview.review(nudges: nudges,
+                                   utterances: utterances,
+                                   context: preCallContext,
+                                   durationMinutes: durationMinutes,
+                                   talkShare: talkStats.sessionShare)
+    }
+
+    // MARK: - Nudge quotes
+
+    /// The transcript moment behind a nudge: the turn active at the nudge's
+    /// call-relative timestamp plus the following turn (the exchange).
+    /// Pure lookup — works retroactively on nudges from any session.
+    func turnsAround(_ timestamp: TimeInterval) -> [Turn] {
+        guard !turns.isEmpty else { return [] }
+        guard let idx = turns.lastIndex(where: { $0.t <= timestamp }) else {
+            return [turns[0]]
+        }
+        var result = [turns[idx]]
+        if idx + 1 < turns.count { result.append(turns[idx + 1]) }
+        return result
+    }
+
+    // MARK: - Planned questions
+
+    /// Mark planned questions as covered when a "You" turn contains most of
+    /// the question's content words. Keyword overlap, not exact match — the
+    /// spoken phrasing never matches the typed one.
+    private func updatePlannedQuestionCoverage() {
+        let questions = preCallContext.plannedQuestions
+        guard !questions.isEmpty else { return }
+        for (i, question) in questions.enumerated() where !askedPlannedQuestions.contains(i) {
+            let keywords = Self.questionKeywords(question)
+            guard !keywords.isEmpty else { continue }
+            for turn in turns where turn.isYou {
+                let turnWords = Set(TextAnalysis.words(turn.text))
+                let matched = keywords.filter(turnWords.contains).count
+                // ≥60% of content words (and at least one) heard in one turn.
+                if matched > 0, matched * 10 >= keywords.count * 6 {
+                    askedPlannedQuestions.insert(i)
+                    mclog("[Questions] Covered planned question #\(i + 1)")
+                    break
+                }
+            }
+        }
+    }
+
+    /// Content words of a planned question — question scaffolding and
+    /// filler stripped so matching keys on the substance.
+    static func questionKeywords(_ question: String) -> [String] {
+        let stop: Set<String> = [
+            "what", "how", "why", "when", "where", "who", "which", "whose",
+            "the", "a", "an", "is", "are", "was", "were", "do", "does", "did",
+            "you", "your", "yours", "we", "our", "ours", "they", "their",
+            "to", "of", "in", "on", "for", "about", "and", "or", "if",
+            "it", "its", "that", "this", "these", "those", "there",
+            "have", "has", "had", "be", "been", "being", "will", "would",
+            "could", "should", "can", "with", "them", "us", "i", "my", "me",
+            "get", "got", "any", "some", "at", "as", "by", "from", "up",
+        ]
+        return TextAnalysis.words(question).filter { $0.count >= 3 && !stop.contains($0) }
     }
 
     // MARK: - Semantic heartbeat (tier 2)
@@ -653,6 +739,7 @@ final class LiveSessionViewModel {
         turns = engine.turns
         signalEngine = engine
         talkStats.update(turns: turns, elapsed: elapsedTime)
+        updatePlannedQuestionCoverage()
 
         for nudge in newNudges {
             nudges.append(nudge)
@@ -683,10 +770,12 @@ final class LiveSessionViewModel {
             return
         }
         activeNudge = nudge
-        // Auto-dismiss after 6 seconds
+        // Auto-dismiss: positives ("green") hold a little longer — praise is
+        // the easiest thing to miss while looking at a face on another screen.
+        let displaySeconds: Double = nudge.type.isPositive ? 10 : 6
         dismissTask?.cancel()
         dismissTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(6))
+            try? await Task.sleep(for: .seconds(displaySeconds))
             guard let self, self.activeNudge?.id == nudge.id else { return }
             // Held the overlay for the full window, untouched — that's an
             // ignore. Displaced nudges never reach here (the id guard).
@@ -766,6 +855,13 @@ final class LiveSessionViewModel {
 
         var lines: [String] = []
         lines.append("# Meeting Coach Session — \(formatter.string(from: Date()))")
+        // Human title (person · subject) derived from pre-call context —
+        // the filename stays date-based (it's the sort key and is parsed
+        // for the session date); the title lives in the header and is
+        // user-editable later via the sessions list.
+        if let title = Self.sessionTitle(context: preCallContext) {
+            lines.append("**Title:** \(title)")
+        }
         lines.append("**Duration:** \(elapsedFormatted)")
         lines.append("**Utterances:** \(utterances.count)")
         lines.append("**Nudges:** \(nudges.count)")
@@ -785,6 +881,15 @@ final class LiveSessionViewModel {
             }
             if !preCallContext.myKnownTendencies.isEmpty {
                 lines.append("**Known Tendencies:** \(preCallContext.myKnownTendencies.joined(separator: ", "))")
+            }
+            lines.append("")
+        }
+
+        // Planned questions with coverage — checked = heard in a You turn.
+        if !preCallContext.plannedQuestions.isEmpty {
+            lines.append("## Planned Questions")
+            for (i, q) in preCallContext.plannedQuestions.enumerated() {
+                lines.append("- [\(askedPlannedQuestions.contains(i) ? "x" : " ")] \(q)")
             }
             lines.append("")
         }
@@ -815,5 +920,19 @@ final class LiveSessionViewModel {
         try? content.write(to: file, atomically: true, encoding: .utf8)
         savedPath = file.path
         status = "Session saved to \(dir.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))/"
+    }
+
+    /// "Chris · close the deal" from pre-call context (first named
+    /// participant + goal); nil when there's no context to name it by.
+    static func sessionTitle(context: PreCallContext) -> String? {
+        let person = context.participants
+            .map { $0.name.trimmingCharacters(in: .whitespaces) }
+            .first { !$0.isEmpty }
+        var subject = context.meetingGoal
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\n", with: " ")
+        if subject.count > 48 { subject = String(subject.prefix(45)) + "…" }
+        let parts = [person, subject.isEmpty ? nil : subject].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }

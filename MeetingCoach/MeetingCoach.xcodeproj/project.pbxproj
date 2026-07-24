@@ -60,6 +60,7 @@
 		965F05D47B12F506C3B6CE55 /* DemoScript.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8143978E87DDB116AC0D3FD8 /* DemoScript.swift */; };
 		97BBFAF4DAC944901C41F097 /* TranscriptSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48F9343259F30B3410C031F9 /* TranscriptSearch.swift */; };
 		98104496237EA3D2AEC65205 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 99FF311B3C3C0B29ECF0C296 /* Assets.xcassets */; };
+		9CFEB7F1FAAB9B376743DE9E /* MeetingReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35964E2F9634996C0ACEB39C /* MeetingReview.swift */; };
 		A1D971DC2241B73DC1713D26 /* TranscriptAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FFBE4A37EC6EEE8D7A7516D /* TranscriptAnalysis.swift */; };
 		A36D1448B1484E7ACF6E53D5 /* MeetingDetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A12E30BEB51DFB2F939AE4 /* MeetingDetectionService.swift */; };
 		A4FE039B5DC3EE1C8C2793AD /* SemanticCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07506FC59991300DD4578DB0 /* SemanticCoach.swift */; };
@@ -81,12 +82,14 @@
 		D77C09AA85DC5397A7D1B114 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 2ADB653C496B73D902CC4DFD /* Sparkle */; };
 		E50CF069AE16583B2665E1BE /* AppSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F05A5F9043EE4F2C14B8D5 /* AppSupport.swift */; };
 		E64A1CF9A596EDF1578EA6E0 /* InterruptionSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88673BD63F55A97082E19D05 /* InterruptionSignal.swift */; };
+		E7FFC6FB0B3CCA7EA40EEFD0 /* MeetingReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 656450659BC1ACF5F68F709C /* MeetingReviewView.swift */; };
 		ED79D15397793472C866F5FE /* TalkCharts.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B794F3FFF35F998081042B /* TalkCharts.swift */; };
 		F1CADB35E72BF742F5571672 /* Yams in Frameworks */ = {isa = PBXBuildFile; productRef = F03462EBA44605723460996E /* Yams */; };
 		F285F58F0AEDB1C24B9ACF59 /* YesManSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AA57261742100AD1915A9F4 /* YesManSignal.swift */; };
 		FBBB2B4DB3372B0DD8A7CEE8 /* TranscriptParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1F99166785B46F89B17133 /* TranscriptParser.swift */; };
 		FE81E3B044352DA913F1A58B /* RepetitionLoopSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A77874939901EA598BC1814 /* RepetitionLoopSignal.swift */; };
 		FF20EDCA009AC9F00BC2968E /* OllamaClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A1BF8C4DA14D327E81E1832 /* OllamaClient.swift */; };
+		FFB7FE0F2B5AAC40276DA50F /* SessionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFDDC5E15E6CA9D8E03D659 /* SessionDetailView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -118,6 +121,7 @@
 		3148143DE9DBDDDC62BC5535 /* RecapExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecapExporter.swift; sourceTree = "<group>"; };
 		31809EA09C75CBBA15B69874 /* RubricBuilderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RubricBuilderViewModel.swift; sourceTree = "<group>"; };
 		35350EAFCF72EF5D24FA7AA1 /* GeneralSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralSettingsView.swift; sourceTree = "<group>"; };
+		35964E2F9634996C0ACEB39C /* MeetingReview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingReview.swift; sourceTree = "<group>"; };
 		35B1ADEF0B99BDEB25D36FE4 /* FeedbackFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackFormView.swift; sourceTree = "<group>"; };
 		38AF9EC84551A2A07E86DADF /* SearchResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultsView.swift; sourceTree = "<group>"; };
 		42E54C36F44DC42BE2B8D5D9 /* SimulationTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulationTimelineView.swift; sourceTree = "<group>"; };
@@ -130,6 +134,7 @@
 		5D799074E6B06F54801EAD00 /* CoachingCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachingCall.swift; sourceTree = "<group>"; };
 		61CBD7F2B9C7BC596D8D6984 /* MeetingCoach.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MeetingCoach.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6506F84B219D29F99152C209 /* TimeCheckSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeCheckSignal.swift; sourceTree = "<group>"; };
+		656450659BC1ACF5F68F709C /* MeetingReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingReviewView.swift; sourceTree = "<group>"; };
 		67120DB8C352138595D0B749 /* LiveSessionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSessionViewModel.swift; sourceTree = "<group>"; };
 		68FD97A461F0CDDDFC997439 /* meetingcoach-mcp */ = {isa = PBXFileReference; includeInIndex = 0; path = "meetingcoach-mcp"; sourceTree = BUILT_PRODUCTS_DIR; };
 		69834923A05B2FEECE228263 /* ollama */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ollama; path = MeetingCoach/Resources/ollama; sourceTree = SOURCE_ROOT; };
@@ -138,6 +143,7 @@
 		73E93FA8D25DA2577F2827FF /* ParakeetTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParakeetTranscriber.swift; sourceTree = "<group>"; };
 		78FD64A28567F115FD3944A4 /* PromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptBuilder.swift; sourceTree = "<group>"; };
 		7A2619C7DBDE479D92329B84 /* SessionTrendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTrendsView.swift; sourceTree = "<group>"; };
+		7BFDDC5E15E6CA9D8E03D659 /* SessionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionDetailView.swift; sourceTree = "<group>"; };
 		8143978E87DDB116AC0D3FD8 /* DemoScript.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoScript.swift; sourceTree = "<group>"; };
 		81D33EEE89EF224DC87FCF6E /* Utterance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utterance.swift; sourceTree = "<group>"; };
 		826E23E63EE91A96C88BA0F1 /* Trigger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Trigger.swift; sourceTree = "<group>"; };
@@ -201,10 +207,12 @@
 				35B1ADEF0B99BDEB25D36FE4 /* FeedbackFormView.swift */,
 				35350EAFCF72EF5D24FA7AA1 /* GeneralSettingsView.swift */,
 				96F44479B82669A57E95C7E4 /* MeetingPromptPanel.swift */,
+				656450659BC1ACF5F68F709C /* MeetingReviewView.swift */,
 				25F544EB2BBE998E71984423 /* PreCallFormView.swift */,
 				0B4B0AF697805859194CB8FB /* ProgressDashboardView.swift */,
 				C0AE8468D0484EFAC70C4D7F /* RubricBuilderView.swift */,
 				38AF9EC84551A2A07E86DADF /* SearchResultsView.swift */,
+				7BFDDC5E15E6CA9D8E03D659 /* SessionDetailView.swift */,
 				7A2619C7DBDE479D92329B84 /* SessionTrendsView.swift */,
 				42E54C36F44DC42BE2B8D5D9 /* SimulationTimelineView.swift */,
 				D2B794F3FFF35F998081042B /* TalkCharts.swift */,
@@ -284,6 +292,7 @@
 				C8F05A5F9043EE4F2C14B8D5 /* AppSupport.swift */,
 				5D799074E6B06F54801EAD00 /* CoachingCall.swift */,
 				B7CDB212B0E5B6D49D07C0A8 /* FocusGoals.swift */,
+				35964E2F9634996C0ACEB39C /* MeetingReview.swift */,
 				736B9D6AC7AFE9AA6A2D5725 /* Nudge.swift */,
 				0302009AC6EADB2189C6E775 /* PreCallContext.swift */,
 				EAC07F7931A467E07514A5B8 /* Rubric.swift */,
@@ -539,6 +548,8 @@
 				A36D1448B1484E7ACF6E53D5 /* MeetingDetectionService.swift in Sources */,
 				417ACEAF577CB9DB73C67193 /* MeetingDetector.swift in Sources */,
 				125031287F601C3F45385D84 /* MeetingPromptPanel.swift in Sources */,
+				9CFEB7F1FAAB9B376743DE9E /* MeetingReview.swift in Sources */,
+				E7FFC6FB0B3CCA7EA40EEFD0 /* MeetingReviewView.swift in Sources */,
 				0170D229D930510652FB627F /* MeetingWindowHeuristics.swift in Sources */,
 				AC2DFEF84296BA4652EA853B /* MissingDiscoverySignal.swift in Sources */,
 				46BB0140FA3D0C6D5953EA48 /* NextStepsSignal.swift in Sources */,
@@ -563,6 +574,7 @@
 				0283EBAC26A5C0417A1983DA /* RubricBuilderViewModel.swift in Sources */,
 				230953F58905C232A72F61EF /* SearchResultsView.swift in Sources */,
 				A4FE039B5DC3EE1C8C2793AD /* SemanticCoach.swift in Sources */,
+				FFB7FE0F2B5AAC40276DA50F /* SessionDetailView.swift in Sources */,
 				C333FB6099F885862570B759 /* SessionTrends.swift in Sources */,
 				85E59446014AE47DD1E5A810 /* SessionTrendsView.swift in Sources */,
 				C322C07D3607C86B929C4345 /* SettingsViewModel.swift in Sources */,
