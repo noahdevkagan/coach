@@ -7,6 +7,11 @@ struct PreCallContext: Codable {
     var activePlaybook: String = ""
     var lastMeetingNotes: String = ""
     var myKnownTendencies: [String] = []
+    /// Questions the user wants to cover — shown as a live checklist during
+    /// the call and ticked off as the transcript covers them. (Safe as a
+    /// defaulted non-optional: whole PreCallContext values are never
+    /// decoded from disk — only Participant arrays are persisted.)
+    var plannedQuestions: [String] = []
     /// Set explicitly only in rare paths (e.g. tests); normally nil and the
     /// type is inferred from goal, roles, and participant count.
     var meetingType: MeetingType?

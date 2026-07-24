@@ -34,7 +34,8 @@ enum MeetingWindowHeuristics {
                          zoomRunning: Bool, slackRunning: Bool,
                          micHolderIsBrowser: Bool) -> Bool? {
         for w in windows {
-            if isZoomMeetingWindow(w) || isSlackHuddleWindow(w) || isMeetTabWindow(w) {
+            if isZoomMeetingWindow(w) || isSlackHuddleWindow(w)
+                || isMeetTabWindow(w) || isHangoutsTabWindow(w) {
                 return true
             }
         }
@@ -59,7 +60,31 @@ enum MeetingWindowHeuristics {
     static func isMeetTabWindow(_ w: WindowInfo) -> Bool {
         guard browserOwners.contains(w.ownerName) else { return false }
         // Meet tab titles: "Meet – xyz-abcd-ef" (en dash) or hyphen variant.
-        return w.title.hasPrefix("Meet – ") || w.title.hasPrefix("Meet - ")
-            || w.title.contains("meet.google.com")
+        // Case-insensitive — browsers/extensions sometimes re-case titles.
+        let title = w.title.lowercased()
+        return title.hasPrefix("meet – ") || title.hasPrefix("meet - ")
+            || title.contains("meet.google.com")
+    }
+
+    /// Google Hangouts (legacy/classic titles still seen in the wild, plus
+    /// the hangouts.google.com redirect page a Meet can open from).
+    static func isHangoutsTabWindow(_ w: WindowInfo) -> Bool {
+        guard browserOwners.contains(w.ownerName) else { return false }
+        let title = w.title.lowercased()
+        return title.contains("hangouts.google.com") || title.hasPrefix("hangouts")
+            || title.contains("google hangouts")
+    }
+
+    /// Best-effort platform label for a browser-hosted meeting, from tab
+    /// titles — nil when nothing gives it away (label stays generic).
+    static func browserMeetingPlatform(_ windows: [WindowInfo]) -> String? {
+        for w in windows {
+            if isMeetTabWindow(w) { return "Google Meet" }
+            if isHangoutsTabWindow(w) { return "Google Hangouts" }
+            if browserOwners.contains(w.ownerName), w.title.lowercased().contains("zoom.us") {
+                return "Zoom (browser)"
+            }
+        }
+        return nil
     }
 }

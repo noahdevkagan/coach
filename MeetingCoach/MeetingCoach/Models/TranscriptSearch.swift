@@ -35,6 +35,57 @@ enum TranscriptSearch {
         return "\(parts[0]) \(parts[1].replacingOccurrences(of: "-", with: ":"))"
     }
 
+    /// User-facing title: the "**Title:** …" header line when present
+    /// (person · subject, written at save time or via rename), else the
+    /// filename date.
+    static func displayTitle(for file: URL) -> String {
+        if let content = try? String(contentsOf: file, encoding: .utf8),
+           let header = headerTitle(in: content) {
+            return header
+        }
+        return title(for: file)
+    }
+
+    /// Parse the "**Title:** …" line from a session file's header block
+    /// (stops at the first "## " section — the title never lives past it).
+    static func headerTitle(in content: String) -> String? {
+        for line in content.components(separatedBy: "\n").prefix(16) {
+            if line.hasPrefix("**Title:**") {
+                let t = line.dropFirst("**Title:**".count)
+                    .trimmingCharacters(in: .whitespaces)
+                return t.isEmpty ? nil : t
+            }
+            if line.hasPrefix("## ") { break }
+        }
+        return nil
+    }
+
+    static func headerTitle(at file: URL) -> String? {
+        guard let content = try? String(contentsOf: file, encoding: .utf8) else { return nil }
+        return headerTitle(in: content)
+    }
+
+    /// Rename a session: write (or, when empty, remove) the Title header
+    /// line. The date-based filename is untouched — it's the sort key and
+    /// is parsed for the session date.
+    static func setTitle(_ title: String, for file: URL) {
+        guard let content = try? String(contentsOf: file, encoding: .utf8) else { return }
+        var lines = content.components(separatedBy: "\n")
+        let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let i = lines.firstIndex(where: { $0.hasPrefix("**Title:**") }) {
+            if cleaned.isEmpty {
+                lines.remove(at: i)
+            } else {
+                lines[i] = "**Title:** \(cleaned)"
+            }
+        } else if !cleaned.isEmpty {
+            let insertAt = lines.firstIndex(where: { $0.hasPrefix("# ") })
+                .map { lines.index(after: $0) } ?? 0
+            lines.insert("**Title:** \(cleaned)", at: insertAt)
+        }
+        try? lines.joined(separator: "\n").write(to: file, atomically: true, encoding: .utf8)
+    }
+
     /// Search the spoken lines of every saved session. Matches only against
     /// what was said — headers and stats would make every query noisy.
     /// Queries under 2 characters return nothing (too noisy to be useful).
@@ -50,7 +101,7 @@ enum TranscriptSearch {
             guard hits.count < limit,
                   let content = try? String(contentsOf: file, encoding: .utf8)
             else { continue }
-            let sessionTitle = title(for: file)
+            let sessionTitle = headerTitle(in: content) ?? title(for: file)
             var inSession = 0
             for rawLine in content.split(separator: "\n") {
                 guard inSession < maxPerSession, hits.count < limit else { break }

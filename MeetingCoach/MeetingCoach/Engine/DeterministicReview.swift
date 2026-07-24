@@ -1,67 +1,51 @@
 import Foundation
 
 /// Post-call review computed purely from session data — no LLM required.
-/// Rendered when no local model is installed (or the engine fails), so the
-/// review moment works on a fresh zero-download install. Mirrors the shape
-/// of the LLM review: summary line, what fired, wins, commitments, next focus.
+/// Used when no local model is installed (or the engine fails), so the
+/// review moment works on a fresh zero-download install. Emits the same
+/// MeetingReview struct as the LLM path, so the WiFi-off review renders in
+/// the identical structured layout.
 enum DeterministicReview {
 
-    static func generate(nudges: [Nudge],
-                         utterances: [Utterance],
-                         context: PreCallContext,
-                         durationMinutes: Int,
-                         talkShare: Double?) -> String {
-        var lines: [String] = []
-        lines.append("**Instant review** — generated on-device from this session's signals (add a local model in Settings for a deeper AI review).")
-        lines.append("")
+    static func review(nudges: [Nudge],
+                       utterances: [Utterance],
+                       context: PreCallContext,
+                       durationMinutes: Int,
+                       talkShare: Double?) -> MeetingReview {
+        var review = MeetingReview(talkShare: talkShare, isDeterministic: true)
 
-        // Summary line. Talk share comes from the caller's TalkStats — the
-        // same number the meter, session header, and recap show; a second
+        // Summary. Talk share comes from the caller's TalkStats — the same
+        // number the meter, session header, and recap show; a second
         // formula here would let one session display two different ratios.
-        var summary = "\(durationMinutes) min \(context.effectiveMeetingType.displayName.lowercased()) meeting · \(utterances.count) utterances"
+        var summary = "\(durationMinutes) min \(context.effectiveMeetingType.displayName.lowercased()) meeting, \(utterances.count) utterances."
         if let share = talkShare {
-            summary += " · you spoke \(Int(share * 100))% of the time"
+            summary += " You spoke \(Int(share * 100))% of the time over the whole meeting."
         }
-        lines.append("**Summary:** \(summary).")
-        lines.append("")
 
-        // Corrective patterns, most frequent first
         let corrective = countsByType(nudges.filter { !$0.type.isPositive })
-        if !corrective.isEmpty {
-            lines.append("**What fired:**")
-            for (type, count) in corrective {
-                lines.append("- \(type.displayName) ×\(count)")
-            }
-            lines.append("")
-        }
-
-        // Positive reinforcement
         let wins = countsByType(nudges.filter { $0.type.isPositive })
-        if !wins.isEmpty {
-            let winList = wins.map { "\($0.0.displayName) ×\($0.1)" }.joined(separator: ", ")
-            lines.append("**Wins:** \(winList)")
-            lines.append("")
-        }
-
         if corrective.isEmpty && wins.isEmpty {
-            lines.append("No coaching patterns fired — clean session.")
-            lines.append("")
+            summary += " No coaching patterns fired — clean session."
+        }
+        review.summary = summary
+
+        // Corrective patterns as takeaways, most frequent first — display
+        // names only, never signal ids.
+        for (type, count) in corrective.prefix(5) {
+            review.takeaways.append("\(type.displayName) fired \(count == 1 ? "once" : "\(count)×") — \(advice(for: type))")
+        }
+        for (type, count) in wins.prefix(3) {
+            review.wins.append(count > 1 ? "\(type.displayName) ×\(count)" : type.displayName)
         }
 
-        // Commitments heard (keyword scan — approximate on purpose)
-        let commitments = commitmentLines(utterances)
-        if !commitments.isEmpty {
-            lines.append("**Possible commitments heard:**")
-            lines.append(contentsOf: commitments)
-            lines.append("")
-        }
+        // Commitments heard (keyword scan — approximate on purpose) become
+        // the checkable next steps, so the list is never empty offline.
+        review.actionItems = commitmentItems(utterances)
 
-        // Single next-meeting focus: the most frequent corrective pattern
         if let (topType, count) = corrective.first {
-            lines.append("**Next meeting:** watch \(topType.displayName.lowercased()) — it fired \(count)×. \(advice(for: topType))")
+            review.nextFocus = "Watch \(topType.displayName.lowercased()) — it fired \(count)×. \(advice(for: topType))"
         }
-
-        return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        return review
     }
 
     private static func countsByType(_ nudges: [Nudge]) -> [(NudgeType, Int)] {
@@ -74,8 +58,8 @@ enum DeterministicReview {
         pattern: #"\b(i'?ll|i will|we'?ll|we will|let me|i can send|i owe you)\b|\bby (monday|tuesday|wednesday|thursday|friday|tomorrow|next week|end of|eod|eow)\b"#,
         options: [.caseInsensitive])
 
-    private static func commitmentLines(_ utterances: [Utterance]) -> [String] {
-        var result: [String] = []
+    private static func commitmentItems(_ utterances: [Utterance]) -> [ActionItem] {
+        var result: [ActionItem] = []
         for u in utterances {
             // Transcripts carry smart apostrophes ("I’ll") — fold before
             // matching, but quote the original text.
@@ -83,7 +67,7 @@ enum DeterministicReview {
             let range = NSRange(matchable.startIndex..., in: matchable)
             guard commitmentPattern.firstMatch(in: matchable, range: range) != nil else { continue }
             let quote = u.text.count > 120 ? String(u.text.prefix(117)) + "..." : u.text
-            result.append("- \"\(quote)\" (\(u.formattedTime), \(u.speaker))")
+            result.append(ActionItem(text: "“\(quote)” — \(u.speaker), \(u.formattedTime)"))
             if result.count == 5 { break }
         }
         return result

@@ -299,7 +299,13 @@ struct ProgressDashboardView: View {
             Text("Recent sessions").font(.headline)
             ForEach(sessions.suffix(6).reversed()) { session in
                 HStack {
-                    Text(session.date, style: .date).font(.caption)
+                    if let title = session.title {
+                        Text(title).font(.caption).lineLimit(1)
+                        Text(session.date, style: .date)
+                            .font(.caption2).foregroundStyle(.tertiary)
+                    } else {
+                        Text(session.date, style: .date).font(.caption)
+                    }
                     Text(session.durationFormatted)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(.secondary)

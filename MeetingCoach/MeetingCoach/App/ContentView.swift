@@ -68,6 +68,13 @@ struct ContentView: View {
         .onChange(of: liveSession.isLive) { _, isLive in
             if isLive { showOverlay() } else { hideOverlay() }
         }
+        .onChange(of: liveSession.activeNudge?.id) { _, id in
+            // Re-assert the overlay whenever a nudge fires: brings it back if
+            // it was closed mid-meeting (closed-once used to mean gone for
+            // the whole session) and moves it to the screen the user is
+            // actually looking at (fullscreen call on another display).
+            if id != nil, liveSession.isLive { showOverlay() }
+        }
         .onAppear {
             // The window can open into an already-live session (started from
             // the menu bar with no window) — onChange never fires for that.
@@ -98,6 +105,9 @@ struct ContentView: View {
             }
             panel.contentView = NSHostingView(rootView: view)
         }
+        // Follow the user's attention: position on the screen holding the
+        // frontmost app's window (the call), not wherever init saw last.
+        panel.repositionToActiveScreen()
         panel.orderFront(nil)
     }
 
@@ -145,10 +155,12 @@ struct LiveTimelineView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 6) {
-                        // Summary card
-                        if let summary = liveSession.meetingSummary {
-                            MeetingSummaryCard(summary: summary, recapText: recapText(summary))
-                                .id("summary")
+                        // Review card
+                        if let review = liveSession.meetingReview {
+                            MeetingReviewView(review: review, recapText: recapText(review)) { id in
+                                liveSession.toggleActionItem(id)
+                            }
+                            .id("summary")
                             Divider().padding(.vertical, 4)
                         } else if liveSession.isGeneratingSummary {
                             HStack(spacing: 8) {
@@ -183,7 +195,8 @@ struct LiveTimelineView: View {
                         }
 
                         ForEach(liveSession.nudges) { nudge in
-                            NudgeCardView(nudge: nudge) { feedback in
+                            NudgeCardView(nudge: nudge,
+                                          quoteTurns: liveSession.turnsAround(nudge.timestamp)) { feedback in
                                 liveSession.recordFeedback(nudgeId: nudge.id, feedback: feedback)
                             }
                             .id(nudge.id)
@@ -256,15 +269,21 @@ struct LiveTimelineView: View {
             // ticks and talkStats mutations re-render only this strip.
             AmbientStatsStrip(liveSession: liveSession)
 
+            // Pre-loaded questions as a live checklist, ticking off as the
+            // transcript covers them.
+            if liveSession.isLive && !liveSession.preCallContext.plannedQuestions.isEmpty {
+                PlannedQuestionsCard(liveSession: liveSession)
+            }
+
             LiveTranscriptPane(liveSession: liveSession)
         }
         .padding(12)
         .background(MCTheme.canvas)
     }
 
-    private func recapText(_ summary: String) -> String {
+    private func recapText(_ review: MeetingReview) -> String {
         RecapExporter.markdown(
-            summary: summary,
+            summary: review.recapMarkdown,
             context: liveSession.preCallContext,
             durationMinutes: max(1, Int(liveSession.elapsedTime) / 60),
             talkShare: liveSession.talkStats.sessionShare
@@ -364,6 +383,54 @@ private struct AmbientStatsStrip: View {
             .padding(.horizontal, 14).padding(.vertical, 10)
             .cardStyle()
         }
+    }
+}
+
+/// Live checklist of the questions entered in pre-call setup. Read-only by
+/// design — coverage is detected from the transcript, not clicked.
+private struct PlannedQuestionsCard: View {
+    var liveSession: LiveSessionViewModel
+    @State private var collapsed = false
+
+    var body: some View {
+        let questions = liveSession.preCallContext.plannedQuestions
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("QUESTIONS TO ASK")
+                    .font(.caption2.weight(.semibold))
+                    .kerning(1.0)
+                    .foregroundStyle(.tertiary)
+                Spacer()
+                Text("\(liveSession.askedPlannedQuestions.count)/\(questions.count)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.tertiary)
+                Button {
+                    withAnimation(.easeOut(duration: 0.15)) { collapsed.toggle() }
+                } label: {
+                    Image(systemName: collapsed ? "chevron.down" : "chevron.up")
+                        .font(.caption2)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tertiary)
+            }
+            if !collapsed {
+                ForEach(Array(questions.enumerated()), id: \.offset) { i, question in
+                    let asked = liveSession.askedPlannedQuestions.contains(i)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Image(systemName: asked ? "checkmark.circle.fill" : "circle")
+                            .font(.caption)
+                            .foregroundStyle(asked ? Color.green : Color.secondary)
+                        Text(question)
+                            .font(.caption)
+                            .strikethrough(asked)
+                            .foregroundStyle(asked ? Color.secondary : Color.primary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .cardStyle()
     }
 }
 
@@ -491,7 +558,11 @@ private struct LiveTranscriptPane: View {
 
 struct NudgeCardView: View {
     let nudge: Nudge
+    /// The transcript moment behind the nudge (trigger turn + reply), when
+    /// the session has it — reveals what was actually said on demand.
+    var quoteTurns: [Turn] = []
     let onFeedback: (NudgeFeedback) -> Void
+    @State private var showQuote = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -519,6 +590,30 @@ struct NudgeCardView: View {
                         .kerning(0.6)
                         .foregroundStyle(.tertiary)
 
+                    // Window the signal reasons over — "last 5 min" vs "this
+                    // meeting" was genuinely ambiguous before.
+                    if let hint = scopeHint {
+                        Text("· \(hint)")
+                            .font(.caption2)
+                            .foregroundStyle(.quaternary)
+                    }
+
+                    if !quoteTurns.isEmpty {
+                        Button {
+                            withAnimation(.easeOut(duration: 0.15)) { showQuote.toggle() }
+                        } label: {
+                            HStack(spacing: 2) {
+                                Image(systemName: "quote.opening")
+                                Image(systemName: showQuote ? "chevron.up" : "chevron.down")
+                            }
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help("Show what was said")
+                    }
+
                     Spacer()
 
                     // Feedback — quiet ghost buttons, or the recorded result.
@@ -537,11 +632,52 @@ struct NudgeCardView: View {
                         }
                     }
                 }
+
+                if showQuote && !quoteTurns.isEmpty {
+                    VStack(alignment: .leading, spacing: 5) {
+                        ForEach(quoteTurns) { turn in
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Text(turn.speaker)
+                                    .font(.caption2.bold())
+                                    .foregroundStyle(speakerColor(turn.speaker))
+                                Text(excerpt(turn))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.primary.opacity(0.04))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .cardStyle()
+    }
+
+    /// Trim long turns to the part near the nudge: the tail of the turn
+    /// that triggered it, the head of the reply.
+    private func excerpt(_ turn: Turn) -> String {
+        let text = turn.text.trimmingCharacters(in: .whitespaces)
+        guard text.count > 220 else { return text }
+        if turn.t <= nudge.timestamp && nudge.timestamp <= turn.endT {
+            return "…" + String(text.suffix(217))
+        }
+        return String(text.prefix(217)) + "…"
+    }
+
+    /// What window the signal reasons over — nil when "now" is obvious.
+    private var scopeHint: String? {
+        switch nudge.type {
+        case .voiceShare: return "last 5 min"
+        case .talkTime: return "current stretch"
+        default: return nudge.type.isPositive ? "just now" : nil
+        }
     }
 
     private func feedbackButton(_ feedback: NudgeFeedback, help: String, icon: String) -> some View {
@@ -611,46 +747,6 @@ struct CopyButton: View {
         .buttonStyle(.plain)
         .foregroundStyle(.secondary)
         .help(help)
-    }
-}
-
-struct MeetingSummaryCard: View {
-    let summary: String
-    /// Full shareable recap (summary + session facts + footer). When set,
-    /// copy/share controls appear in the card header.
-    var recapText: String?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Label("Meeting Review", systemImage: "doc.text.magnifyingglass")
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
-                if let recap = recapText {
-                    CopyButton(help: "Copy recap for Slack or email") { recap }
-
-                    ShareLink(item: recap) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.caption)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-                    .help("Share recap")
-                }
-            }
-
-            Text(summary)
-                .font(.callout)
-                .textSelection(.enabled)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.blue.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.blue.opacity(0.15), lineWidth: 1)
-        )
     }
 }
 
@@ -784,7 +880,11 @@ struct SidebarView: View {
 private struct SessionsSection: View {
     @Binding var searchQuery: String
     var liveSession: LiveSessionViewModel
-    @State private var recent: [URL] = []
+    /// URL + resolved display title (header title falling back to the date)
+    /// loaded together so a rename can refresh what's on screen.
+    @State private var recent: [(url: URL, title: String)] = []
+    @State private var renameTarget: URL?
+    @State private var renameText = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -805,12 +905,12 @@ private struct SessionsSection: View {
                 }
             }
 
-            ForEach(recent.prefix(4), id: \.self) { url in
+            ForEach(recent.prefix(4), id: \.url) { item in
                 Button {
-                    NSWorkspace.shared.open(url)
+                    NSWorkspace.shared.open(item.url)
                 } label: {
                     HStack {
-                        Text(TranscriptSearch.title(for: url))
+                        Text(item.title)
                             .font(.caption).foregroundStyle(.primary).lineLimit(1)
                         Spacer()
                         Image(systemName: "arrow.up.right")
@@ -819,7 +919,13 @@ private struct SessionsSection: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("Open the saved transcript")
+                .help("Open the saved transcript — \(TranscriptSearch.title(for: item.url))")
+                .contextMenu {
+                    Button("Rename…") {
+                        renameText = TranscriptSearch.headerTitle(at: item.url) ?? ""
+                        renameTarget = item.url
+                    }
+                }
             }
 
             if recent.isEmpty && !liveSession.isLive {
@@ -831,7 +937,29 @@ private struct SessionsSection: View {
         .cardStyle()
         // Refresh when a session ends and saves.
         .task(id: liveSession.hasSession && !liveSession.isLive) {
-            recent = TranscriptSearch.sessionFiles()
+            reloadRecent()
+        }
+        .alert("Name this session", isPresented: Binding(
+            get: { renameTarget != nil },
+            set: { if !$0 { renameTarget = nil } }
+        )) {
+            TextField("Person · subject", text: $renameText)
+            Button("Save") {
+                if let url = renameTarget {
+                    TranscriptSearch.setTitle(renameText, for: url)
+                    reloadRecent()
+                }
+                renameTarget = nil
+            }
+            Button("Cancel", role: .cancel) { renameTarget = nil }
+        } message: {
+            Text("Shown in the sessions list instead of the date. Clear it to go back to the date.")
+        }
+    }
+
+    private func reloadRecent() {
+        recent = TranscriptSearch.sessionFiles().map {
+            (url: $0, title: TranscriptSearch.displayTitle(for: $0))
         }
     }
 }

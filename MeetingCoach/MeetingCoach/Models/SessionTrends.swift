@@ -4,6 +4,9 @@ import Foundation
 struct SessionSummary: Identifiable {
     let id = UUID()
     let date: Date
+    /// Human title from the file header ("**Title:** …"), when the session
+    /// has one. Defaulted so existing memberwise call sites compile.
+    var title: String? = nil
     let durationFormatted: String
     let utteranceCount: Int
     let nudgeCounts: [NudgeType: Int]
@@ -169,9 +172,13 @@ enum SessionTrends {
         var duration = ""
         var utteranceCount = 0
         var talkShare: Double?
+        var title: String?
 
         for line in lines {
-            if line.hasPrefix("**Duration:**") {
+            if line.hasPrefix("**Title:**") {
+                let t = line.dropFirst("**Title:**".count).trimmingCharacters(in: .whitespaces)
+                if !t.isEmpty { title = t }
+            } else if line.hasPrefix("**Duration:**") {
                 duration = line.replacingOccurrences(of: "**Duration:** ", with: "")
             } else if line.hasPrefix("**Utterances:**") {
                 utteranceCount = Int(line.replacingOccurrences(of: "**Utterances:** ", with: "")) ?? 0
@@ -230,6 +237,7 @@ enum SessionTrends {
 
         return SessionSummary(
             date: date,
+            title: title,
             durationFormatted: duration,
             utteranceCount: utteranceCount,
             nudgeCounts: nudgeCounts,

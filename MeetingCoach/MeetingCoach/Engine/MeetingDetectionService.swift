@@ -234,7 +234,12 @@ final class MeetingDetectionService {
                 detectedSource = "Meeting app"
                 detectedIcon = nil
             } else {
-                detectedSource = "Browser meeting"
+                // Name the platform from the tab title when possible (titles
+                // need Screen Recording permission; falls back to generic).
+                let platform = CGPreflightScreenCaptureAccess()
+                    ? MeetingWindowHeuristics.browserMeetingPlatform(Self.meetingWindowSnapshot())
+                    : nil
+                detectedSource = platform ?? "Browser meeting"
                 detectedIcon = NSWorkspace.shared.frontmostApplication?.icon
             }
             meetingDetected = true

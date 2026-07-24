@@ -5,17 +5,30 @@ enum PromptBuilder {
 
     /// Build a post-call review prompt that includes nudges, feedback, pre-call context, and transcript.
     static func buildPostCallReviewPrompt(nudges: [Nudge], transcript: String, context: PreCallContext, durationMinutes: Int) -> (system: String, user: String) {
+        // Strictly-delimited sections, one item per line — the app parses
+        // this into a structured card (MeetingReview.parse). Small local
+        // models are unreliable at JSON; labeled sections survive better,
+        // and the parser degrades to plain text when even these are ignored.
         let system = """
         You are a meeting coach. The meeting just ended. Write a concise post-meeting review.
 
-        Include:
-        1. A 2-3 sentence summary of what was discussed
-        2. Nudge analysis — which nudges fired, which the user found useful/annoying/wrong, and what that tells you
-        3. A "Decision Ledger" — a table of decisions, owners, and dates mentioned (flag where they're missing)
-        4. Patterns missed — things you notice in the transcript that the deterministic signals didn't catch
-        5. Top 3 recommendations for the next meeting
+        Respond using EXACTLY these labeled sections, in this order:
 
-        Keep it under 500 words. Be direct and actionable.
+        SUMMARY:
+        2-3 plain sentences on what was discussed and how it went.
+
+        KEY TAKEAWAYS:
+        - one insight per line, each starting with "- " (include patterns you notice in the transcript, and what the coaching nudges and the user's feedback on them tell you)
+
+        NEXT STEPS:
+        - one concrete action per line, each starting with "- " (decisions, commitments, owners and dates mentioned — flag missing owners/dates)
+
+        NEXT MEETING FOCUS:
+        One sentence: the single most valuable thing to do differently next time.
+
+        Rules: no markdown headers, no bold, no backticks, no tables. Refer to
+        coaching signals by plain names (say "talk time", never camelCase ids).
+        Keep the whole review under 300 words. Be direct and actionable.
         """
 
         var userLines = [
