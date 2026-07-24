@@ -176,6 +176,12 @@ final class MeetingDetectionService {
         let (rawSignals, attributed) = sampleSignals()
         var signals = rawSignals
 
+        // The 20s browser debounce guards the pre-14.4 fallback, where
+        // "browser frontmost + device mic bit" is weak evidence. With
+        // per-process attribution a browser actually HOLDING the mic is
+        // nearly as strong as a meeting app — don't make the user wait.
+        if attributed { detector.browserDebounce = 8 }
+
         if isSessionLive() {
             meetingDetected = false
             // Starts that didn't route through us (main window button)
@@ -232,6 +238,10 @@ final class MeetingDetectionService {
                     && CGPreflightScreenCaptureAccess()
                     ? MeetingWindowHeuristics.browserMeetingPlatform(Self.meetingWindowSnapshot())
                     : nil
+                if Self.browserBase(for: id) != nil {
+                    mclog("[Detect] browser prompt: platform=\(platform ?? "nil") "
+                          + "screenRec=\(CGPreflightScreenCaptureAccess())")
+                }
                 detectedSource = platform
                     ?? Self.displayName(forBundleID: id) ?? app.localizedName ?? "Meeting"
                 detectedIcon = app.icon
