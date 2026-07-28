@@ -9,6 +9,11 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.8.3 — 2026-07-28
+
+- Your Progress now counts real weeks: "this week" starts Monday, compared against all of last week — no more rolling 7-day windows that read like wrong numbers
+- Coach suggestion cards now say exactly what Apply will do ("waits 50% longer between nudges", "starts watching for this next call") instead of leaving you guessing
+
 ## 0.8.2 — 2026-07-28
 
 - Coaching Notes now actually learn from anything you paste: feedback from Claude or any AI tool gets read by your local model — known signals tune up, and brand-new patterns ("you keep selling after they've said yes") become proposed signals you approve on the Progress dashboard before the coach starts watching for them
