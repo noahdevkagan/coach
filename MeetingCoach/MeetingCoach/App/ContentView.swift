@@ -481,6 +481,13 @@ private struct TranscriptHeaderStats: View {
 /// pane O(session²) over an hour-long call.
 private struct TranscriptTurnRow: View {
     let turn: Turn
+    /// Present = this speaker can be given a real name (click the label).
+    var onRename: ((String, String) -> Void)?
+
+    @State private var showRenamePopover = false
+    @State private var nameField = ""
+
+    private var renameable: Bool { onRename != nil && !turn.isYou }
 
     var body: some View {
         // Columnar: speaker | time | text — reads like a chat log, scans by
@@ -490,6 +497,32 @@ private struct TranscriptTurnRow: View {
                 .font(.caption.bold())
                 .foregroundStyle(speakerColor(turn.speaker))
                 .frame(minWidth: 42, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    guard renameable else { return }
+                    nameField = ""
+                    showRenamePopover = true
+                }
+                .help(renameable ? "Click to name this speaker" : "")
+                .popover(isPresented: $showRenamePopover, arrowEdge: .bottom) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Who is \(turn.speaker)?")
+                            .font(.caption.bold())
+                        TextField("Name", text: $nameField)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 160)
+                            .onSubmit { submitRename() }
+                        Text("Their voice is saved locally so future meetings label them automatically.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(width: 160)
+                        Button("Save") { submitRename() }
+                            .keyboardShortcut(.defaultAction)
+                            .disabled(nameField.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+                    .padding(12)
+                }
             Text(turn.formattedTime)
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(.tertiary)
@@ -506,6 +539,49 @@ private struct TranscriptTurnRow: View {
                 }
             }
             Spacer(minLength: 0)
+        }
+    }
+
+    private func submitRename() {
+        let name = nameField.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+        showRenamePopover = false
+        onRename?(turn.speaker, name)
+    }
+}
+
+/// One-tap confirmation for an LLM-inferred speaker name ("Them 1 sounds
+/// like Sarah"). Never auto-applied — a wrong name would be saved with the
+/// voice and poison future sessions.
+private struct NameSuggestionBar: View {
+    var liveSession: LiveSessionViewModel
+
+    var body: some View {
+        ForEach(liveSession.speakerNameSuggestions) { s in
+            HStack(spacing: 8) {
+                Image(systemName: "person.crop.circle.badge.questionmark")
+                    .foregroundStyle(.secondary)
+                (Text(s.label).bold() + Text(" sounds like ") + Text(s.name).bold())
+                    .font(.caption)
+                Spacer(minLength: 4)
+                Button {
+                    liveSession.confirmNameSuggestion(s)
+                } label: {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                }
+                .buttonStyle(.plain)
+                .help("Yes — label \(s.label) as \(s.name)")
+                Button {
+                    liveSession.dismissNameSuggestion(s)
+                } label: {
+                    Image(systemName: "xmark.circle").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("No, dismiss")
+            }
+            .padding(.horizontal, 10).padding(.vertical, 6)
+            .background(Color.primary.opacity(0.04))
+            .clipShape(Capsule())
         }
     }
 }
@@ -540,8 +616,16 @@ private struct LiveTranscriptPane: View {
                     // commits leaves phantom blank space mid-list (Parakeet
                     // partials grow into full paragraphs, so the hole is big).
                     VStack(alignment: .leading, spacing: 0) {
+                        if !liveSession.speakerNameSuggestions.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                NameSuggestionBar(liveSession: liveSession)
+                            }
+                            .padding(.horizontal, 14).padding(.top, 10)
+                        }
                         ForEach(liveSession.turns) { turn in
-                            TranscriptTurnRow(turn: turn)
+                            TranscriptTurnRow(turn: turn) { label, name in
+                                liveSession.renameSpeaker(label, to: name)
+                            }
                                 .padding(.horizontal, 14).padding(.vertical, 9)
                             Divider().opacity(0.35).padding(.leading, 14)
                         }
@@ -2061,12 +2145,18 @@ private func speakerColor(_ speaker: String) -> Color {
     if ["you", "me", "self", "noah kagan"].contains(lower) { return .blue }
     if lower == "them" { return .purple }
     if lower == "meeting" { return .secondary }
-    // Diarized speakers: stable distinct color per index.
-    if lower.hasPrefix("speaker "), let n = Int(lower.dropFirst("speaker ".count)) {
-        let palette: [Color] = [.blue, .orange, .purple, .teal, .pink, .indigo, .brown, .mint]
-        return palette[(n - 1 + palette.count) % palette.count]
+    // Diarized speakers: stable distinct color per slot index.
+    let palette: [Color] = [.blue, .orange, .purple, .teal, .pink, .indigo, .brown, .mint]
+    for prefix in ["speaker ", "them "] where lower.hasPrefix(prefix) {
+        if let n = Int(lower.dropFirst(prefix.count)) {
+            return palette[(n - 1 + palette.count) % palette.count]
+        }
     }
-    return .orange
+    // Named speakers: deterministic hash → stable color across sessions.
+    // Skips blue (slot 0) — that reads as "You" in the gutter.
+    var hash: UInt64 = 5381
+    for b in lower.utf8 { hash = hash &* 33 &+ UInt64(b) }
+    return palette[1 + Int(hash % UInt64(palette.count - 1))]
 }
 
 /// Split a long turn into readable paragraphs at sentence boundaries,

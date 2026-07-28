@@ -19,6 +19,7 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Engine/AdaptiveThresholds.swift" \
   "$SRC/Engine/NudgeBackoff.swift" \
   "$SRC/Engine/SemanticCoach.swift" \
+  "$SRC/Engine/SpeakerNameInference.swift" \
   "$SRC/Engine/OllamaClient.swift" \
   "$SRC/Engine/TalkStats.swift" \
   "$SRC/Engine/Mclog.swift" \

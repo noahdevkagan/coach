@@ -72,6 +72,26 @@ final class LiveSessionViewModel {
     private var semanticCoach: SemanticCoach?
     private var semanticTask: Task<Void, Never>?
 
+    // Speaker identity
+    /// LLM-inferred name suggestions awaiting a one-tap confirm ("Them 1
+    /// sounds like Sarah"). Confirming routes through renameSpeaker.
+    var speakerNameSuggestions: [SpeakerNameSuggestion] = []
+    private var rejectedNameSuggestions: Set<String> = []
+    private var nameInference: SpeakerNameInference?
+    /// Every label each diarization channel has published (plus renames) —
+    /// relabeled utterances must stay eligible for refined segments.
+    private var channelLabels: [DiarizationChannel: Set<String>] = [:]
+    /// Renames of the undiarized base labels ("Them" → "William"), applied
+    /// to utterances as they arrive.
+    private var baseLabelRenames: [String: String] = [:]
+    /// Every rename ever applied ("Them 2" → "William"). Incoming segments
+    /// are remapped through this: a publish already in flight when the user
+    /// renamed still carries the old label and would revert the transcript.
+    private var segmentRenames: [String: String] = [:]
+    /// The capture manager of the just-ended session — kept so renaming a
+    /// speaker from the post-session view can still save their voice clip.
+    private var endedCaptureManager: AudioCaptureManager?
+
     /// Signal types sharpened by the active focus goals (set per session).
     private var focusTypes: Set<NudgeType> = []
     /// Held across the session so stopLive can auto-generate the recap —
@@ -177,12 +197,16 @@ final class LiveSessionViewModel {
                                           tuning: tuning,
                                           customSignals: rubric.customSemanticSignals,
                                           noteExamples: noteExamples)
+            // Same engine, separate cadence: propose real names for diarized
+            // speakers from transcript evidence ("thanks Sarah").
+            nameInference = SpeakerNameInference(model: settings.selectedModel)
             if ollamaManager.status == .stopped {
                 ollamaManager.start()
             }
             startSemanticHeartbeat(ollamaManager: ollamaManager)
         } else {
             semanticCoach = nil
+            nameInference = nil
         }
 
         // Kept for the auto-recap on Stop — every session should end with
@@ -217,8 +241,8 @@ final class LiveSessionViewModel {
             }
         }
 
-        manager.onSpeakerSegments = { [weak self] segments in
-            self?.applyDiarization(segments)
+        manager.onSpeakerSegments = { [weak self] channel, segments in
+            self?.applyDiarization(segments, channel: channel)
         }
 
         manager.onStatus = { [weak self] msg in
@@ -246,6 +270,9 @@ final class LiveSessionViewModel {
         isLive = false
         sessionEngineLabel = captureManager?.engineLabel
         captureManager?.stop()
+        // Kept (not nil'd into oblivion) so a rename from the post-session
+        // view can still reach the diarizers' collected voice clips.
+        endedCaptureManager = captureManager
         captureManager = nil
         demoTask?.cancel()
         demoTask = nil
@@ -254,6 +281,7 @@ final class LiveSessionViewModel {
         semanticTask?.cancel()
         semanticTask = nil
         semanticCoach = nil
+        nameInference = nil
         timerTask?.cancel()
         timerTask = nil
         silenceCheckTask?.cancel()
@@ -324,6 +352,7 @@ final class LiveSessionViewModel {
         preCallContext = PreCallContext()   // neutral context → general type
         signalEngine = SignalEngine(context: preCallContext)
         semanticCoach = nil
+        nameInference = nil
         focusTypes = []   // demo choreography must not depend on user goals
 
         resetSessionState()
@@ -397,6 +426,12 @@ final class LiveSessionViewModel {
         utterances = []
         turns = []
         livePartials = [:]
+        speakerNameSuggestions = []
+        rejectedNameSuggestions = []
+        channelLabels = [:]
+        baseLabelRenames = [:]
+        segmentRenames = [:]
+        endedCaptureManager = nil
         micOnly = false
         sessionStartDate = nil
         nudges = []
@@ -414,29 +449,50 @@ final class LiveSessionViewModel {
         showPostSession = false
     }
 
-    /// Relabel mixed-stream ("Meeting") utterances with diarized speakers.
-    /// Segments arrive incrementally and can refine earlier calls, so every
-    /// pass re-derives labels for the whole diarizable history.
+    /// Relabel one channel's utterances with its diarized speakers —
+    /// "Meeting" → "Speaker 1/2/…" (mic-only), "Them" → "Them 1/2/…"
+    /// (system audio), or enrolled/renamed real names. Segments arrive
+    /// incrementally and can refine earlier calls, so every pass re-derives
+    /// labels for the whole diarizable history of that channel.
     ///
     /// Utterances that clearly span MORE than one diarized speaker are
     /// split at the segment boundaries — a single dominant label for a
     /// back-and-forth exchange hands every word to one person, which was
     /// the main source of attribution errors (measured ~12% of words).
-    private func applyDiarization(_ segments: [SpeakerSegment]) {
+    private func applyDiarization(_ segments: [SpeakerSegment], channel: DiarizationChannel) {
+        // Remap stale labels from publishes that raced a rename.
+        let segments = segments.map { seg in
+            segmentRenames[seg.speaker].map {
+                SpeakerSegment(speaker: $0, start: seg.start, end: seg.end)
+            } ?? seg
+        }
+        // Track every label this channel has ever produced (including
+        // renames) — a relabeled utterance must stay eligible for the
+        // refined segments of later passes.
+        for s in segments { channelLabels[channel, default: []].insert(s.speaker) }
+        let owned = channelLabels[channel] ?? []
+
+        // Each utterance only needs the segments that can overlap it. Both
+        // lists are time-sorted, so a binary-searched window replaces the
+        // full-array scans that made this pass O(utterances × segments) —
+        // it runs on the main thread on every publish of a long call.
+        let maxSegDur = segments.reduce(0.0) { max($0, $1.end - $1.start) }
+
         var changed = false
         var rebuilt: [Utterance] = []
         rebuilt.reserveCapacity(utterances.count)
         for u in utterances {
-            guard u.speaker == "Meeting" || u.speaker.hasPrefix("Speaker ") else {
+            guard belongsToChannel(u.speaker, channel: channel, owned: owned) else {
                 rebuilt.append(u)
                 continue
             }
-            if let parts = Self.splitByDiarization(u, segments: segments) {
+            let window = Self.overlapWindow(for: u, in: segments, maxDur: maxSegDur)
+            if let parts = Self.splitByDiarization(u, segments: window) {
                 rebuilt.append(contentsOf: parts)
                 changed = true
                 continue
             }
-            if let label = Self.dominantSpeaker(for: u, in: segments), label != u.speaker {
+            if let label = Self.dominantSpeaker(for: u, in: window), label != u.speaker {
                 var copy = u
                 copy.speaker = label
                 rebuilt.append(copy)
@@ -454,13 +510,101 @@ final class LiveSessionViewModel {
         runSignalEvaluation()
     }
 
+    /// Whether an utterance's current label came from this channel: the
+    /// channel's base label, its slot-label form, or anything the channel's
+    /// diarizer has published (enrolled names, renames).
+    private func belongsToChannel(_ speaker: String, channel: DiarizationChannel,
+                                  owned: Set<String>) -> Bool {
+        switch channel {
+        case .mic:
+            return speaker == "Meeting" || speaker.hasPrefix("Speaker ")
+                || owned.contains(speaker) || baseLabelRenames["Meeting"] == speaker
+        case .system:
+            return speaker == "Them" || speaker.hasPrefix("Them ")
+                || owned.contains(speaker) || baseLabelRenames["Them"] == speaker
+        }
+    }
+
+    // MARK: - Speaker naming
+
+    /// Rename a diarized speaker ("Them 2", "Speaker 1", or a wrong name)
+    /// everywhere: transcript history, live diarizer timeline (future turns),
+    /// and the voice-profile store (future sessions recognize the voice).
+    func renameSpeaker(_ label: String, to rawName: String) {
+        let name = rawName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty, name != label else { return }
+
+        // Transcript relabels immediately — the diarizer republish path
+        // also covers this, but only while live, and up to a second later.
+        var changed = false
+        for i in utterances.indices where utterances[i].speaker == label {
+            utterances[i].speaker = name
+            changed = true
+        }
+        if changed {
+            var builder = TurnBuilder()
+            builder.rebuild(utterances)
+            turns = builder.turns
+            if var engine = signalEngine {
+                engine.invalidateTurnCache()
+                signalEngine = engine
+            }
+        }
+        // Keep the rename eligible for later diarization refinements.
+        for (channel, labels) in channelLabels where labels.contains(label) {
+            channelLabels[channel]?.insert(name)
+        }
+        // "Them"/"Meeting" was never diarized (single far speaker, or model
+        // still downloading) — remember the mapping so later utterances of
+        // that base label keep the name without a diarizer in the loop.
+        if label == "Them" || label == "Meeting" {
+            baseLabelRenames[label] = name
+        }
+        baseLabelRenames = baseLabelRenames.mapValues { $0 == label ? name : $0 }
+        // Chain: A→B then B→C must leave A mapping to C.
+        segmentRenames = segmentRenames.mapValues { $0 == label ? name : $0 }
+        segmentRenames[label] = name
+
+        // Live timeline + voice profile. The manager survives stopLive()
+        // precisely so a post-session rename can still reach the clips.
+        (captureManager ?? endedCaptureManager)?.renameSpeaker(label, to: name)
+
+        speakerNameSuggestions.removeAll { $0.label == label }
+        mclog("[VM] Renamed speaker \(label) → \(name)")
+    }
+
+    /// Accept an LLM name suggestion — routes through the full rename path.
+    func confirmNameSuggestion(_ suggestion: SpeakerNameSuggestion) {
+        renameSpeaker(suggestion.label, to: suggestion.name)
+    }
+
+    func dismissNameSuggestion(_ suggestion: SpeakerNameSuggestion) {
+        rejectedNameSuggestions.insert(suggestion.key)
+        speakerNameSuggestions.removeAll { $0.key == suggestion.key }
+    }
+
     /// Split an utterance across diarized speaker spans when at least two
     /// speakers each held a meaningful share of it. Words are allocated
     /// proportionally by span duration (the recognizer gives no word
     /// timestamps). Returns nil when the utterance is effectively
     /// single-speaker — the dominant-label path handles it.
+    /// The segments that can overlap `u`: start ≥ u.t − longest segment
+    /// (anything earlier must end before u starts) and start < u.endT.
+    private static func overlapWindow(for u: Utterance, in segments: [SpeakerSegment],
+                                      maxDur: TimeInterval) -> ArraySlice<SpeakerSegment> {
+        func lowerBound(_ key: TimeInterval) -> Int {
+            var lo = 0, hi = segments.count
+            while lo < hi {
+                let mid = (lo + hi) / 2
+                if segments[mid].start < key { lo = mid + 1 } else { hi = mid }
+            }
+            return lo
+        }
+        return segments[lowerBound(u.t - maxDur)..<lowerBound(u.endT)]
+    }
+
     private static func splitByDiarization(_ u: Utterance,
-                                           segments: [SpeakerSegment]) -> [Utterance]? {
+                                           segments: ArraySlice<SpeakerSegment>) -> [Utterance]? {
         guard u.duration > 1.5 else { return nil }
         // Overlapping spans in time order, merging near-adjacent same-speaker runs.
         var spans: [(speaker: String, start: TimeInterval, end: TimeInterval)] = []
@@ -501,7 +645,7 @@ final class LiveSessionViewModel {
 
     /// The speaker whose segments overlap this utterance the most.
     /// Requires meaningful overlap (>0.3s or >30% of the utterance).
-    private static func dominantSpeaker(for u: Utterance, in segments: [SpeakerSegment]) -> String? {
+    private static func dominantSpeaker(for u: Utterance, in segments: ArraySlice<SpeakerSegment>) -> String? {
         var overlapBySpeaker: [String: TimeInterval] = [:]
         for seg in segments {
             let overlap = min(u.endT, seg.end) - max(u.t, seg.start)
@@ -517,6 +661,12 @@ final class LiveSessionViewModel {
     /// Insert keeping chronological order — the You and Them pipelines emit
     /// independently, so arrivals can be slightly out of order.
     private func insertUtterance(_ u: Utterance) {
+        var u = u
+        // A renamed base label sticks to new arrivals; diarization (when
+        // running) still refines them into individual speakers later.
+        if let mapped = baseLabelRenames[u.speaker] {
+            u.speaker = mapped
+        }
         if let last = utterances.last, u.t < last.t {
             let idx = utterances.lastIndex(where: { $0.t <= u.t })
                 .map { utterances.index(after: $0) } ?? 0
@@ -745,6 +895,21 @@ final class LiveSessionViewModel {
                         self.nudges.append(nudge)
                         self.setActiveNudge(nudge)
                         mclog("[Semantic] \(nudge.type.rawValue): \(nudge.text)")
+                    }
+                }
+                if ollamaManager.status == .running, let inference = self.nameInference {
+                    // Piggybacks the heartbeat; throttles itself and skips
+                    // entirely when every speaker is already named.
+                    let suggestions = await inference.analyze(
+                        utterances: self.utterances,
+                        elapsed: self.elapsedTime,
+                        rejected: self.rejectedNameSuggestions
+                    )
+                    guard self.isLive else { break }
+                    for s in suggestions
+                    where !self.speakerNameSuggestions.contains(where: { $0.label == s.label }) {
+                        self.speakerNameSuggestions.append(s)
+                        mclog("[Names] Suggesting \(s.label) = \(s.name) (\(s.confidence))")
                     }
                 }
                 try? await Task.sleep(for: .seconds(SemanticCoach.heartbeatSeconds))

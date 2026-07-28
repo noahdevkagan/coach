@@ -2,6 +2,13 @@ import AVFoundation
 import ScreenCaptureKit
 import Speech
 
+/// Which audio source a diarization result describes. Labels overlap across
+/// channels only by enrolled name, so consumers key relabeling off this.
+enum DiarizationChannel: String, Sendable {
+    case mic      // mixed room stream (mic-only mode) — splits "Meeting"
+    case system   // meeting-app output — splits "Them"
+}
+
 /// One transcription pipeline for one audio source, whatever the engine.
 protocol TranscriptionPipeline: AnyObject {
     var onUtterance: ((Utterance) -> Void)? { get set }
@@ -30,9 +37,11 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     /// Empty text means that speaker's pending line cleared.
     var onPartialText: (@Sendable @MainActor (_ speaker: String, _ text: String) -> Void)?
 
-    /// Finalized diarization segments (mic-only mode): who spoke when,
-    /// session-relative. The full list is re-published as it grows.
-    var onSpeakerSegments: (@Sendable @MainActor ([SpeakerSegment]) -> Void)?
+    /// Finalized diarization segments: who spoke when, session-relative,
+    /// per audio channel. The full list is re-published as it grows.
+    /// `.system` splits "Them" into individual remote speakers; `.mic`
+    /// splits the mixed "Meeting" stream in mic-only mode.
+    var onSpeakerSegments: (@Sendable @MainActor (DiarizationChannel, [SpeakerSegment]) -> Void)?
     var onStatus: (@Sendable @MainActor (String) -> Void)?
 
     /// Vocabulary to bias recognition toward (participant names, deal terms).
@@ -61,8 +70,11 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     /// Recording declined/unavailable) — no structural You/Them separation.
     var isMicOnly: Bool { !hasSystemAudio }
 
-    // Speaker diarization (mic-only mode: split "Meeting" into Speaker 1/2/…)
+    // Speaker diarization. Mic-only mode: split "Meeting" into Speaker 1/2/…
+    // Dual mode: split the system-audio "Them" into Them 1/2/… — the mic
+    // channel is structurally "You" and needs no diarizer.
     private var diarizer: SpeakerDiarizer?
+    private var sysDiarizer: SpeakerDiarizer?
 
     // Bleed gate: if echo cancellation fails (or is unavailable), the mic
     // picks up the other side through the speakers. Track when the mic was
@@ -124,22 +136,46 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             throw error
         }
 
+        // Saved voices enroll into whichever diarizer runs, so known people
+        // come back by name. Pre-call participant names float their
+        // profiles to the front of the enrollment order.
+        let profiles = VoiceProfileStore.loadAll(preferring: contextualHints)
+
         if hasSystemAudio {
             emitStatus("Listening (you + them)")
             mclog("[Capture] Dual pipelines active (mic=You, system=Them)")
+            // Diarize the far side: "Them" lumps every remote participant
+            // together — split it into Them 1/2/… (or enrolled names).
+            sysDiarizer = makeDiarizer(labelPrefix: "Them", channel: .system, profiles: profiles)
         } else {
             emitStatus("Listening (mic only — grant Screen Recording for Zoom)")
             // Single mixed stream: run on-device diarization so the
             // transcript can distinguish speakers.
-            let dia = SpeakerDiarizer()
-            dia.onSegments = { [weak self] segments in
-                guard let self else { return }
-                Task { @MainActor [onSpeakerSegments = self.onSpeakerSegments] in
-                    onSpeakerSegments?(segments)
-                }
+            diarizer = makeDiarizer(labelPrefix: "Speaker", channel: .mic, profiles: profiles)
+        }
+    }
+
+    private func makeDiarizer(labelPrefix: String, channel: DiarizationChannel,
+                              profiles: [VoiceProfile]) -> SpeakerDiarizer {
+        let dia = SpeakerDiarizer(labelPrefix: labelPrefix, profiles: profiles)
+        dia.onSegments = { [weak self] segments in
+            guard let self else { return }
+            Task { @MainActor [onSpeakerSegments = self.onSpeakerSegments] in
+                onSpeakerSegments?(channel, segments)
             }
-            dia.start()
-            diarizer = dia
+        }
+        dia.start()
+        return dia
+    }
+
+    /// Route a rename to the diarizer that owns the label. Renames the live
+    /// timeline (future turns carry the name) and saves the speaker's
+    /// collected voice clip as a profile for future sessions.
+    func renameSpeaker(_ label: String, to name: String) {
+        for dia in [diarizer, sysDiarizer].compactMap({ $0 }) {
+            dia.knows(label) { known in
+                if known { dia.rename(label, to: name) }
+            }
         }
     }
 
@@ -151,9 +187,11 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         engine?.inputNode.removeTap(onBus: 0)
         engine = nil
 
-        // Stop diarization (flushes the final partial chunk)
+        // Stop diarization (flushes the final partial chunk). References are
+        // kept: renaming a speaker from the post-session view still routes
+        // through them to reach the collected voice clips.
         diarizer?.stop()
-        diarizer = nil
+        sysDiarizer?.stop()
 
         // Stop system audio
         if let stream = scStream {
@@ -690,6 +728,13 @@ extension AudioCaptureManager: SCStreamOutput {
         )
 
         guard status == noErr else { return }
+        // Mirror the mono stream into the far-side diarizer (config pins
+        // this stream to 1 channel). Fed unconditionally: its timestamps
+        // are relative to fed audio, so gaps would skew every segment.
+        if let dia = sysDiarizer, let ch = pcmBuffer.floatChannelData?[0] {
+            let samples = Array(UnsafeBufferPointer(start: ch, count: Int(pcmBuffer.frameLength)))
+            dia.enqueue(samples, sampleRate: pcmBuffer.format.sampleRate)
+        }
         sysPipeline?.append(pcmBuffer)
     }
 }

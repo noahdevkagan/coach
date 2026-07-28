@@ -9,6 +9,15 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.9.0 — 2026-07-28
+
+- The transcript now tells remote speakers apart: on a group call, "Them" splits into "Them 1", "Them 2", … as each person talks
+- Click any speaker's label to name them — the whole transcript relabels, and their voice is remembered on your Mac so future meetings greet them by name from the first sentence
+- The coach spots names on its own ("Them 1 sounds like Sarah") and offers a one-click confirm — it never applies a name without you
+- People you list in the call's goal form are recognized first
+- Voice matching runs entirely on-device, like everything else — no audio or voice data ever leaves your Mac
+- Tuned to stay light on long calls: less memory for audio, less work per second
+
 ## 0.8.3 — 2026-07-28
 
 - Your Progress now counts real weeks: "this week" starts Monday, compared against all of last week — no more rolling 7-day windows that read like wrong numbers
