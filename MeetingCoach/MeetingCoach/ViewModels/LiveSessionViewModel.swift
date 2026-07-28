@@ -36,9 +36,13 @@ final class LiveSessionViewModel {
     var meetingReview: MeetingReview?
     var isGeneratingSummary = false
 
-    /// Indices into preCallContext.plannedQuestions that have been covered
-    /// (keyword overlap against the user's turns, re-derived each tick).
+    /// Indices into preCallContext.plannedQuestions that have been covered —
+    /// auto-detected (keyword overlap against the user's turns, re-derived
+    /// each tick) or ticked by hand in the live checklist.
     var askedPlannedQuestions: Set<Int> = []
+    /// Indices the user unchecked by hand. Auto-coverage only ever adds, so
+    /// without this pin a false-positive match would re-tick on the next turn.
+    private var manuallyUncheckedQuestions: Set<Int> = []
     var savedPath: String?
     var showPostSession = false
 
@@ -386,6 +390,7 @@ final class LiveSessionViewModel {
         error = nil
         meetingReview = nil
         askedPlannedQuestions = []
+        manuallyUncheckedQuestions = []
         elapsedTime = 0
         backoff = NudgeBackoff()
     }
@@ -545,9 +550,15 @@ final class LiveSessionViewModel {
             return
         }
 
+        // Speaker-labeled lines, not fullTranscript — the review has to
+        // attribute commitments and positions, which needs who-said-what.
+        let labeledTranscript = utterances
+            .map { "\($0.speaker): \($0.text)" }
+            .joined(separator: "\n")
+
         let (system, user) = PromptBuilder.buildPostCallReviewPrompt(
             nudges: nudges,
-            transcript: fullTranscript,
+            transcript: labeledTranscript,
             context: preCallContext,
             durationMinutes: durationMin
         )
@@ -653,10 +664,22 @@ final class LiveSessionViewModel {
     /// Mark planned questions as covered when a "You" turn contains most of
     /// the question's content words. Keyword overlap, not exact match — the
     /// spoken phrasing never matches the typed one.
+    /// Manual override from the live checklist: tapping a row toggles it.
+    func togglePlannedQuestion(_ index: Int) {
+        if askedPlannedQuestions.contains(index) {
+            askedPlannedQuestions.remove(index)
+            manuallyUncheckedQuestions.insert(index)
+        } else {
+            askedPlannedQuestions.insert(index)
+            manuallyUncheckedQuestions.remove(index)
+        }
+    }
+
     private func updatePlannedQuestionCoverage() {
         let questions = preCallContext.plannedQuestions
         guard !questions.isEmpty else { return }
-        for (i, question) in questions.enumerated() where !askedPlannedQuestions.contains(i) {
+        for (i, question) in questions.enumerated()
+        where !askedPlannedQuestions.contains(i) && !manuallyUncheckedQuestions.contains(i) {
             let keywords = Self.questionKeywords(question)
             guard !keywords.isEmpty else { continue }
             for turn in turns where turn.isYou {

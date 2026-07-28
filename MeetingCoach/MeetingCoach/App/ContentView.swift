@@ -211,7 +211,7 @@ struct LiveTimelineView: View {
 
                         ForEach(liveSession.nudges) { nudge in
                             NudgeCardView(nudge: nudge,
-                                          quoteTurns: liveSession.turnsAround(nudge.timestamp)) { feedback in
+                                          quoteTurns: liveSession.turnsAround(nudge.quoteTimestamp ?? nudge.timestamp)) { feedback in
                                 liveSession.recordFeedback(nudgeId: nudge.id, feedback: feedback)
                             }
                             .id(nudge.id)
@@ -401,8 +401,9 @@ private struct AmbientStatsStrip: View {
     }
 }
 
-/// Live checklist of the questions entered in pre-call setup. Read-only by
-/// design — coverage is detected from the transcript, not clicked.
+/// Live checklist of the questions entered in pre-call setup. Coverage is
+/// detected from the transcript, and rows are tappable — a tap overrides
+/// the detection in either direction.
 private struct PlannedQuestionsCard: View {
     var liveSession: LiveSessionViewModel
     @State private var collapsed = false
@@ -431,16 +432,23 @@ private struct PlannedQuestionsCard: View {
             if !collapsed {
                 ForEach(Array(questions.enumerated()), id: \.offset) { i, question in
                     let asked = liveSession.askedPlannedQuestions.contains(i)
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Image(systemName: asked ? "checkmark.circle.fill" : "circle")
-                            .font(.caption)
-                            .foregroundStyle(asked ? Color.green : Color.secondary)
-                        Text(question)
-                            .font(.caption)
-                            .strikethrough(asked)
-                            .foregroundStyle(asked ? Color.secondary : Color.primary)
-                            .fixedSize(horizontal: false, vertical: true)
+                    Button {
+                        liveSession.togglePlannedQuestion(i)
+                    } label: {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Image(systemName: asked ? "checkmark.circle.fill" : "circle")
+                                .font(.caption)
+                                .foregroundStyle(asked ? Color.green : Color.secondary)
+                            Text(question)
+                                .font(.caption)
+                                .strikethrough(asked)
+                                .foregroundStyle(asked ? Color.secondary : Color.primary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .help(asked ? "Mark as not asked" : "Mark as asked")
                 }
             }
         }

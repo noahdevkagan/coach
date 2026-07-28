@@ -6,6 +6,10 @@ struct Nudge: Identifiable, Codable {
     let text: String              // 6 words max
     let urgency: NudgeUrgency
     let timestamp: TimeInterval   // call-relative
+    /// Where the transcript quote should anchor when that differs from the
+    /// fire time. questionLanded fires mid-answer, but the moment worth
+    /// quoting is the question that caused it. Nil = quote at `timestamp`.
+    var quoteTimestamp: TimeInterval?
     var feedback: NudgeFeedback?
     /// Machine-observed, not user-stated: the nudge held the overlay for
     /// its full display window and the user never touched it. Cleared if

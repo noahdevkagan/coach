@@ -109,7 +109,10 @@ struct QuestionLandedSignal: SignalMonitor {
         latchedAnswerIDs.insert(answer.id)
         return Nudge(id: UUID(), type: .questionLanded,
                      text: "Great question — they opened up",
-                     urgency: .low, timestamp: input.elapsed)
+                     urgency: .low, timestamp: input.elapsed,
+                     // Quote the question that landed, not the mid-answer
+                     // moment the signal happened to fire at.
+                     quoteTimestamp: question.t)
     }
 
     private static func isOpen(_ text: String) -> Bool {

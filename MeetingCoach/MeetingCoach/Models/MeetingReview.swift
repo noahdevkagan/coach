@@ -95,6 +95,35 @@ struct MeetingReview: Equatable {
             return nil
         }
 
+        // "SUMMARY: The call covered…" — label and content on one line.
+        // sectionFor only recognizes bare headers (it rejects long lines),
+        // so models that glue the first sentence onto the label used to
+        // leak "SUMMARY:" into the text and dump "NEXT MEETING FOCUS: …"
+        // into the previous section as a continuation line.
+        func inlineHeader(_ line: String) -> (Section, String)? {
+            let stripped = line.trimmingCharacters(in: CharacterSet(charactersIn: "#*_ \t"))
+            let lower = stripped.lowercased()
+            let labels: [(String, Section)] = [
+                ("summary", .summary),
+                ("key takeaways", .takeaways),
+                ("takeaways", .takeaways),
+                ("key points", .takeaways),
+                ("suggested next steps", .nextSteps),
+                ("next steps", .nextSteps),
+                ("action items", .nextSteps),
+                ("next meeting focus", .focus),
+                ("wins", .wins),
+            ]
+            for (label, sec) in labels where lower.hasPrefix(label) {
+                var rest = String(stripped.dropFirst(label.count))
+                    .trimmingCharacters(in: .whitespaces)
+                guard rest.hasPrefix(":") else { continue }
+                rest.removeFirst()
+                return (sec, clean(rest))
+            }
+            return nil
+        }
+
         func bulletText(_ line: String) -> String? {
             var t = line.trimmingCharacters(in: .whitespaces)
             var isBullet = false
@@ -122,6 +151,19 @@ struct MeetingReview: Equatable {
         for rawLine in llmText.components(separatedBy: .newlines) {
             var line = rawLine.trimmingCharacters(in: .whitespaces)
             if line.isEmpty { continue }
+            if let (s, rest) = inlineHeader(line) {
+                section = s
+                if !rest.isEmpty {
+                    switch s {
+                    case .summary: summaryLines.append(rest)
+                    case .takeaways: review.takeaways.append(rest)
+                    case .nextSteps: review.actionItems.append(ActionItem(text: rest))
+                    case .wins: review.wins.append(rest)
+                    case .focus: focusLines.append(rest)
+                    }
+                }
+                continue
+            }
             if let s = sectionFor(header: line) { section = s; continue }
             // Table rows ("| decision | owner |") → joined cells; separator
             // rows ("|---|---|") are skipped.
