@@ -25,6 +25,12 @@ final class SettingsViewModel {
         didSet { UserDefaults.standard.set(showOverlayClock, forKey: "showOverlayClock") }
     }
 
+    /// Default scheduled length for calls started without the goal form
+    /// (0 = not timed). Arms the time-based nudges on one-click Go Live.
+    var defaultMeetingMinutes: Int {
+        didSet { UserDefaults.standard.set(defaultMeetingMinutes, forKey: "defaultMeetingMinutes") }
+    }
+
     // Download state
     var downloadingModel: String?
     var downloadProgress: Double = 0
@@ -36,6 +42,7 @@ final class SettingsViewModel {
     init() {
         self.semanticCoachEnabled = UserDefaults.standard.object(forKey: "semanticCoachEnabled") as? Bool ?? true
         self.showOverlayClock = UserDefaults.standard.object(forKey: "showOverlayClock") as? Bool ?? true
+        self.defaultMeetingMinutes = UserDefaults.standard.object(forKey: "defaultMeetingMinutes") as? Int ?? 0
         self.selectedModel = UserDefaults.standard.string(forKey: "selectedModel")
             ?? "qwen3.5:9b"
         self.rubricPath = UserDefaults.standard.string(forKey: "rubricPath") ?? ""
@@ -66,9 +73,48 @@ final class SettingsViewModel {
             ollamaReachable = true
         } catch {
             ollamaReachable = false
-            availableModels = []
+            // Engine not running ≠ no models. The engine starts lazily, so
+            // the launch-time check always used to land here with an empty
+            // list — and the UI re-showed model onboarding over a store
+            // with gigabytes of pulled models. The manifests directory is
+            // the on-disk truth; read it instead.
+            availableModels = Self.installedModelsOnDisk()
         }
         hasCheckedModels = true
+    }
+
+    /// Models present in the app's own store, straight from the manifests
+    /// tree (manifests/<registry>/<namespace>/<model>/<tag>), no engine
+    /// needed. Size comes from summing the manifest's layer sizes.
+    static func installedModelsOnDisk() -> [OllamaModel] {
+        let manifests = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("MeetingCoach/ollama/manifests")
+        let fm = FileManager.default
+        var models: [OllamaModel] = []
+        guard let walker = fm.enumerator(at: manifests,
+                                         includingPropertiesForKeys: [.isRegularFileKey]) else { return [] }
+        for case let file as URL in walker {
+            guard (try? file.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else { continue }
+            // …/manifests/registry.ollama.ai/library/qwen3.5/9b → "qwen3.5:9b"
+            // (the "library" namespace is implicit, matching `ollama list`).
+            let parts = file.pathComponents.drop { $0 != "manifests" }.dropFirst()
+            guard parts.count >= 3 else { continue }
+            let tag = parts.last!
+            let model = parts[parts.index(parts.endIndex, offsetBy: -2)]
+            let namespace = parts.count >= 4 ? parts[parts.index(parts.endIndex, offsetBy: -3)] : "library"
+            let name = namespace == "library" ? "\(model):\(tag)" : "\(namespace)/\(model):\(tag)"
+
+            var size: Int64 = 0
+            if let data = try? Data(contentsOf: file),
+               let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+                for layer in json["layers"] as? [[String: Any]] ?? [] {
+                    size += (layer["size"] as? Int64) ?? Int64(layer["size"] as? Int ?? 0)
+                }
+            }
+            models.append(OllamaModel(name: name, size: size, parameterSize: ""))
+        }
+        return models.sorted { $0.name < $1.name }
     }
 
     func downloadModel(_ catalogModel: CatalogModel) {

@@ -2,7 +2,11 @@ import Foundation
 
 struct PreCallContext: Codable {
     var meetingGoal: String = ""
-    var scheduledDurationMinutes: Int = 30
+    /// 0 = not timed. Time-based signals (overrun, time check, next-steps
+    /// countdown) only arm when a real duration is set — either here via
+    /// the pre-call form or from the default length in Settings. A silent
+    /// 30-minute assumption used to fire "1min left" on untimed calls.
+    var scheduledDurationMinutes: Int = 0
     var participants: [Participant] = []
     var activePlaybook: String = ""
     var lastMeetingNotes: String = ""

@@ -40,6 +40,7 @@
 		47D5418F46BB2B90178F534E /* CoachingOverlayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E80054B1508EFBBFD8D840F3 /* CoachingOverlayPanel.swift */; };
 		48DFEC114082BF96EBEF74C8 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D25D2CC8CBD4346DBFB9924 /* main.swift */; };
 		4C4CE6FBC1FF6641932BEC3B /* TrainingExample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C9A04C9B391284F7BCDBD2E /* TrainingExample.swift */; };
+		55D4DD753779ACBE7E35E8D3 /* NoteDistiller.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5AE5052D754AAC4553B6E69 /* NoteDistiller.swift */; };
 		5786720067BE8A950F4165ED /* SignalEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2E43CC253B7430EF30361 /* SignalEngine.swift */; };
 		5FCEF8098F7F2F2A4A90B811 /* RubricBuilderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0AE8468D0484EFAC70C4D7F /* RubricBuilderView.swift */; };
 		602166D3A6873647DC911FDE /* bird_chirp.wav in Resources */ = {isa = PBXBuildFile; fileRef = 14D8000DD43FC31EDFC5A989 /* bird_chirp.wav */; };
@@ -159,6 +160,7 @@
 		9FFBE4A37EC6EEE8D7A7516D /* TranscriptAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptAnalysis.swift; sourceTree = "<group>"; };
 		A1A12E30BEB51DFB2F939AE4 /* MeetingDetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDetectionService.swift; sourceTree = "<group>"; };
 		A4A0318F6463431087594DA0 /* GoingQuietSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoingQuietSignal.swift; sourceTree = "<group>"; };
+		A5AE5052D754AAC4553B6E69 /* NoteDistiller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteDistiller.swift; sourceTree = "<group>"; };
 		A7923682551623339C11F93D /* RubricAdvisor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RubricAdvisor.swift; sourceTree = "<group>"; };
 		B3C6B8636393601795161557 /* NextStepsSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NextStepsSignal.swift; sourceTree = "<group>"; };
 		B601F828AB17A262298DF0AE /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -267,6 +269,7 @@
 				A1A12E30BEB51DFB2F939AE4 /* MeetingDetectionService.swift */,
 				BB6CA4D089C636FF9E653ACF /* MeetingDetector.swift */,
 				0039986CEDE49DF43FF2342E /* MeetingWindowHeuristics.swift */,
+				A5AE5052D754AAC4553B6E69 /* NoteDistiller.swift */,
 				2BBC737499DA851F1E6127E0 /* NudgeBackoff.swift */,
 				6A1BF8C4DA14D327E81E1832 /* OllamaClient.swift */,
 				9AA712484D677FBBAA951166 /* OllamaManager.swift */,
@@ -553,6 +556,7 @@
 				0170D229D930510652FB627F /* MeetingWindowHeuristics.swift in Sources */,
 				AC2DFEF84296BA4652EA853B /* MissingDiscoverySignal.swift in Sources */,
 				46BB0140FA3D0C6D5953EA48 /* NextStepsSignal.swift in Sources */,
+				55D4DD753779ACBE7E35E8D3 /* NoteDistiller.swift in Sources */,
 				8A631782D7199EBCE5560A50 /* Nudge.swift in Sources */,
 				7F992768252A6BB47097CD59 /* NudgeBackoff.swift in Sources */,
 				FF20EDCA009AC9F00BC2968E /* OllamaClient.swift in Sources */,

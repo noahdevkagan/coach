@@ -142,10 +142,12 @@ struct LiveTimelineView: View {
             transcriptPanel
                 .frame(minWidth: 380)
 
-            // Right, narrow: the coach rail. Quiet by design — a few
-            // high-bar nudges, not a feed to monitor.
+            // Right: the coach rail. Quiet by design — a few high-bar
+            // nudges, not a feed to monitor. Narrow by default but freely
+            // resizable: the old 340pt cap made the split divider stop dead
+            // while the review card stayed cramped.
             nudgesPanel
-                .frame(minWidth: 200, idealWidth: 250, maxWidth: 340)
+                .frame(minWidth: 200, idealWidth: 250, maxWidth: 560)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(MCTheme.canvas)
@@ -211,7 +213,9 @@ struct LiveTimelineView: View {
 
                         ForEach(liveSession.nudges) { nudge in
                             NudgeCardView(nudge: nudge,
-                                          quoteTurns: liveSession.turnsAround(nudge.quoteTimestamp ?? nudge.timestamp)) { feedback in
+                                          quoteTurns: nudge.type.showsQuote
+                                              ? liveSession.turnsAround(nudge.quoteTimestamp ?? nudge.timestamp)
+                                              : []) { feedback in
                                 liveSession.recordFeedback(nudgeId: nudge.id, feedback: feedback)
                             }
                             .id(nudge.id)
@@ -833,7 +837,8 @@ struct SidebarView: View {
                     VStack(alignment: .leading, spacing: 14) {
                         PlannedQuestionsSection()
                         Divider()
-                        FeedbackSection(simulation: simulation, liveSession: liveSession)
+                        FeedbackSection(simulation: simulation, liveSession: liveSession,
+                                        settings: settings, ollamaManager: ollamaManager)
                         Divider()
                         ModelSection(settings: settings)
                         Text("AI nudges and the meeting summary switch on automatically when a model is installed.")
@@ -1053,9 +1058,9 @@ struct CoachingStyleSection: View {
 
 // MARK: - Questions to Ask (standing checklist)
 
-/// Advanced row: standing questions to cover, pasteable one per line. They
-/// join every session's live checklist (with any per-call ones from the
-/// goal form) and tick off as the transcript covers them.
+/// Advanced row: questions for the next call, pasteable one per line. They
+/// join the live checklist (with any per-call ones from the goal form),
+/// tick off as the transcript covers them, and clear when the call ends.
 struct PlannedQuestionsSection: View {
     @AppStorage("plannedQuestionsText") private var questionsText = ""
     @State private var isExpanded = false
@@ -1068,7 +1073,7 @@ struct PlannedQuestionsSection: View {
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("One per line — paste a whole list. During a call they show as a checklist and tick off as you ask them.")
+                Text("One per line — paste a whole list. During a call they show as a checklist and tick off as you ask them. The list clears when the call ends, ready for the next meeting's questions.")
                     .font(.caption2).foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
                 TextEditor(text: $questionsText)
@@ -1087,7 +1092,7 @@ struct PlannedQuestionsSection: View {
             HStack(spacing: 6) {
                 Label("Questions to Ask", systemImage: "checklist")
                     .font(.subheadline.weight(.semibold))
-                HelpDot(text: "Questions you always want covered — discovery questions, deal qualifiers, whatever matters. The coach tracks them live in every call.")
+                HelpDot(text: "Questions to cover on your next call — discovery questions, deal qualifiers, whatever matters. The coach tracks them live, then clears the list when the call ends.")
                 if count > 0 {
                     Spacer()
                     Text("\(count)")
@@ -1731,6 +1736,8 @@ struct LiveSection: View {
 struct FeedbackSection: View {
     @Bindable var simulation: SimulationViewModel
     @Bindable var liveSession: LiveSessionViewModel
+    var settings: SettingsViewModel
+    var ollamaManager: OllamaManager
     /// Loaded once on appear (and bumped on save) — TrainingStore.load()
     /// hits disk + JSON-decodes, far too heavy for a view body that
     /// re-renders per utterance during simulation playback.
@@ -1757,6 +1764,10 @@ struct FeedbackSection: View {
     /// Display names of the signal types the last save taught, e.g.
     /// "Talk Time, Pin the Date" — feedback that the paste was understood.
     @State private var savedSignalNames = ""
+    /// The distiller's progress/result line — free-form notes that name no
+    /// signals go through the local model, and the user should see that the
+    /// paste was understood (or that nothing watchable was found).
+    @State private var distillStatus: String?
 
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
@@ -1818,6 +1829,12 @@ struct FeedbackSection: View {
                         .font(.caption2).foregroundStyle(.tertiary)
                 }
             }
+
+            if let distillStatus {
+                Label(distillStatus, systemImage: "sparkles")
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .onAppear { trainingCount = TrainingStore.load().count }
     }
@@ -1850,6 +1867,102 @@ struct FeedbackSection: View {
                 .prefix(4)
         ).joined(separator: ", ")
         mclog("[Training] Saved example with \(signals.count) parsed signals, source=\(sourceLabel)")
+
+        distillNote(text: text, exampleId: example.id)
+    }
+
+    // MARK: - Note distillation (LLM)
+
+    /// Free-form notes rarely name signals, so the keyword parse alone
+    /// leaves most pastes teaching nothing. Run the note through the local
+    /// model: built-in matches join the example's signals (the normal
+    /// training effect), and genuinely new patterns become addSignal
+    /// suggestions the user approves on the Progress dashboard — a note
+    /// never changes what the coach watches silently.
+    private func distillNote(text: String, exampleId: UUID) {
+        guard !settings.useMock else { return }
+        if settings.hasCheckedModels && settings.ollamaReachable && settings.availableModels.isEmpty { return }
+
+        distillStatus = "Reading your note with the local coach…"
+        if ollamaManager.status == .stopped { ollamaManager.start() }
+        let model = settings.selectedModel
+
+        Task { @MainActor in
+            if ollamaManager.status != .running {
+                for _ in 1...30 {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    if ollamaManager.status == .running { break }
+                    if case .error = ollamaManager.status { break }
+                }
+            }
+            guard ollamaManager.status == .running else { distillStatus = nil; return }
+            await settings.refreshModels()
+            guard !settings.availableModels.isEmpty else { distillStatus = nil; return }
+
+            do {
+                let extraction = try await NoteDistiller.distill(note: text, model: model)
+                applyExtraction(extraction, exampleId: exampleId)
+            } catch {
+                mclog("[Distill] failed: \(error.localizedDescription)")
+                distillStatus = nil
+            }
+        }
+    }
+
+    @MainActor
+    private func applyExtraction(_ extraction: NoteDistiller.Extraction, exampleId: UUID) {
+        // Built-in matches merge into the saved example — from here on they
+        // behave exactly like a keyword hit: sensitivity boost at session
+        // start plus few-shot evidence for the semantic coach.
+        var taughtNames: [String] = []
+        if !extraction.builtin.isEmpty {
+            var all = TrainingStore.load()
+            if let idx = all.firstIndex(where: { $0.id == exampleId }) {
+                let old = all[idx]
+                let existing = Set(old.signals.map(\.signalId))
+                let fresh = extraction.builtin.filter { !existing.contains($0.signalId) }
+                if !fresh.isEmpty {
+                    all[idx] = TrainingExample(
+                        id: old.id, date: old.date,
+                        transcriptExcerpt: old.transcriptExcerpt,
+                        feedback: old.feedback,
+                        signals: old.signals + fresh)
+                    TrainingStore.save(all)
+                }
+            }
+            taughtNames = extraction.builtin
+                .compactMap { TrainingStore.canonicalType(for: $0.signalId)?.displayName }
+                .reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+        }
+
+        // New patterns become pending suggestions — same approval rail as
+        // the rubric advisor's own proposals.
+        let rubric = (try? settings.loadRubricOrDefault()) ?? .builtInDefault
+        let existingIds = Set(rubric.signals.map(\.id))
+        var stored = RubricAdvisor.loadAll()
+        var proposed = 0
+        for p in extraction.custom {
+            let key = "custom:\(p.id)"
+            guard !existingIds.contains(p.id),
+                  !stored.contains(where: { $0.signalKey == key && $0.kind == .addSignal })
+            else { continue }
+            stored.append(RubricSuggestion(
+                kind: .addSignal, signalKey: key,
+                rationale: p.description,
+                evidence: p.evidence.isEmpty ? "From your coaching note." : "From your note: “\(p.evidence)”",
+                newSignalDescription: p.description,
+                newSignalNudge: p.nudge))
+            proposed += 1
+        }
+        if proposed > 0 { RubricAdvisor.saveAll(stored) }
+
+        var parts: [String] = []
+        if !taughtNames.isEmpty { parts.append("tunes \(taughtNames.prefix(3).joined(separator: ", "))") }
+        if proposed > 0 { parts.append("\(proposed) new signal\(proposed == 1 ? "" : "s") to approve on the Progress dashboard") }
+        distillStatus = parts.isEmpty
+            ? "No watchable signals found in this note"
+            : "Coach read your note — " + parts.joined(separator: " · ")
+        mclog("[Distill] builtin=\(extraction.builtin.count) custom-proposed=\(proposed)")
     }
 }
 

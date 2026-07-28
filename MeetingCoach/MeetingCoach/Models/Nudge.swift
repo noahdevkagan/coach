@@ -86,6 +86,20 @@ enum NudgeType: String, Codable, CaseIterable {
         }
     }
 
+    /// Whether "What was said" makes sense for this signal. Utterance-
+    /// triggered signals quote the moment; clock- and absence-triggered
+    /// ones (over time, no questions asked, they went quiet…) have no
+    /// moment to quote — showing one is noise.
+    var showsQuote: Bool {
+        switch self {
+        case .talkTime, .voiceShare, .missingDiscovery,
+             .timeCheck, .nextSteps, .overrun, .goingQuiet:
+            return false
+        default:
+            return true
+        }
+    }
+
     /// Reinforcement, not correction — rendered green, worded as praise.
     var isPositive: Bool {
         switch self {

@@ -112,8 +112,15 @@ final class LiveSessionViewModel {
 
         isDemo = false
         preCallContext = context
-        // Standing questions from Advanced ("Questions to Ask") join any
-        // per-call ones from the form — pasted once, tracked every call.
+        // Untimed call + a default length in Settings = the user wants the
+        // time nudges on every call without filling the form each time.
+        if preCallContext.scheduledDurationMinutes == 0,
+           let defaultMinutes = settings?.defaultMeetingMinutes, defaultMinutes > 0 {
+            preCallContext.scheduledDurationMinutes = defaultMinutes
+        }
+        // Questions pasted under Advanced ("Questions to Ask") join any
+        // per-call ones from the form. Both are consumed by the session —
+        // stopLive clears them so the next call starts with a fresh list.
         let standing = (UserDefaults.standard.string(forKey: "plannedQuestionsText") ?? "")
             .components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespaces) }
@@ -285,6 +292,14 @@ final class LiveSessionViewModel {
         AdaptiveThresholds.processSessionFeedback(nudges)
 
         saveSession()
+
+        // Questions are per-meeting: coverage was just written into the
+        // session file, so clear both sources — the live checklist context
+        // and the standing paste under Advanced — for a fresh list next
+        // call. Goal/participants stay as the last-used context.
+        preCallContext.plannedQuestions = []
+        UserDefaults.standard.removeObject(forKey: "plannedQuestionsText")
+
         showPostSession = true
 
         // Auto-recap: every session ends with a summary, no button. The
@@ -898,7 +913,9 @@ final class LiveSessionViewModel {
         if !preCallContext.meetingGoal.isEmpty {
             lines.append("## Pre-Call Context")
             lines.append("**Goal:** \(preCallContext.meetingGoal)")
-            lines.append("**Scheduled Duration:** \(preCallContext.scheduledDurationMinutes) min")
+            if preCallContext.scheduledDurationMinutes > 0 {
+                lines.append("**Scheduled Duration:** \(preCallContext.scheduledDurationMinutes) min")
+            }
             if !preCallContext.participants.isEmpty {
                 lines.append("**Participants:** \(preCallContext.participants.map { "\($0.name) (\($0.role))" }.joined(separator: ", "))")
             }

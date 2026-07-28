@@ -120,13 +120,13 @@ struct ProgressDashboardView: View {
                      label: "day streak",
                      sub: best > current ? "best \(best)" : nil)
             StatTile(value: "\(thisWeek.sessionCount)",
-                     label: "sessions this week",
+                     label: "sessions · last 7 days",
                      sub: deltaLabel(now: Double(thisWeek.sessionCount),
                                      before: Double(lastWeek.sessionCount), format: "%.0f"))
             StatTile(value: Self.hoursLabel(minutes: thisWeek.totalMinutes),
-                     label: "in meetings this week",
+                     label: "in meetings · last 7 days",
                      sub: lastWeek.totalMinutes > 0
-                        ? "last week \(Self.hoursLabel(minutes: lastWeek.totalMinutes))"
+                        ? "prior 7 days \(Self.hoursLabel(minutes: lastWeek.totalMinutes))"
                         : nil)
             StatTile(value: thisWeek.nudgesPer10Min.map { String(format: "%.1f", $0) } ?? "—",
                      label: "nudges / 10 min",
@@ -153,9 +153,9 @@ struct ProgressDashboardView: View {
                             suffix: String = "", lowerIsBetter: Bool = false) -> String? {
         guard let now, let before else { return nil }
         let delta = now - before
-        guard abs(delta) >= 0.05 else { return "same as last week" }
+        guard abs(delta) >= 0.05 else { return "same as prior 7 days" }
         let arrow = delta < 0 ? "↓" : "↑"
-        return "\(arrow) \(String(format: format, abs(delta)))\(suffix) vs last week"
+        return "\(arrow) \(String(format: format, abs(delta)))\(suffix) vs prior 7 days"
     }
 
     /// The advisor's proposals: approve rewrites the rubric (with backup),
@@ -220,6 +220,7 @@ struct ProgressDashboardView: View {
         case .disable: return "turn off"
         case .raiseCooldown: return "fire less often"
         case .moreSensitive: return "fire sooner"
+        case .addSignal: return "new signal"
         }
     }
 
@@ -241,8 +242,8 @@ struct ProgressDashboardView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "target")
                             .foregroundStyle(.blue)
-                        Text("Focus nudges: \(String(format: "%.1f", now)) / 10 min this week"
-                             + (lastWeek.focusPer10Min.map { String(format: " (last week %.1f)", $0) } ?? ""))
+                        Text("Focus nudges: \(String(format: "%.1f", now)) / 10 min over the last 7 days"
+                             + (lastWeek.focusPer10Min.map { String(format: " (prior 7 days %.1f)", $0) } ?? ""))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

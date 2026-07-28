@@ -47,6 +47,18 @@ struct GeneralSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Meeting length") {
+                Picker("Default length", selection: $settings.defaultMeetingMinutes) {
+                    Text("Not timed").tag(0)
+                    ForEach([15, 25, 30, 45, 60], id: \.self) { min in
+                        Text("\(min) min").tag(min)
+                    }
+                }
+                Text("Arms the time-based nudges (time check, next-steps countdown, overrun) on every call started without a scheduled duration. \u{201C}Not timed\u{201D} keeps them off unless you set a duration in the goal form.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Meeting detection") {
                 Toggle("Auto-detect meetings", isOn: $detection.isEnabled)
                 Toggle("Auto-start coaching", isOn: $detection.autoStartEnabled)

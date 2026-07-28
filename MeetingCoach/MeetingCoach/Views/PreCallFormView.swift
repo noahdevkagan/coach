@@ -10,7 +10,7 @@ struct PreCallFormView: View {
     /// pre-filled — most meetings only involve a few of them.
     @State private var remembered: [PreCallContext.Participant] = []
 
-    private static let durationOptions = [15, 30, 60]
+    private static let durationOptions = [0, 15, 30, 45, 60]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -42,7 +42,7 @@ struct PreCallFormView: View {
                         Text("Scheduled Duration").font(.caption.bold())
                         Picker("", selection: $context.scheduledDurationMinutes) {
                             ForEach(Self.durationOptions, id: \.self) { min in
-                                Text("\(min) min").tag(min)
+                                Text(min == 0 ? "Not timed" : "\(min) min").tag(min)
                             }
                         }
                         .labelsHidden()
