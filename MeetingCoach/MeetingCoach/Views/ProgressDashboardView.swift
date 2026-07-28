@@ -120,13 +120,13 @@ struct ProgressDashboardView: View {
                      label: "day streak",
                      sub: best > current ? "best \(best)" : nil)
             StatTile(value: "\(thisWeek.sessionCount)",
-                     label: "sessions · last 7 days",
+                     label: "sessions this week",
                      sub: deltaLabel(now: Double(thisWeek.sessionCount),
                                      before: Double(lastWeek.sessionCount), format: "%.0f"))
             StatTile(value: Self.hoursLabel(minutes: thisWeek.totalMinutes),
-                     label: "in meetings · last 7 days",
+                     label: "in meetings this week",
                      sub: lastWeek.totalMinutes > 0
-                        ? "prior 7 days \(Self.hoursLabel(minutes: lastWeek.totalMinutes))"
+                        ? "last week \(Self.hoursLabel(minutes: lastWeek.totalMinutes))"
                         : nil)
             StatTile(value: thisWeek.nudgesPer10Min.map { String(format: "%.1f", $0) } ?? "—",
                      label: "nudges / 10 min",
@@ -153,9 +153,9 @@ struct ProgressDashboardView: View {
                             suffix: String = "", lowerIsBetter: Bool = false) -> String? {
         guard let now, let before else { return nil }
         let delta = now - before
-        guard abs(delta) >= 0.05 else { return "same as prior 7 days" }
+        guard abs(delta) >= 0.05 else { return "same as last week" }
         let arrow = delta < 0 ? "↓" : "↑"
-        return "\(arrow) \(String(format: format, abs(delta)))\(suffix) vs prior 7 days"
+        return "\(arrow) \(String(format: format, abs(delta)))\(suffix) vs last week"
     }
 
     /// The advisor's proposals: approve rewrites the rubric (with backup),
@@ -183,6 +183,10 @@ struct ProgressDashboardView: View {
                             Text(suggestion.rationale).font(.caption)
                             Text(suggestion.evidence)
                                 .font(.caption2).foregroundStyle(.secondary)
+                            // What the Apply button concretely does — the
+                            // rationale says why, this says what changes.
+                            Text(applyEffect(suggestion.kind))
+                                .font(.caption2).foregroundStyle(.blue)
                             HStack(spacing: 8) {
                                 Button("Apply") {
                                     if let settings {
@@ -224,6 +228,19 @@ struct ProgressDashboardView: View {
         }
     }
 
+    private func applyEffect(_ kind: RubricSuggestion.Kind) -> String {
+        switch kind {
+        case .disable:
+            return "Apply turns this signal off — it stops firing entirely."
+        case .raiseCooldown:
+            return "Apply keeps it just as sensitive but waits 50% longer between nudges — fewer repeats per meeting."
+        case .moreSensitive:
+            return "Apply lowers its threshold a little, so it fires a bit earlier."
+        case .addSignal:
+            return "Apply adds it to what the coach watches live — nudges can fire for it next call."
+        }
+    }
+
     private var focusSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -242,8 +259,8 @@ struct ProgressDashboardView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "target")
                             .foregroundStyle(.blue)
-                        Text("Focus nudges: \(String(format: "%.1f", now)) / 10 min over the last 7 days"
-                             + (lastWeek.focusPer10Min.map { String(format: " (prior 7 days %.1f)", $0) } ?? ""))
+                        Text("Focus nudges: \(String(format: "%.1f", now)) / 10 min this week"
+                             + (lastWeek.focusPer10Min.map { String(format: " (last week %.1f)", $0) } ?? ""))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
