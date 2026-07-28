@@ -9,6 +9,15 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.8.2 — 2026-07-28
+
+- Coaching Notes now actually learn from anything you paste: feedback from Claude or any AI tool gets read by your local model — known signals tune up, and brand-new patterns ("you keep selling after they've said yes") become proposed signals you approve on the Progress dashboard before the coach starts watching for them
+- Installed models are recognized the moment the app opens — no more "Download Model" showing over a model you already downloaded
+- Time-based nudges ("1min left", time check, overrun) now only run when you give the call a length — set it in the goal form, or pick a default for every call in Settings → General
+- Questions to Ask clears itself when the call ends, ready for the next meeting's list — and still ticks off automatically as you ask them, with a tap to override either way
+- "What was said" appears only on nudges that have an actual moment to quote
+- The coach panel can be dragged much wider, and Progress tiles now say what they measure: your last 7 days vs the prior 7
+
 ## 0.8.1 — 2026-07-28
 
 - Your post-meeting review is now about the conversation itself — the summary, key takeaways, and next steps come from what was actually said, decided, and promised on the call; coaching feedback lives only in "Next meeting focus"
