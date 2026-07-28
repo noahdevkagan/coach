@@ -9,6 +9,12 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.8.1 — 2026-07-28
+
+- Your post-meeting review is now about the conversation itself — the summary, key takeaways, and next steps come from what was actually said, decided, and promised on the call; coaching feedback lives only in "Next meeting focus"
+- The Questions to Ask checklist is clickable during the call — tick a question off yourself, or untick one it marked by mistake (it stays unticked)
+- "Great question" nudges now quote the question you asked and how they opened up — not a random slice from the middle of their answer
+
 ## 0.8.0 — 2026-07-24
 
 - Your post-meeting review is now a proper card — summary, key takeaways, and next steps you can check off (they stay checked). Both the instant review and the AI review use it, and old saved reviews render in the same clean layout
