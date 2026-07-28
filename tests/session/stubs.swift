@@ -53,6 +53,7 @@ final class SettingsViewModel {
     var selectedModel = "stub-model"
     var semanticCoachEnabled = false
     var useMock = true
+    var defaultMeetingMinutes = 0
     var hasCheckedModels = false
     var ollamaReachable = false
     var availableModels: [String] = []
