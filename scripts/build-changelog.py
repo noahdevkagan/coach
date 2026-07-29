@@ -9,6 +9,7 @@ the push gate regenerates it and fails if the committed copy is stale.
 """
 import html
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -155,6 +156,11 @@ def main():
         return
     OUT.write_text(page)
     print(f"wrote {OUT.relative_to(REPO)} ({len(releases)} releases, latest {releases[0][0]})")
+    # The sitemap covers every docs/ page (changelog included) — regenerate
+    # it here so the pre-release ritual can't leave it stale.
+    subprocess.run(
+        [sys.executable, str(REPO / "scripts" / "build-sitemap.py")], check=False
+    )
 
 
 if __name__ == "__main__":
