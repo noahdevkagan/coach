@@ -25,16 +25,16 @@ The durable "why" behind choices goes in `decisions.md`, not here.
   matching, CPU during the call.
 - Noah still owes (from the zero-config pivot): green-win placement call,
   MCP release-packaging decision.
-- SEO/AEO plan (2026-07-29, phase 1 shipped: FAQ+schema on compare pages,
-  3 alternatives roundups). Remaining, in order: (1) competitor-vs-
-  competitor pages (otter-vs-fireflies, granola-vs-fathom, …) with a
-  neutral-referee "third option" section; (2) privacy pillar — hub
-  "Private AI Meeting Notes guide" + no-bot/local-transcription spokes;
-  (3) AFTER clusters are filled: Noah fires distribution (newsletter +
-  YouTube + Product Hunt in one window), plus AlternativeTo listing and
-  honest Reddit answers; (4) monthly AEO check — ask ChatGPT/Claude/
-  Perplexity "best Granola alternative", "AI notetaker without a bot",
-  log whether MeetingCoach appears. Noah: submit sitemap.xml in GSC.
+- SEO/AEO plan (2026-07-29; phases 1-2 SHIPPED: FAQ+schema on compare
+  pages, 3 alternatives roundups, 4 referee vs-vs pages, privacy pillar
+  hub+2 spokes — 19 URLs in sitemap). Remaining: (1) content clusters are
+  now full — Noah fires distribution (newsletter + YouTube + Product Hunt
+  in one window), plus AlternativeTo listing and honest Reddit answers;
+  (2) monthly AEO check — ask ChatGPT/Claude/Perplexity "best Granola
+  alternative", "AI notetaker without a bot", log whether MeetingCoach
+  appears; (3) later content: coaching pillar (talk-ratio experiment
+  post), tl;dv/Poised alternatives pages if the first batch ranks.
+  Noah: submit sitemap.xml in GSC.
 
 ## Next session
 
