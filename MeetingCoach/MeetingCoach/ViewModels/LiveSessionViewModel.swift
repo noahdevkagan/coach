@@ -31,9 +31,18 @@ final class LiveSessionViewModel {
     var elapsedTime: TimeInterval = 0
     var preCallContext = PreCallContext()
 
-    /// End-of-meeting summary
-    var meetingSummary: String?
+    /// End-of-meeting review (structured — both the deterministic and the
+    /// LLM path produce the same MeetingReview shape).
+    var meetingReview: MeetingReview?
     var isGeneratingSummary = false
+
+    /// Indices into preCallContext.plannedQuestions that have been covered —
+    /// auto-detected (keyword overlap against the user's turns, re-derived
+    /// each tick) or ticked by hand in the live checklist.
+    var askedPlannedQuestions: Set<Int> = []
+    /// Indices the user unchecked by hand. Auto-coverage only ever adds, so
+    /// without this pin a false-positive match would re-tick on the next turn.
+    private var manuallyUncheckedQuestions: Set<Int> = []
     var savedPath: String?
     var showPostSession = false
 
@@ -62,6 +71,26 @@ final class LiveSessionViewModel {
     // Tier-2 semantic coaching (local LLM heartbeat)
     private var semanticCoach: SemanticCoach?
     private var semanticTask: Task<Void, Never>?
+
+    // Speaker identity
+    /// LLM-inferred name suggestions awaiting a one-tap confirm ("Them 1
+    /// sounds like Sarah"). Confirming routes through renameSpeaker.
+    var speakerNameSuggestions: [SpeakerNameSuggestion] = []
+    private var rejectedNameSuggestions: Set<String> = []
+    private var nameInference: SpeakerNameInference?
+    /// Every label each diarization channel has published (plus renames) —
+    /// relabeled utterances must stay eligible for refined segments.
+    private var channelLabels: [DiarizationChannel: Set<String>] = [:]
+    /// Renames of the undiarized base labels ("Them" → "William"), applied
+    /// to utterances as they arrive.
+    private var baseLabelRenames: [String: String] = [:]
+    /// Every rename ever applied ("Them 2" → "William"). Incoming segments
+    /// are remapped through this: a publish already in flight when the user
+    /// renamed still carries the old label and would revert the transcript.
+    private var segmentRenames: [String: String] = [:]
+    /// The capture manager of the just-ended session — kept so renaming a
+    /// speaker from the post-session view can still save their voice clip.
+    private var endedCaptureManager: AudioCaptureManager?
 
     /// Signal types sharpened by the active focus goals (set per session).
     private var focusTypes: Set<NudgeType> = []
@@ -103,6 +132,22 @@ final class LiveSessionViewModel {
 
         isDemo = false
         preCallContext = context
+        // Untimed call + a default length in Settings = the user wants the
+        // time nudges on every call without filling the form each time.
+        if preCallContext.scheduledDurationMinutes == 0,
+           let defaultMinutes = settings?.defaultMeetingMinutes, defaultMinutes > 0 {
+            preCallContext.scheduledDurationMinutes = defaultMinutes
+        }
+        // Questions pasted under Advanced ("Questions to Ask") join any
+        // per-call ones from the form. Both are consumed by the session —
+        // stopLive clears them so the next call starts with a fresh list.
+        let standing = (UserDefaults.standard.string(forKey: "plannedQuestionsText") ?? "")
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        for q in standing where !preCallContext.plannedQuestions.contains(q) {
+            preCallContext.plannedQuestions.append(q)
+        }
 
         // The active rubric tunes the deterministic monitors and defines any
         // custom semantic signals. Missing/invalid rubric = stock behavior.
@@ -152,12 +197,16 @@ final class LiveSessionViewModel {
                                           tuning: tuning,
                                           customSignals: rubric.customSemanticSignals,
                                           noteExamples: noteExamples)
+            // Same engine, separate cadence: propose real names for diarized
+            // speakers from transcript evidence ("thanks Sarah").
+            nameInference = SpeakerNameInference(model: settings.selectedModel)
             if ollamaManager.status == .stopped {
                 ollamaManager.start()
             }
             startSemanticHeartbeat(ollamaManager: ollamaManager)
         } else {
             semanticCoach = nil
+            nameInference = nil
         }
 
         // Kept for the auto-recap on Stop — every session should end with
@@ -192,8 +241,8 @@ final class LiveSessionViewModel {
             }
         }
 
-        manager.onSpeakerSegments = { [weak self] segments in
-            self?.applyDiarization(segments)
+        manager.onSpeakerSegments = { [weak self] channel, segments in
+            self?.applyDiarization(segments, channel: channel)
         }
 
         manager.onStatus = { [weak self] msg in
@@ -221,6 +270,9 @@ final class LiveSessionViewModel {
         isLive = false
         sessionEngineLabel = captureManager?.engineLabel
         captureManager?.stop()
+        // Kept (not nil'd into oblivion) so a rename from the post-session
+        // view can still reach the diarizers' collected voice clips.
+        endedCaptureManager = captureManager
         captureManager = nil
         demoTask?.cancel()
         demoTask = nil
@@ -229,6 +281,7 @@ final class LiveSessionViewModel {
         semanticTask?.cancel()
         semanticTask = nil
         semanticCoach = nil
+        nameInference = nil
         timerTask?.cancel()
         timerTask = nil
         silenceCheckTask?.cancel()
@@ -267,6 +320,14 @@ final class LiveSessionViewModel {
         AdaptiveThresholds.processSessionFeedback(nudges)
 
         saveSession()
+
+        // Questions are per-meeting: coverage was just written into the
+        // session file, so clear both sources — the live checklist context
+        // and the standing paste under Advanced — for a fresh list next
+        // call. Goal/participants stay as the last-used context.
+        preCallContext.plannedQuestions = []
+        UserDefaults.standard.removeObject(forKey: "plannedQuestionsText")
+
         showPostSession = true
 
         // Auto-recap: every session ends with a summary, no button. The
@@ -291,6 +352,7 @@ final class LiveSessionViewModel {
         preCallContext = PreCallContext()   // neutral context → general type
         signalEngine = SignalEngine(context: preCallContext)
         semanticCoach = nil
+        nameInference = nil
         focusTypes = []   // demo choreography must not depend on user goals
 
         resetSessionState()
@@ -345,7 +407,7 @@ final class LiveSessionViewModel {
         isLive = false
         demoTask = nil
         status = "Demo finished — a real session looks just like this"
-        meetingSummary = instantReview(durationMinutes: max(1, Int(elapsedTime / 60)))
+        meetingReview = instantReview(durationMinutes: max(1, Int(elapsedTime / 60)))
     }
 
     func deleteSession() {
@@ -364,13 +426,21 @@ final class LiveSessionViewModel {
         utterances = []
         turns = []
         livePartials = [:]
+        speakerNameSuggestions = []
+        rejectedNameSuggestions = []
+        channelLabels = [:]
+        baseLabelRenames = [:]
+        segmentRenames = [:]
+        endedCaptureManager = nil
         micOnly = false
         sessionStartDate = nil
         nudges = []
         activeNudge = nil
         talkStats.reset()
         error = nil
-        meetingSummary = nil
+        meetingReview = nil
+        askedPlannedQuestions = []
+        manuallyUncheckedQuestions = []
         elapsedTime = 0
         backoff = NudgeBackoff()
     }
@@ -379,29 +449,50 @@ final class LiveSessionViewModel {
         showPostSession = false
     }
 
-    /// Relabel mixed-stream ("Meeting") utterances with diarized speakers.
-    /// Segments arrive incrementally and can refine earlier calls, so every
-    /// pass re-derives labels for the whole diarizable history.
+    /// Relabel one channel's utterances with its diarized speakers —
+    /// "Meeting" → "Speaker 1/2/…" (mic-only), "Them" → "Them 1/2/…"
+    /// (system audio), or enrolled/renamed real names. Segments arrive
+    /// incrementally and can refine earlier calls, so every pass re-derives
+    /// labels for the whole diarizable history of that channel.
     ///
     /// Utterances that clearly span MORE than one diarized speaker are
     /// split at the segment boundaries — a single dominant label for a
     /// back-and-forth exchange hands every word to one person, which was
     /// the main source of attribution errors (measured ~12% of words).
-    private func applyDiarization(_ segments: [SpeakerSegment]) {
+    private func applyDiarization(_ segments: [SpeakerSegment], channel: DiarizationChannel) {
+        // Remap stale labels from publishes that raced a rename.
+        let segments = segments.map { seg in
+            segmentRenames[seg.speaker].map {
+                SpeakerSegment(speaker: $0, start: seg.start, end: seg.end)
+            } ?? seg
+        }
+        // Track every label this channel has ever produced (including
+        // renames) — a relabeled utterance must stay eligible for the
+        // refined segments of later passes.
+        for s in segments { channelLabels[channel, default: []].insert(s.speaker) }
+        let owned = channelLabels[channel] ?? []
+
+        // Each utterance only needs the segments that can overlap it. Both
+        // lists are time-sorted, so a binary-searched window replaces the
+        // full-array scans that made this pass O(utterances × segments) —
+        // it runs on the main thread on every publish of a long call.
+        let maxSegDur = segments.reduce(0.0) { max($0, $1.end - $1.start) }
+
         var changed = false
         var rebuilt: [Utterance] = []
         rebuilt.reserveCapacity(utterances.count)
         for u in utterances {
-            guard u.speaker == "Meeting" || u.speaker.hasPrefix("Speaker ") else {
+            guard belongsToChannel(u.speaker, channel: channel, owned: owned) else {
                 rebuilt.append(u)
                 continue
             }
-            if let parts = Self.splitByDiarization(u, segments: segments) {
+            let window = Self.overlapWindow(for: u, in: segments, maxDur: maxSegDur)
+            if let parts = Self.splitByDiarization(u, segments: window) {
                 rebuilt.append(contentsOf: parts)
                 changed = true
                 continue
             }
-            if let label = Self.dominantSpeaker(for: u, in: segments), label != u.speaker {
+            if let label = Self.dominantSpeaker(for: u, in: window), label != u.speaker {
                 var copy = u
                 copy.speaker = label
                 rebuilt.append(copy)
@@ -419,13 +510,101 @@ final class LiveSessionViewModel {
         runSignalEvaluation()
     }
 
+    /// Whether an utterance's current label came from this channel: the
+    /// channel's base label, its slot-label form, or anything the channel's
+    /// diarizer has published (enrolled names, renames).
+    private func belongsToChannel(_ speaker: String, channel: DiarizationChannel,
+                                  owned: Set<String>) -> Bool {
+        switch channel {
+        case .mic:
+            return speaker == "Meeting" || speaker.hasPrefix("Speaker ")
+                || owned.contains(speaker) || baseLabelRenames["Meeting"] == speaker
+        case .system:
+            return speaker == "Them" || speaker.hasPrefix("Them ")
+                || owned.contains(speaker) || baseLabelRenames["Them"] == speaker
+        }
+    }
+
+    // MARK: - Speaker naming
+
+    /// Rename a diarized speaker ("Them 2", "Speaker 1", or a wrong name)
+    /// everywhere: transcript history, live diarizer timeline (future turns),
+    /// and the voice-profile store (future sessions recognize the voice).
+    func renameSpeaker(_ label: String, to rawName: String) {
+        let name = rawName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty, name != label else { return }
+
+        // Transcript relabels immediately — the diarizer republish path
+        // also covers this, but only while live, and up to a second later.
+        var changed = false
+        for i in utterances.indices where utterances[i].speaker == label {
+            utterances[i].speaker = name
+            changed = true
+        }
+        if changed {
+            var builder = TurnBuilder()
+            builder.rebuild(utterances)
+            turns = builder.turns
+            if var engine = signalEngine {
+                engine.invalidateTurnCache()
+                signalEngine = engine
+            }
+        }
+        // Keep the rename eligible for later diarization refinements.
+        for (channel, labels) in channelLabels where labels.contains(label) {
+            channelLabels[channel]?.insert(name)
+        }
+        // "Them"/"Meeting" was never diarized (single far speaker, or model
+        // still downloading) — remember the mapping so later utterances of
+        // that base label keep the name without a diarizer in the loop.
+        if label == "Them" || label == "Meeting" {
+            baseLabelRenames[label] = name
+        }
+        baseLabelRenames = baseLabelRenames.mapValues { $0 == label ? name : $0 }
+        // Chain: A→B then B→C must leave A mapping to C.
+        segmentRenames = segmentRenames.mapValues { $0 == label ? name : $0 }
+        segmentRenames[label] = name
+
+        // Live timeline + voice profile. The manager survives stopLive()
+        // precisely so a post-session rename can still reach the clips.
+        (captureManager ?? endedCaptureManager)?.renameSpeaker(label, to: name)
+
+        speakerNameSuggestions.removeAll { $0.label == label }
+        mclog("[VM] Renamed speaker \(label) → \(name)")
+    }
+
+    /// Accept an LLM name suggestion — routes through the full rename path.
+    func confirmNameSuggestion(_ suggestion: SpeakerNameSuggestion) {
+        renameSpeaker(suggestion.label, to: suggestion.name)
+    }
+
+    func dismissNameSuggestion(_ suggestion: SpeakerNameSuggestion) {
+        rejectedNameSuggestions.insert(suggestion.key)
+        speakerNameSuggestions.removeAll { $0.key == suggestion.key }
+    }
+
     /// Split an utterance across diarized speaker spans when at least two
     /// speakers each held a meaningful share of it. Words are allocated
     /// proportionally by span duration (the recognizer gives no word
     /// timestamps). Returns nil when the utterance is effectively
     /// single-speaker — the dominant-label path handles it.
+    /// The segments that can overlap `u`: start ≥ u.t − longest segment
+    /// (anything earlier must end before u starts) and start < u.endT.
+    private static func overlapWindow(for u: Utterance, in segments: [SpeakerSegment],
+                                      maxDur: TimeInterval) -> ArraySlice<SpeakerSegment> {
+        func lowerBound(_ key: TimeInterval) -> Int {
+            var lo = 0, hi = segments.count
+            while lo < hi {
+                let mid = (lo + hi) / 2
+                if segments[mid].start < key { lo = mid + 1 } else { hi = mid }
+            }
+            return lo
+        }
+        return segments[lowerBound(u.t - maxDur)..<lowerBound(u.endT)]
+    }
+
     private static func splitByDiarization(_ u: Utterance,
-                                           segments: [SpeakerSegment]) -> [Utterance]? {
+                                           segments: ArraySlice<SpeakerSegment>) -> [Utterance]? {
         guard u.duration > 1.5 else { return nil }
         // Overlapping spans in time order, merging near-adjacent same-speaker runs.
         var spans: [(speaker: String, start: TimeInterval, end: TimeInterval)] = []
@@ -466,7 +645,7 @@ final class LiveSessionViewModel {
 
     /// The speaker whose segments overlap this utterance the most.
     /// Requires meaningful overlap (>0.3s or >30% of the utterance).
-    private static func dominantSpeaker(for u: Utterance, in segments: [SpeakerSegment]) -> String? {
+    private static func dominantSpeaker(for u: Utterance, in segments: ArraySlice<SpeakerSegment>) -> String? {
         var overlapBySpeaker: [String: TimeInterval] = [:]
         for seg in segments {
             let overlap = min(u.endT, seg.end) - max(u.t, seg.start)
@@ -482,6 +661,12 @@ final class LiveSessionViewModel {
     /// Insert keeping chronological order — the You and Them pipelines emit
     /// independently, so arrivals can be slightly out of order.
     private func insertUtterance(_ u: Utterance) {
+        var u = u
+        // A renamed base label sticks to new arrivals; diarization (when
+        // running) still refines them into individual speakers later.
+        if let mapped = baseLabelRenames[u.speaker] {
+            u.speaker = mapped
+        }
         if let last = utterances.last, u.t < last.t {
             let idx = utterances.lastIndex(where: { $0.t <= u.t })
                 .map { utterances.index(after: $0) } ?? 0
@@ -516,7 +701,7 @@ final class LiveSessionViewModel {
     func generateReview(ollamaManager: OllamaManager, settings: SettingsViewModel) {
         guard !utterances.isEmpty else { return }
         isGeneratingSummary = true
-        meetingSummary = nil
+        meetingReview = nil
 
         let durationMin = max(1, Int(elapsedTime) / 60)
 
@@ -530,9 +715,15 @@ final class LiveSessionViewModel {
             return
         }
 
+        // Speaker-labeled lines, not fullTranscript — the review has to
+        // attribute commitments and positions, which needs who-said-what.
+        let labeledTranscript = utterances
+            .map { "\($0.speaker): \($0.text)" }
+            .joined(separator: "\n")
+
         let (system, user) = PromptBuilder.buildPostCallReviewPrompt(
             nudges: nudges,
-            transcript: fullTranscript,
+            transcript: labeledTranscript,
             context: preCallContext,
             durationMinutes: durationMin
         )
@@ -568,38 +759,121 @@ final class LiveSessionViewModel {
                     }
                 }
             }
-            finishReview(summary ?? instantReview(durationMinutes: durationMin))
+            if let summary {
+                finishReview(MeetingReview.parse(llmText: summary,
+                                                 talkShare: talkStats.sessionShare))
+            } else {
+                finishReview(instantReview(durationMinutes: durationMin))
+            }
         }
     }
 
     /// Single epilogue for every review path: publish, stop the spinner,
     /// and persist into the session file.
-    private func finishReview(_ summary: String) {
-        meetingSummary = summary
+    private func finishReview(_ review: MeetingReview) {
+        meetingReview = review
         isGeneratingSummary = false
+        persistReview()
+    }
+
+    /// Toggle one Suggested Next Step's checkbox and persist immediately —
+    /// checked state survives restarts as "- [x]" task lines in the file.
+    func toggleActionItem(_ id: UUID) {
+        guard var review = meetingReview,
+              let i = review.actionItems.firstIndex(where: { $0.id == id }) else { return }
+        review.actionItems[i].isDone.toggle()
+        meetingReview = review
         persistReview()
     }
 
     /// Write the review into the saved session file under "## Review" so
     /// trends and the rubric advisor can mine it later. Replaces any earlier
-    /// review section — reviews can be regenerated.
+    /// review section — reviews can be regenerated (and checkbox toggles
+    /// re-persist through the same path).
     private func persistReview() {
-        guard let path = savedPath, let summary = meetingSummary,
+        guard let path = savedPath, let review = meetingReview,
               var content = try? String(contentsOfFile: path, encoding: .utf8) else { return }
         if let range = content.range(of: "\n## Review") {
             content = String(content[..<range.lowerBound])
         }
         content = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        content += "\n\n## Review\n\n\(summary)\n"
+        content += "\n\n## Review\n\n\(review.recapMarkdown)\n"
         try? content.write(toFile: path, atomically: true, encoding: .utf8)
     }
 
-    private func instantReview(durationMinutes: Int) -> String {
-        DeterministicReview.generate(nudges: nudges,
-                                     utterances: utterances,
-                                     context: preCallContext,
-                                     durationMinutes: durationMinutes,
-                                     talkShare: talkStats.sessionShare)
+    private func instantReview(durationMinutes: Int) -> MeetingReview {
+        DeterministicReview.review(nudges: nudges,
+                                   utterances: utterances,
+                                   context: preCallContext,
+                                   durationMinutes: durationMinutes,
+                                   talkShare: talkStats.sessionShare)
+    }
+
+    // MARK: - Nudge quotes
+
+    /// The transcript moment behind a nudge: the turn active at the nudge's
+    /// call-relative timestamp plus the following turn (the exchange).
+    /// Pure lookup — works retroactively on nudges from any session.
+    func turnsAround(_ timestamp: TimeInterval) -> [Turn] {
+        guard !turns.isEmpty else { return [] }
+        guard let idx = turns.lastIndex(where: { $0.t <= timestamp }) else {
+            return [turns[0]]
+        }
+        var result = [turns[idx]]
+        if idx + 1 < turns.count { result.append(turns[idx + 1]) }
+        return result
+    }
+
+    // MARK: - Planned questions
+
+    /// Mark planned questions as covered when a "You" turn contains most of
+    /// the question's content words. Keyword overlap, not exact match — the
+    /// spoken phrasing never matches the typed one.
+    /// Manual override from the live checklist: tapping a row toggles it.
+    func togglePlannedQuestion(_ index: Int) {
+        if askedPlannedQuestions.contains(index) {
+            askedPlannedQuestions.remove(index)
+            manuallyUncheckedQuestions.insert(index)
+        } else {
+            askedPlannedQuestions.insert(index)
+            manuallyUncheckedQuestions.remove(index)
+        }
+    }
+
+    private func updatePlannedQuestionCoverage() {
+        let questions = preCallContext.plannedQuestions
+        guard !questions.isEmpty else { return }
+        for (i, question) in questions.enumerated()
+        where !askedPlannedQuestions.contains(i) && !manuallyUncheckedQuestions.contains(i) {
+            let keywords = Self.questionKeywords(question)
+            guard !keywords.isEmpty else { continue }
+            for turn in turns where turn.isYou {
+                let turnWords = Set(TextAnalysis.words(turn.text))
+                let matched = keywords.filter(turnWords.contains).count
+                // ≥60% of content words (and at least one) heard in one turn.
+                if matched > 0, matched * 10 >= keywords.count * 6 {
+                    askedPlannedQuestions.insert(i)
+                    mclog("[Questions] Covered planned question #\(i + 1)")
+                    break
+                }
+            }
+        }
+    }
+
+    /// Content words of a planned question — question scaffolding and
+    /// filler stripped so matching keys on the substance.
+    static func questionKeywords(_ question: String) -> [String] {
+        let stop: Set<String> = [
+            "what", "how", "why", "when", "where", "who", "which", "whose",
+            "the", "a", "an", "is", "are", "was", "were", "do", "does", "did",
+            "you", "your", "yours", "we", "our", "ours", "they", "their",
+            "to", "of", "in", "on", "for", "about", "and", "or", "if",
+            "it", "its", "that", "this", "these", "those", "there",
+            "have", "has", "had", "be", "been", "being", "will", "would",
+            "could", "should", "can", "with", "them", "us", "i", "my", "me",
+            "get", "got", "any", "some", "at", "as", "by", "from", "up",
+        ]
+        return TextAnalysis.words(question).filter { $0.count >= 3 && !stop.contains($0) }
     }
 
     // MARK: - Semantic heartbeat (tier 2)
@@ -621,6 +895,21 @@ final class LiveSessionViewModel {
                         self.nudges.append(nudge)
                         self.setActiveNudge(nudge)
                         mclog("[Semantic] \(nudge.type.rawValue): \(nudge.text)")
+                    }
+                }
+                if ollamaManager.status == .running, let inference = self.nameInference {
+                    // Piggybacks the heartbeat; throttles itself and skips
+                    // entirely when every speaker is already named.
+                    let suggestions = await inference.analyze(
+                        utterances: self.utterances,
+                        elapsed: self.elapsedTime,
+                        rejected: self.rejectedNameSuggestions
+                    )
+                    guard self.isLive else { break }
+                    for s in suggestions
+                    where !self.speakerNameSuggestions.contains(where: { $0.label == s.label }) {
+                        self.speakerNameSuggestions.append(s)
+                        mclog("[Names] Suggesting \(s.label) = \(s.name) (\(s.confidence))")
                     }
                 }
                 try? await Task.sleep(for: .seconds(SemanticCoach.heartbeatSeconds))
@@ -653,6 +942,7 @@ final class LiveSessionViewModel {
         turns = engine.turns
         signalEngine = engine
         talkStats.update(turns: turns, elapsed: elapsedTime)
+        updatePlannedQuestionCoverage()
 
         for nudge in newNudges {
             nudges.append(nudge)
@@ -683,10 +973,12 @@ final class LiveSessionViewModel {
             return
         }
         activeNudge = nudge
-        // Auto-dismiss after 6 seconds
+        // Auto-dismiss: positives ("green") hold a little longer — praise is
+        // the easiest thing to miss while looking at a face on another screen.
+        let displaySeconds: Double = nudge.type.isPositive ? 10 : 6
         dismissTask?.cancel()
         dismissTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(6))
+            try? await Task.sleep(for: .seconds(displaySeconds))
             guard let self, self.activeNudge?.id == nudge.id else { return }
             // Held the overlay for the full window, untouched — that's an
             // ignore. Displaced nudges never reach here (the id guard).
@@ -766,6 +1058,13 @@ final class LiveSessionViewModel {
 
         var lines: [String] = []
         lines.append("# Meeting Coach Session — \(formatter.string(from: Date()))")
+        // Human title (person · subject) derived from pre-call context —
+        // the filename stays date-based (it's the sort key and is parsed
+        // for the session date); the title lives in the header and is
+        // user-editable later via the sessions list.
+        if let title = Self.sessionTitle(context: preCallContext) {
+            lines.append("**Title:** \(title)")
+        }
         lines.append("**Duration:** \(elapsedFormatted)")
         lines.append("**Utterances:** \(utterances.count)")
         lines.append("**Nudges:** \(nudges.count)")
@@ -779,12 +1078,23 @@ final class LiveSessionViewModel {
         if !preCallContext.meetingGoal.isEmpty {
             lines.append("## Pre-Call Context")
             lines.append("**Goal:** \(preCallContext.meetingGoal)")
-            lines.append("**Scheduled Duration:** \(preCallContext.scheduledDurationMinutes) min")
+            if preCallContext.scheduledDurationMinutes > 0 {
+                lines.append("**Scheduled Duration:** \(preCallContext.scheduledDurationMinutes) min")
+            }
             if !preCallContext.participants.isEmpty {
                 lines.append("**Participants:** \(preCallContext.participants.map { "\($0.name) (\($0.role))" }.joined(separator: ", "))")
             }
             if !preCallContext.myKnownTendencies.isEmpty {
                 lines.append("**Known Tendencies:** \(preCallContext.myKnownTendencies.joined(separator: ", "))")
+            }
+            lines.append("")
+        }
+
+        // Planned questions with coverage — checked = heard in a You turn.
+        if !preCallContext.plannedQuestions.isEmpty {
+            lines.append("## Planned Questions")
+            for (i, q) in preCallContext.plannedQuestions.enumerated() {
+                lines.append("- [\(askedPlannedQuestions.contains(i) ? "x" : " ")] \(q)")
             }
             lines.append("")
         }
@@ -815,5 +1125,19 @@ final class LiveSessionViewModel {
         try? content.write(to: file, atomically: true, encoding: .utf8)
         savedPath = file.path
         status = "Session saved to \(dir.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))/"
+    }
+
+    /// "Chris · close the deal" from pre-call context (first named
+    /// participant + goal); nil when there's no context to name it by.
+    static func sessionTitle(context: PreCallContext) -> String? {
+        let person = context.participants
+            .map { $0.name.trimmingCharacters(in: .whitespaces) }
+            .first { !$0.isEmpty }
+        var subject = context.meetingGoal
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\n", with: " ")
+        if subject.count > 48 { subject = String(subject.prefix(45)) + "…" }
+        let parts = [person, subject.isEmpty ? nil : subject].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }

@@ -4,6 +4,9 @@ import Foundation
 struct SessionSummary: Identifiable {
     let id = UUID()
     let date: Date
+    /// Human title from the file header ("**Title:** …"), when the session
+    /// has one. Defaulted so existing memberwise call sites compile.
+    var title: String? = nil
     let durationFormatted: String
     let utteranceCount: Int
     let nudgeCounts: [NudgeType: Int]
@@ -113,15 +116,20 @@ enum SessionTrends {
         var focusPer10Min: Double?
     }
 
-    /// Stats for the 7-day window ending `weeksAgo` weeks before now
-    /// (0 = the last 7 days, 1 = the 7 days before that). Rolling windows
-    /// beat calendar weeks here: "this week vs last" always compares equal
-    /// spans, even on a Monday.
+    /// Stats for the calendar week `weeksAgo` weeks before now (0 = this
+    /// week so far, 1 = all of last week). Weeks start on Monday — always,
+    /// not by locale. Calendar weeks match how people actually think about
+    /// "this week"; rolling 7-day windows kept getting read as wrong
+    /// numbers even when they were right.
     static func weekStats(_ sessions: [SessionSummary], weeksAgo: Int,
                           focusTypes: Set<NudgeType> = [], now: Date = Date()) -> WeekStats {
-        let end = now.addingTimeInterval(Double(-weeksAgo) * 7 * 86_400)
-        let start = end.addingTimeInterval(-7 * 86_400)
-        let window = sessions.filter { $0.date > start && $0.date <= end }
+        var calendar = Calendar.current
+        calendar.firstWeekday = 2   // Monday
+        let thisMonday = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? now
+        let start = calendar.date(byAdding: .weekOfYear, value: -weeksAgo, to: thisMonday) ?? thisMonday
+        let end = weeksAgo == 0 ? now
+            : (calendar.date(byAdding: .weekOfYear, value: 1, to: start) ?? now)
+        let window = sessions.filter { $0.date >= start && $0.date < end }
 
         var stats = WeekStats()
         stats.sessionCount = window.count
@@ -169,9 +177,13 @@ enum SessionTrends {
         var duration = ""
         var utteranceCount = 0
         var talkShare: Double?
+        var title: String?
 
         for line in lines {
-            if line.hasPrefix("**Duration:**") {
+            if line.hasPrefix("**Title:**") {
+                let t = line.dropFirst("**Title:**".count).trimmingCharacters(in: .whitespaces)
+                if !t.isEmpty { title = t }
+            } else if line.hasPrefix("**Duration:**") {
                 duration = line.replacingOccurrences(of: "**Duration:** ", with: "")
             } else if line.hasPrefix("**Utterances:**") {
                 utteranceCount = Int(line.replacingOccurrences(of: "**Utterances:** ", with: "")) ?? 0
@@ -230,6 +242,7 @@ enum SessionTrends {
 
         return SessionSummary(
             date: date,
+            title: title,
             durationFormatted: duration,
             utteranceCount: utteranceCount,
             nudgeCounts: nudgeCounts,

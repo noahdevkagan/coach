@@ -88,7 +88,63 @@ func runTests() async {
         }
     }
 
-    // 3. Stopping an empty session (mic never heard anything) stays sane:
+    // 3. Speaker identity: system-channel diarization splits "Them" into
+    //    Them 1/2, renaming survives later (stale-label) segment passes,
+    //    and renames reach the capture manager (voice-profile path).
+    do {
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext())
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let capture = AudioCaptureManager.last else {
+            check(false, "capture manager wired (3)"); return
+        }
+        capture.onUtterance?(Utterance(t: 1, speaker: "You",
+            text: "Welcome everyone, thanks for making the time today.", endT: 4))
+        capture.onUtterance?(Utterance(t: 6, speaker: "Them",
+            text: "Hello from the first remote person on the call.", endT: 9))
+        capture.onUtterance?(Utterance(t: 12, speaker: "Them",
+            text: "And hello from the second remote voice as well.", endT: 15))
+        try? await Task.sleep(for: .milliseconds(50))
+
+        capture.onSpeakerSegments?(.system, [
+            SpeakerSegment(speaker: "Them 1", start: 5.8, end: 9.2),
+            SpeakerSegment(speaker: "Them 2", start: 11.8, end: 15.2),
+        ])
+        try? await Task.sleep(for: .milliseconds(50))
+        let labels = vm.utterances.map(\.speaker)
+        check(labels == ["You", "Them 1", "Them 2"],
+              "system channel splits Them into speakers", "got \(labels)")
+
+        vm.renameSpeaker("Them 2", to: "William")
+        check(vm.utterances.map(\.speaker) == ["You", "Them 1", "William"],
+              "rename relabels the transcript",
+              "got \(vm.utterances.map(\.speaker))")
+        check(vm.turns.contains { $0.speaker == "William" },
+              "rename rebuilds the visible turns")
+        check(capture.renames.contains { $0 == ("Them 2", "William") },
+              "rename routed to capture (voice profile path)")
+
+        // A publish that raced the rename still says "Them 2" — it must
+        // not revert William.
+        capture.onSpeakerSegments?(.system, [
+            SpeakerSegment(speaker: "Them 1", start: 5.8, end: 9.2),
+            SpeakerSegment(speaker: "Them 2", start: 11.8, end: 15.4),
+        ])
+        try? await Task.sleep(for: .milliseconds(50))
+        check(vm.utterances.map(\.speaker) == ["You", "Them 1", "William"],
+              "stale segment labels don't revert a rename",
+              "got \(vm.utterances.map(\.speaker))")
+
+        // Renames still work from the post-session view.
+        vm.stopLive()
+        vm.renameSpeaker("Them 1", to: "Priya")
+        check(vm.utterances.map(\.speaker) == ["You", "Priya", "William"],
+              "rename works after Stop",
+              "got \(vm.utterances.map(\.speaker))")
+        vm.deleteSession()
+    }
+
+    // 4. Stopping an empty session (mic never heard anything) stays sane:
     //    no crash, no phantom turns, pane shows its empty state honestly.
     do {
         let vm = LiveSessionViewModel()

@@ -233,7 +233,9 @@ final class SemanticCoach {
         userParts.append("Elapsed: \(Int(elapsed / 60)) minutes.")
         userParts.append("Recent conversation (You = the user being coached):")
         userParts.append(window.map { u in
-            let who = u.isYou ? "You" : (u.speaker == "Meeting" ? "Meeting" : "Them")
+            // Real labels ("Them 2", "William") when diarization has them —
+            // who-said-what matters for several of the signal definitions.
+            let who = u.isYou ? "You" : u.speaker
             return "[\(u.formattedTime)] \(who): \(u.text)"
         }.joined(separator: "\n"))
         return (system, userParts.joined(separator: "\n\n"))

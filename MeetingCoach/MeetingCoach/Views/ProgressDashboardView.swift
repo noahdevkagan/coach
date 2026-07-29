@@ -183,6 +183,10 @@ struct ProgressDashboardView: View {
                             Text(suggestion.rationale).font(.caption)
                             Text(suggestion.evidence)
                                 .font(.caption2).foregroundStyle(.secondary)
+                            // What the Apply button concretely does — the
+                            // rationale says why, this says what changes.
+                            Text(applyEffect(suggestion.kind))
+                                .font(.caption2).foregroundStyle(.blue)
                             HStack(spacing: 8) {
                                 Button("Apply") {
                                     if let settings {
@@ -220,6 +224,20 @@ struct ProgressDashboardView: View {
         case .disable: return "turn off"
         case .raiseCooldown: return "fire less often"
         case .moreSensitive: return "fire sooner"
+        case .addSignal: return "new signal"
+        }
+    }
+
+    private func applyEffect(_ kind: RubricSuggestion.Kind) -> String {
+        switch kind {
+        case .disable:
+            return "Apply turns this signal off — it stops firing entirely."
+        case .raiseCooldown:
+            return "Apply keeps it just as sensitive but waits 50% longer between nudges — fewer repeats per meeting."
+        case .moreSensitive:
+            return "Apply lowers its threshold a little, so it fires a bit earlier."
+        case .addSignal:
+            return "Apply adds it to what the coach watches live — nudges can fire for it next call."
         }
     }
 
@@ -299,7 +317,13 @@ struct ProgressDashboardView: View {
             Text("Recent sessions").font(.headline)
             ForEach(sessions.suffix(6).reversed()) { session in
                 HStack {
-                    Text(session.date, style: .date).font(.caption)
+                    if let title = session.title {
+                        Text(title).font(.caption).lineLimit(1)
+                        Text(session.date, style: .date)
+                            .font(.caption2).foregroundStyle(.tertiary)
+                    } else {
+                        Text(session.date, style: .date).font(.caption)
+                    }
                     Text(session.durationFormatted)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(.secondary)

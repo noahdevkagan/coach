@@ -15,6 +15,13 @@ struct SpeakerSegment: Sendable {
     let end: TimeInterval
 }
 
+/// Which audio source a diarization result describes (real one lives in
+/// AudioCaptureManager).
+enum DiarizationChannel: String, Sendable {
+    case mic
+    case system
+}
+
 /// Capture stub: exposes the same callback surface, records lifecycle
 /// calls, never touches audio hardware. Tests drive the VM through these
 /// hooks — the same path live capture uses.
@@ -33,12 +40,16 @@ final class AudioCaptureManager {
 
     var onUtterance: ((Utterance) -> Void)?
     var onPartialText: ((String, String) -> Void)?
-    var onSpeakerSegments: (([SpeakerSegment]) -> Void)?
+    var onSpeakerSegments: ((DiarizationChannel, [SpeakerSegment]) -> Void)?
     var onStatus: ((String) -> Void)?
+    /// Recorded renames (label, name) — the real manager routes these to
+    /// the channel diarizers and the voice-profile store.
+    private(set) var renames: [(String, String)] = []
 
     init() { Self.last = self }
     func start() async throws {}
     func stop() { stopped = true }
+    func renameSpeaker(_ label: String, to name: String) { renames.append((label, name)) }
 }
 
 /// Minimal rubric: stock tuning, no custom signals.
@@ -53,6 +64,7 @@ final class SettingsViewModel {
     var selectedModel = "stub-model"
     var semanticCoachEnabled = false
     var useMock = true
+    var defaultMeetingMinutes = 0
     var hasCheckedModels = false
     var ollamaReachable = false
     var availableModels: [String] = []

@@ -11,7 +11,19 @@ extension Rubric {
         var newBuiltins = builtins
         var newSignals = signals
 
-        if suggestion.signalKey.hasPrefix("custom:") {
+        if suggestion.kind == .addSignal {
+            // A new custom signal distilled from coaching notes. Tier B —
+            // the high-confidence floor keeps a freshly minted definition
+            // from firing loosely until it earns trust.
+            let id = String(suggestion.signalKey.dropFirst("custom:".count))
+            if !id.isEmpty, !newSignals.contains(where: { $0.id == id }),
+               let description = suggestion.newSignalDescription {
+                newSignals.append(Signal(
+                    id: id, tier: "B", description: description,
+                    nudge: suggestion.newSignalNudge ?? "",
+                    needsDiarization: false, minConfidence: 0.8))
+            }
+        } else if suggestion.signalKey.hasPrefix("custom:") {
             // Custom signals only support removal (their knobs live in the
             // signal entry itself; disable = drop the entry).
             let id = String(suggestion.signalKey.dropFirst("custom:".count))
@@ -25,6 +37,8 @@ extension Rubric {
                 tuning.cooldownMultiplier = min(2.0, tuning.cooldownMultiplier * 1.5)
             case .moreSensitive:
                 tuning.thresholdMultiplier = max(0.5, tuning.thresholdMultiplier * 0.85)
+            case .addSignal:
+                break   // handled above; never reaches the builtin branch
             }
             newBuiltins[suggestion.signalKey] = tuning
         }

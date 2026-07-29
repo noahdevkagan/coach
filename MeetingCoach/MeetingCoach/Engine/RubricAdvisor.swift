@@ -9,6 +9,7 @@ struct RubricSuggestion: Identifiable, Codable, Equatable {
         case disable          // stop watching this signal
         case raiseCooldown    // keep it, but fire less often
         case moreSensitive    // it's earning "Useful" — fire a bit sooner
+        case addSignal        // watch a new custom signal (from coaching notes)
     }
     enum Status: String, Codable { case pending, dismissed, applied }
 
@@ -18,6 +19,10 @@ struct RubricSuggestion: Identifiable, Codable, Equatable {
     let signalKey: String
     let rationale: String
     let evidence: String
+    /// addSignal only: the new signal's rubric entry. Optional so stored
+    /// pre-existing suggestions decode unchanged.
+    var newSignalDescription: String?
+    var newSignalNudge: String?
     var status: Status = .pending
     var createdAt = Date()
     /// Evidence size when created/last dismissed — a dismissed suggestion

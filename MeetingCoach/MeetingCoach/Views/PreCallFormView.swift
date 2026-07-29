@@ -10,7 +10,7 @@ struct PreCallFormView: View {
     /// pre-filled — most meetings only involve a few of them.
     @State private var remembered: [PreCallContext.Participant] = []
 
-    private static let durationOptions = [15, 30, 60]
+    private static let durationOptions = [0, 15, 30, 45, 60]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -42,7 +42,7 @@ struct PreCallFormView: View {
                         Text("Scheduled Duration").font(.caption.bold())
                         Picker("", selection: $context.scheduledDurationMinutes) {
                             ForEach(Self.durationOptions, id: \.self) { min in
-                                Text("\(min) min").tag(min)
+                                Text(min == 0 ? "Not timed" : "\(min) min").tag(min)
                             }
                         }
                         .labelsHidden()
@@ -116,6 +116,47 @@ struct PreCallFormView: View {
                             }
                         }
                     }
+
+                    // Questions to ask — pre-loaded, tracked live as a checklist
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Questions to Ask").font(.caption.bold())
+                            Spacer()
+                            Button {
+                                context.plannedQuestions.append("")
+                            } label: {
+                                Image(systemName: "plus.circle")
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.blue)
+                        }
+
+                        if context.plannedQuestions.isEmpty {
+                            Text("Pre-load questions you want to cover — they show as a live checklist and tick off as you ask them")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+
+                        ForEach(context.plannedQuestions.indices, id: \.self) { i in
+                            HStack(spacing: 8) {
+                                TextField("e.g. What's blocking the launch?",
+                                          text: Binding(
+                                            get: { i < context.plannedQuestions.count ? context.plannedQuestions[i] : "" },
+                                            set: { if i < context.plannedQuestions.count { context.plannedQuestions[i] = $0 } }
+                                          ))
+                                    .textFieldStyle(.roundedBorder)
+                                Button {
+                                    if i < context.plannedQuestions.count {
+                                        context.plannedQuestions.remove(at: i)
+                                    }
+                                } label: {
+                                    Image(systemName: "minus.circle")
+                                        .foregroundStyle(.red)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
                 }
                 .padding()
             }
@@ -127,6 +168,9 @@ struct PreCallFormView: View {
                 Spacer()
                 Button {
                     ParticipantStore.save(context.participants)
+                    context.plannedQuestions = context.plannedQuestions
+                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        .filter { !$0.isEmpty }
                     dismiss()
                     onStart()
                 } label: {
@@ -138,7 +182,7 @@ struct PreCallFormView: View {
             }
             .padding()
         }
-        .frame(width: 480, height: 420)
+        .frame(width: 480, height: 500)
         .onAppear {
             remembered = ParticipantStore.load()
         }

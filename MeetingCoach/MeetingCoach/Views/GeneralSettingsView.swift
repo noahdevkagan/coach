@@ -47,6 +47,18 @@ struct GeneralSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Meeting length") {
+                Picker("Default length", selection: $settings.defaultMeetingMinutes) {
+                    Text("Not timed").tag(0)
+                    ForEach([15, 25, 30, 45, 60], id: \.self) { min in
+                        Text("\(min) min").tag(min)
+                    }
+                }
+                Text("Arms the time-based nudges (time check, next-steps countdown, overrun) on every call started without a scheduled duration. \u{201C}Not timed\u{201D} keeps them off unless you set a duration in the goal form.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Meeting detection") {
                 Toggle("Auto-detect meetings", isOn: $detection.isEnabled)
                 Toggle("Auto-start coaching", isOn: $detection.autoStartEnabled)
@@ -55,8 +67,31 @@ struct GeneralSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            Section("Agent access (MCP)") {
+                if let path = mcpHelperPath {
+                    Button(mcpCopied ? "Copied ✓" : "Copy setup command") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(
+                            "claude mcp add meetingcoach -- \"\(path)\"",
+                            forType: .string)
+                        mcpCopied = true
+                    }
+                }
+                Text(mcpHelperPath == nil
+                     ? "Agent server not found in this build."
+                     : "Lets Claude and other agents search and read your saved transcripts. Runs locally over stdio; nothing leaves this Mac.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
+    }
+
+    @State private var mcpCopied = false
+
+    private var mcpHelperPath: String? {
+        Bundle.main.url(forAuxiliaryExecutable: "meetingcoach-mcp")?.path
     }
 
     private func chooseFolder() {

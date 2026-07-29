@@ -11,6 +11,8 @@ struct ContentView: View {
     @AppStorage("hasSeenDemo") private var hasSeenDemo = false
     @State private var showWelcome = false
     @State private var searchQuery = ""
+    /// Session open in the main pane; nil = whatever else is active.
+    @State private var selectedSessionURL: URL?
 
     private var activeSearch: String {
         let q = searchQuery.trimmingCharacters(in: .whitespaces)
@@ -24,16 +26,25 @@ struct ContentView: View {
                 SidebarView(simulation: simulation, settings: settings,
                             liveSession: liveSession, ollamaManager: ollamaManager,
                             searchQuery: $searchQuery,
+                            selectedSession: $selectedSessionURL,
                             onToggleOverlay: toggleOverlay)
             }
             .frame(minWidth: 280, idealWidth: 300, maxWidth: 340)
             .background(MCTheme.canvas)
 
-            // Main content — search wins (clearing the box returns you),
-            // then live session, loaded transcript, or progress
-            if !activeSearch.isEmpty {
-                SearchResultsView(query: activeSearch)
-                    .frame(minWidth: 400)
+            // Main content — an opened session wins (closing returns you),
+            // then search (clearing the box returns you), then live
+            // session, loaded transcript, or progress
+            if let sessionURL = selectedSessionURL {
+                SessionDetailView(url: sessionURL) {
+                    selectedSessionURL = nil
+                }
+                .frame(minWidth: 400)
+            } else if !activeSearch.isEmpty {
+                SearchResultsView(query: activeSearch) { url in
+                    selectedSessionURL = url
+                }
+                .frame(minWidth: 400)
             } else if liveSession.isLive || liveSession.hasSession {
                 LiveTimelineView(liveSession: liveSession)
                     .frame(minWidth: 400)
@@ -68,6 +79,17 @@ struct ContentView: View {
         .onChange(of: liveSession.isLive) { _, isLive in
             if isLive { showOverlay() } else { hideOverlay() }
         }
+        // Typing a new search closes an open session so results show.
+        .onChange(of: searchQuery) { _, _ in
+            selectedSessionURL = nil
+        }
+        .onChange(of: liveSession.activeNudge?.id) { _, id in
+            // Re-assert the overlay whenever a nudge fires: brings it back if
+            // it was closed mid-meeting (closed-once used to mean gone for
+            // the whole session) and moves it to the screen the user is
+            // actually looking at (fullscreen call on another display).
+            if id != nil, liveSession.isLive { showOverlay() }
+        }
         .onAppear {
             // The window can open into an already-live session (started from
             // the menu bar with no window) — onChange never fires for that.
@@ -98,6 +120,9 @@ struct ContentView: View {
             }
             panel.contentView = NSHostingView(rootView: view)
         }
+        // Follow the user's attention: position on the screen holding the
+        // frontmost app's window (the call), not wherever init saw last.
+        panel.repositionToActiveScreen()
         panel.orderFront(nil)
     }
 
@@ -117,10 +142,12 @@ struct LiveTimelineView: View {
             transcriptPanel
                 .frame(minWidth: 380)
 
-            // Right, narrow: the coach rail. Quiet by design — a few
-            // high-bar nudges, not a feed to monitor.
+            // Right: the coach rail. Quiet by design — a few high-bar
+            // nudges, not a feed to monitor. Narrow by default but freely
+            // resizable: the old 340pt cap made the split divider stop dead
+            // while the review card stayed cramped.
             nudgesPanel
-                .frame(minWidth: 200, idealWidth: 250, maxWidth: 340)
+                .frame(minWidth: 200, idealWidth: 250, maxWidth: 560)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(MCTheme.canvas)
@@ -145,10 +172,12 @@ struct LiveTimelineView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 6) {
-                        // Summary card
-                        if let summary = liveSession.meetingSummary {
-                            MeetingSummaryCard(summary: summary, recapText: recapText(summary))
-                                .id("summary")
+                        // Review card
+                        if let review = liveSession.meetingReview {
+                            MeetingReviewView(review: review, recapText: recapText(review)) { id in
+                                liveSession.toggleActionItem(id)
+                            }
+                            .id("summary")
                             Divider().padding(.vertical, 4)
                         } else if liveSession.isGeneratingSummary {
                             HStack(spacing: 8) {
@@ -183,7 +212,10 @@ struct LiveTimelineView: View {
                         }
 
                         ForEach(liveSession.nudges) { nudge in
-                            NudgeCardView(nudge: nudge) { feedback in
+                            NudgeCardView(nudge: nudge,
+                                          quoteTurns: nudge.type.showsQuote
+                                              ? liveSession.turnsAround(nudge.quoteTimestamp ?? nudge.timestamp)
+                                              : []) { feedback in
                                 liveSession.recordFeedback(nudgeId: nudge.id, feedback: feedback)
                             }
                             .id(nudge.id)
@@ -256,15 +288,21 @@ struct LiveTimelineView: View {
             // ticks and talkStats mutations re-render only this strip.
             AmbientStatsStrip(liveSession: liveSession)
 
+            // Pre-loaded questions as a live checklist, ticking off as the
+            // transcript covers them.
+            if liveSession.isLive && !liveSession.preCallContext.plannedQuestions.isEmpty {
+                PlannedQuestionsCard(liveSession: liveSession)
+            }
+
             LiveTranscriptPane(liveSession: liveSession)
         }
         .padding(12)
         .background(MCTheme.canvas)
     }
 
-    private func recapText(_ summary: String) -> String {
+    private func recapText(_ review: MeetingReview) -> String {
         RecapExporter.markdown(
-            summary: summary,
+            summary: review.recapMarkdown,
             context: liveSession.preCallContext,
             durationMinutes: max(1, Int(liveSession.elapsedTime) / 60),
             talkShare: liveSession.talkStats.sessionShare
@@ -367,6 +405,62 @@ private struct AmbientStatsStrip: View {
     }
 }
 
+/// Live checklist of the questions entered in pre-call setup. Coverage is
+/// detected from the transcript, and rows are tappable — a tap overrides
+/// the detection in either direction.
+private struct PlannedQuestionsCard: View {
+    var liveSession: LiveSessionViewModel
+    @State private var collapsed = false
+
+    var body: some View {
+        let questions = liveSession.preCallContext.plannedQuestions
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("QUESTIONS TO ASK")
+                    .font(.caption2.weight(.semibold))
+                    .kerning(1.0)
+                    .foregroundStyle(.tertiary)
+                Spacer()
+                Text("\(liveSession.askedPlannedQuestions.count)/\(questions.count)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.tertiary)
+                Button {
+                    withAnimation(.easeOut(duration: 0.15)) { collapsed.toggle() }
+                } label: {
+                    Image(systemName: collapsed ? "chevron.down" : "chevron.up")
+                        .font(.caption2)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tertiary)
+            }
+            if !collapsed {
+                ForEach(Array(questions.enumerated()), id: \.offset) { i, question in
+                    let asked = liveSession.askedPlannedQuestions.contains(i)
+                    Button {
+                        liveSession.togglePlannedQuestion(i)
+                    } label: {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Image(systemName: asked ? "checkmark.circle.fill" : "circle")
+                                .font(.caption)
+                                .foregroundStyle(asked ? Color.green : Color.secondary)
+                            Text(question)
+                                .font(.caption)
+                                .strikethrough(asked)
+                                .foregroundStyle(asked ? Color.secondary : Color.primary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(asked ? "Mark as not asked" : "Mark as asked")
+                }
+            }
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .cardStyle()
+    }
+}
+
 /// Isolated so per-utterance updates only re-render this Text, not the
 /// whole transcript panel. Elapsed time lives in the ambient strip now.
 private struct TranscriptHeaderStats: View {
@@ -387,6 +481,13 @@ private struct TranscriptHeaderStats: View {
 /// pane O(session²) over an hour-long call.
 private struct TranscriptTurnRow: View {
     let turn: Turn
+    /// Present = this speaker can be given a real name (click the label).
+    var onRename: ((String, String) -> Void)?
+
+    @State private var showRenamePopover = false
+    @State private var nameField = ""
+
+    private var renameable: Bool { onRename != nil && !turn.isYou }
 
     var body: some View {
         // Columnar: speaker | time | text — reads like a chat log, scans by
@@ -396,6 +497,32 @@ private struct TranscriptTurnRow: View {
                 .font(.caption.bold())
                 .foregroundStyle(speakerColor(turn.speaker))
                 .frame(minWidth: 42, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    guard renameable else { return }
+                    nameField = ""
+                    showRenamePopover = true
+                }
+                .help(renameable ? "Click to name this speaker" : "")
+                .popover(isPresented: $showRenamePopover, arrowEdge: .bottom) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Who is \(turn.speaker)?")
+                            .font(.caption.bold())
+                        TextField("Name", text: $nameField)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 160)
+                            .onSubmit { submitRename() }
+                        Text("Their voice is saved locally so future meetings label them automatically.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(width: 160)
+                        Button("Save") { submitRename() }
+                            .keyboardShortcut(.defaultAction)
+                            .disabled(nameField.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+                    .padding(12)
+                }
             Text(turn.formattedTime)
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(.tertiary)
@@ -412,6 +539,49 @@ private struct TranscriptTurnRow: View {
                 }
             }
             Spacer(minLength: 0)
+        }
+    }
+
+    private func submitRename() {
+        let name = nameField.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+        showRenamePopover = false
+        onRename?(turn.speaker, name)
+    }
+}
+
+/// One-tap confirmation for an LLM-inferred speaker name ("Them 1 sounds
+/// like Sarah"). Never auto-applied — a wrong name would be saved with the
+/// voice and poison future sessions.
+private struct NameSuggestionBar: View {
+    var liveSession: LiveSessionViewModel
+
+    var body: some View {
+        ForEach(liveSession.speakerNameSuggestions) { s in
+            HStack(spacing: 8) {
+                Image(systemName: "person.crop.circle.badge.questionmark")
+                    .foregroundStyle(.secondary)
+                (Text(s.label).bold() + Text(" sounds like ") + Text(s.name).bold())
+                    .font(.caption)
+                Spacer(minLength: 4)
+                Button {
+                    liveSession.confirmNameSuggestion(s)
+                } label: {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                }
+                .buttonStyle(.plain)
+                .help("Yes — label \(s.label) as \(s.name)")
+                Button {
+                    liveSession.dismissNameSuggestion(s)
+                } label: {
+                    Image(systemName: "xmark.circle").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("No, dismiss")
+            }
+            .padding(.horizontal, 10).padding(.vertical, 6)
+            .background(Color.primary.opacity(0.04))
+            .clipShape(Capsule())
         }
     }
 }
@@ -446,8 +616,16 @@ private struct LiveTranscriptPane: View {
                     // commits leaves phantom blank space mid-list (Parakeet
                     // partials grow into full paragraphs, so the hole is big).
                     VStack(alignment: .leading, spacing: 0) {
+                        if !liveSession.speakerNameSuggestions.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                NameSuggestionBar(liveSession: liveSession)
+                            }
+                            .padding(.horizontal, 14).padding(.top, 10)
+                        }
                         ForEach(liveSession.turns) { turn in
-                            TranscriptTurnRow(turn: turn)
+                            TranscriptTurnRow(turn: turn) { label, name in
+                                liveSession.renameSpeaker(label, to: name)
+                            }
                                 .padding(.horizontal, 14).padding(.vertical, 9)
                             Divider().opacity(0.35).padding(.leading, 14)
                         }
@@ -491,7 +669,11 @@ private struct LiveTranscriptPane: View {
 
 struct NudgeCardView: View {
     let nudge: Nudge
+    /// The transcript moment behind the nudge (trigger turn + reply), when
+    /// the session has it — reveals what was actually said on demand.
+    var quoteTurns: [Turn] = []
     let onFeedback: (NudgeFeedback) -> Void
+    @State private var showQuote = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -509,19 +691,56 @@ struct NudgeCardView: View {
 
             // Content
             VStack(alignment: .leading, spacing: 5) {
-                Text(nudge.text)
-                    .font(.system(.body, weight: .medium))
+                HStack(alignment: .top, spacing: 8) {
+                    Text(nudge.text)
+                        .font(.system(.body, weight: .medium))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 4)
+                    // "Wrong" is a dismissal, not a rating — it lives at the
+                    // card's corner, away from the thumbs.
+                    if nudge.feedback == nil {
+                        feedbackButton(.wrong, help: "Wrong call — dismiss", icon: "xmark")
+                    }
+                }
 
-                HStack(spacing: 10) {
-                    // Type label — quiet small caps, no pill chrome.
+                HStack(spacing: 8) {
+                    // Type label — quiet small caps, no pill chrome. Fixed
+                    // so a tight card can never fold it into a letter column.
                     Text(nudge.badgeLabel.uppercased())
                         .font(.caption2.weight(.medium))
                         .kerning(0.6)
                         .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .fixedSize()
 
-                    Spacer()
+                    // Window the signal reasons over — "last 5 min" vs "this
+                    // meeting" was genuinely ambiguous before.
+                    if let hint = scopeHint {
+                        Text("· \(hint)")
+                            .font(.caption2)
+                            .foregroundStyle(.quaternary)
+                            .lineLimit(1)
+                            .fixedSize()
+                    }
 
-                    // Feedback — quiet ghost buttons, or the recorded result.
+                    Spacer(minLength: 8)
+
+                    if !quoteTurns.isEmpty {
+                        Button {
+                            withAnimation(.easeOut(duration: 0.15)) { showQuote.toggle() }
+                        } label: {
+                            Label(showQuote ? "Hide" : "What was said",
+                                  systemImage: "quote.opening")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(1)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help("Show the transcript behind this nudge")
+                    }
+
+                    // Feedback — thumbs, or the recorded result.
                     if let feedback = nudge.feedback {
                         HStack(spacing: 4) {
                             Image(systemName: feedbackIcon(feedback))
@@ -532,16 +751,56 @@ struct NudgeCardView: View {
                     } else {
                         HStack(spacing: 2) {
                             feedbackButton(.useful, help: "Useful", icon: "hand.thumbsup")
-                            feedbackButton(.annoying, help: "Meh", icon: "minus.circle")
-                            feedbackButton(.wrong, help: "Wrong", icon: "xmark.circle")
+                            feedbackButton(.annoying, help: "Not useful", icon: "hand.thumbsdown")
                         }
                     }
+                }
+
+                if showQuote && !quoteTurns.isEmpty {
+                    VStack(alignment: .leading, spacing: 5) {
+                        ForEach(quoteTurns) { turn in
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Text(turn.speaker)
+                                    .font(.caption2.bold())
+                                    .foregroundStyle(speakerColor(turn.speaker))
+                                Text(excerpt(turn))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.primary.opacity(0.04))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 }
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .cardStyle()
+    }
+
+    /// Trim long turns to the part near the nudge: the tail of the turn
+    /// that triggered it, the head of the reply.
+    private func excerpt(_ turn: Turn) -> String {
+        let text = turn.text.trimmingCharacters(in: .whitespaces)
+        guard text.count > 220 else { return text }
+        if turn.t <= nudge.timestamp && nudge.timestamp <= turn.endT {
+            return "…" + String(text.suffix(217))
+        }
+        return String(text.prefix(217)) + "…"
+    }
+
+    /// What window the signal reasons over — nil when "now" is obvious.
+    private var scopeHint: String? {
+        switch nudge.type {
+        case .voiceShare: return "last 5 min"
+        case .talkTime: return "current stretch"
+        default: return nudge.type.isPositive ? "just now" : nil
+        }
     }
 
     private func feedbackButton(_ feedback: NudgeFeedback, help: String, icon: String) -> some View {
@@ -561,7 +820,7 @@ struct NudgeCardView: View {
     private func feedbackLabel(_ feedback: NudgeFeedback) -> String {
         switch feedback {
         case .useful: return "Useful"
-        case .annoying: return "Meh"
+        case .annoying: return "Not useful"
         case .wrong: return "Wrong"
         }
     }
@@ -569,7 +828,7 @@ struct NudgeCardView: View {
     private func feedbackIcon(_ feedback: NudgeFeedback) -> String {
         switch feedback {
         case .useful: return "hand.thumbsup.fill"
-        case .annoying: return "minus.circle.fill"
+        case .annoying: return "hand.thumbsdown.fill"
         case .wrong: return "xmark.circle.fill"
         }
     }
@@ -614,54 +873,14 @@ struct CopyButton: View {
     }
 }
 
-struct MeetingSummaryCard: View {
-    let summary: String
-    /// Full shareable recap (summary + session facts + footer). When set,
-    /// copy/share controls appear in the card header.
-    var recapText: String?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Label("Meeting Review", systemImage: "doc.text.magnifyingglass")
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
-                if let recap = recapText {
-                    CopyButton(help: "Copy recap for Slack or email") { recap }
-
-                    ShareLink(item: recap) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.caption)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-                    .help("Share recap")
-                }
-            }
-
-            Text(summary)
-                .font(.callout)
-                .textSelection(.enabled)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.blue.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.blue.opacity(0.15), lineWidth: 1)
-        )
-    }
-}
-
 struct SidebarView: View {
     @Bindable var simulation: SimulationViewModel
     @Bindable var settings: SettingsViewModel
     @Bindable var liveSession: LiveSessionViewModel
     @Bindable var ollamaManager: OllamaManager
     @Binding var searchQuery: String
+    @Binding var selectedSession: URL?
     var onToggleOverlay: () -> Void
-    @State private var isDragOver = false
     @State private var showAdvanced = false
 
     var body: some View {
@@ -688,44 +907,27 @@ struct SidebarView: View {
                         .padding(12)
                         .cardStyle()
 
-                    SessionsSection(searchQuery: $searchQuery, liveSession: liveSession)
+                    SessionsSection(searchQuery: $searchQuery,
+                                selectedSession: $selectedSession,
+                                liveSession: liveSession)
                 }
                 .padding(12)
             }
-            .background(isDragOver ? Color.blue.opacity(0.04) : .clear)
             .background(MCTheme.canvas)
-            .onDrop(of: [.fileURL], isTargeted: $isDragOver) { providers in
-                handleDrop(providers, simulation: simulation)
-            }
 
             Divider()
             DisclosureGroup(isExpanded: $showAdvanced) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
-                        if !liveSession.isLive {
-                            Button {
-                                liveSession.showPreCallForm = true
-                            } label: {
-                                Label("Start with a goal…", systemImage: "target")
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(.blue)
-                            .help("Optional: tell the coach the meeting goal, length, and who's in the room")
-                            Divider()
-                        }
-                        CoachingStyleSection(settings: settings, ollamaManager: ollamaManager)
+                        PlannedQuestionsSection()
                         Divider()
-                        TranscriptSection(simulation: simulation, isDragOverEntireView: isDragOver)
-                        Divider()
-                        FeedbackSection(simulation: simulation, liveSession: liveSession)
+                        FeedbackSection(simulation: simulation, liveSession: liveSession,
+                                        settings: settings, ollamaManager: ollamaManager)
                         Divider()
                         ModelSection(settings: settings)
                         Text("AI nudges and the meeting summary switch on automatically when a model is installed.")
                             .font(.caption2).foregroundStyle(.tertiary)
                             .fixedSize(horizontal: false, vertical: true)
-                        Divider()
-                        McpSection()
                     }
                     .padding(.top, 10)
                 }
@@ -760,20 +962,6 @@ struct SidebarView: View {
         #endif
     }
 
-    private func handleDrop(_ providers: [NSItemProvider], simulation: SimulationViewModel) -> Bool {
-        guard let provider = providers.first else { return false }
-        provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { data, _ in
-            guard let data = data as? Data,
-                  let path = String(data: data, encoding: .utf8),
-                  let url = URL(string: path) else { return }
-            let ext = url.pathExtension.lowercased()
-            guard ["txt", "md", "text"].contains(ext) else { return }
-            DispatchQueue.main.async {
-                simulation.loadTranscript(from: url)
-            }
-        }
-        return true
-    }
 }
 
 // MARK: - Sessions (search + recent chats)
@@ -783,8 +971,13 @@ struct SidebarView: View {
 /// never feel like files in a folder.
 private struct SessionsSection: View {
     @Binding var searchQuery: String
+    @Binding var selectedSession: URL?
     var liveSession: LiveSessionViewModel
-    @State private var recent: [URL] = []
+    /// URL + resolved display title (header title falling back to the date)
+    /// loaded together so a rename can refresh what's on screen.
+    @State private var recent: [(url: URL, title: String)] = []
+    @State private var renameTarget: URL?
+    @State private var renameText = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -805,21 +998,37 @@ private struct SessionsSection: View {
                 }
             }
 
-            ForEach(recent.prefix(4), id: \.self) { url in
+            ForEach(recent.prefix(4), id: \.url) { item in
                 Button {
-                    NSWorkspace.shared.open(url)
+                    // Opens in the main pane — the file is one more click
+                    // away (context menu) for people who want the editor.
+                    selectedSession = item.url
                 } label: {
                     HStack {
-                        Text(TranscriptSearch.title(for: url))
+                        Text(item.title)
                             .font(.caption).foregroundStyle(.primary).lineLimit(1)
                         Spacer()
+                        if let date = TranscriptSearch.shortDate(for: item.url) {
+                            Text(date)
+                                .font(.caption2).foregroundStyle(.tertiary)
+                                .fixedSize()
+                        }
                         Image(systemName: "arrow.up.right")
                             .font(.caption2).foregroundStyle(.tertiary)
                     }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("Open the saved transcript")
+                .help("Open the saved transcript — \(TranscriptSearch.title(for: item.url))")
+                .contextMenu {
+                    Button("Rename…") {
+                        renameText = TranscriptSearch.headerTitle(at: item.url) ?? ""
+                        renameTarget = item.url
+                    }
+                    Button("Open File in Editor") {
+                        NSWorkspace.shared.open(item.url)
+                    }
+                }
             }
 
             if recent.isEmpty && !liveSession.isLive {
@@ -831,7 +1040,41 @@ private struct SessionsSection: View {
         .cardStyle()
         // Refresh when a session ends and saves.
         .task(id: liveSession.hasSession && !liveSession.isLive) {
-            recent = TranscriptSearch.sessionFiles()
+            reloadRecent()
+        }
+        .alert("Name this session", isPresented: Binding(
+            get: { renameTarget != nil },
+            set: { if !$0 { renameTarget = nil } }
+        )) {
+            TextField("Person · subject", text: $renameText)
+            Button("Save") {
+                if let url = renameTarget {
+                    TranscriptSearch.setTitle(renameText, for: url)
+                    reloadRecent()
+                }
+                renameTarget = nil
+            }
+            Button("Cancel", role: .cancel) { renameTarget = nil }
+        } message: {
+            Text("Shown in the sessions list instead of the date. Clear it to go back to the date.")
+        }
+    }
+
+    private func reloadRecent() {
+        // Untitled sessions get a topic-derived title automatically —
+        // written into the file so search and the dashboard agree with the
+        // sidebar. Rename (context menu) still overrides.
+        recent = TranscriptSearch.sessionFiles().map { url in
+            if let content = try? String(contentsOf: url, encoding: .utf8) {
+                if let header = TranscriptSearch.headerTitle(in: content) {
+                    return (url: url, title: header)
+                }
+                if let suggested = TranscriptSearch.suggestedTitle(in: content) {
+                    TranscriptSearch.setTitle(suggested, for: url)
+                    return (url: url, title: suggested)
+                }
+            }
+            return (url: url, title: TranscriptSearch.title(for: url))
         }
     }
 }
@@ -897,43 +1140,50 @@ struct CoachingStyleSection: View {
     }
 }
 
-// MARK: - Agent access (MCP)
+// MARK: - Questions to Ask (standing checklist)
 
-/// Advanced row: agent access to saved chats over MCP. Copies a ready
-/// `claude mcp add` command pointing at the bundled server, which gives
-/// agents list / search / read over saved transcripts. Local stdio only —
-/// nothing listens on a port, nothing leaves the Mac.
-struct McpSection: View {
-    @State private var copied = false
+/// Advanced row: questions for the next call, pasteable one per line. They
+/// join the live checklist (with any per-call ones from the goal form),
+/// tick off as the transcript covers them, and clear when the call ends.
+struct PlannedQuestionsSection: View {
+    @AppStorage("plannedQuestionsText") private var questionsText = ""
+    @State private var isExpanded = false
 
-    private var helperPath: String? {
-        Bundle.main.url(forAuxiliaryExecutable: "meetingcoach-mcp")?.path
+    private var count: Int {
+        questionsText.components(separatedBy: .newlines)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.count
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Label("Agent access · MCP", systemImage: "point.3.connected.trianglepath.dotted")
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
-                if let path = helperPath {
-                    Button(copied ? "Copied ✓" : "Copy setup command") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(
-                            "claude mcp add meetingcoach -- \"\(path)\"",
-                            forType: .string)
-                        copied = true
-                    }
+        DisclosureGroup(isExpanded: $isExpanded) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("One per line — paste a whole list. During a call they show as a checklist and tick off as you ask them. The list clears when the call ends, ready for the next meeting's questions.")
+                    .font(.caption2).foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                TextEditor(text: $questionsText)
                     .font(.caption)
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.blue)
+                    .frame(minHeight: 70, maxHeight: 140)
+                    .scrollContentBackground(.hidden)
+                    .padding(6)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(.background))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(Color.secondary.opacity(0.2))
+                    )
+            }
+            .padding(.top, 8)
+        } label: {
+            HStack(spacing: 6) {
+                Label("Questions to Ask", systemImage: "checklist")
+                    .font(.subheadline.weight(.semibold))
+                HelpDot(text: "Questions to cover on your next call — discovery questions, deal qualifiers, whatever matters. The coach tracks them live, then clears the list when the call ends.")
+                if count > 0 {
+                    Spacer()
+                    Text("\(count)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
-            Text(helperPath == nil
-                 ? "Agent server not found in this build."
-                 : "Lets Claude and other agents search and read your saved transcripts. Runs locally over stdio; nothing leaves this Mac.")
-                .font(.caption2).foregroundStyle(.tertiary)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -1570,6 +1820,8 @@ struct LiveSection: View {
 struct FeedbackSection: View {
     @Bindable var simulation: SimulationViewModel
     @Bindable var liveSession: LiveSessionViewModel
+    var settings: SettingsViewModel
+    var ollamaManager: OllamaManager
     /// Loaded once on appear (and bumped on save) — TrainingStore.load()
     /// hits disk + JSON-decodes, far too heavy for a view body that
     /// re-renders per utterance during simulation playback.
@@ -1596,6 +1848,10 @@ struct FeedbackSection: View {
     /// Display names of the signal types the last save taught, e.g.
     /// "Talk Time, Pin the Date" — feedback that the paste was understood.
     @State private var savedSignalNames = ""
+    /// The distiller's progress/result line — free-form notes that name no
+    /// signals go through the local model, and the user should see that the
+    /// paste was understood (or that nothing watchable was found).
+    @State private var distillStatus: String?
 
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
@@ -1605,15 +1861,16 @@ struct FeedbackSection: View {
             HStack(spacing: 6) {
                 Label("Coaching Notes", systemImage: "text.badge.checkmark")
                     .font(.subheadline.weight(.semibold))
-                HelpDot(text: "Your own notes — or feedback pasted from your favorite AI tool — teach Meeting Coach what good looks like for you. Everything stays private on your Mac.")
+                HelpDot(text: "Tell the coach what to work on — your own notes, or feedback pasted from another AI tool. Signals you call out get more sensitive; this is how your nudges become yours. Everything stays private on your Mac.")
             }
         }
     }
 
     private var sectionContent: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Paste coaching feedback to improve future detection")
+            Text("What should the coach watch for? Mention signals by name (\u{201C}talk time\u{201D}, \u{201C}stacked questions\u{201D}) and they tune up for you.")
                 .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
             if !activeUtterances.isEmpty {
                 Text("Will pair with: \(sourceLabel)")
@@ -1638,8 +1895,7 @@ struct FeedbackSection: View {
                     Label("Save as Training", systemImage: "tray.and.arrow.down")
                 }
                 .buttonStyle(.bordered)
-                .disabled(simulation.feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                          || activeUtterances.isEmpty)
+                .disabled(simulation.feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
                 if simulation.feedbackSaved {
                     Label(savedSignalNames.isEmpty
@@ -1657,13 +1913,21 @@ struct FeedbackSection: View {
                         .font(.caption2).foregroundStyle(.tertiary)
                 }
             }
+
+            if let distillStatus {
+                Label(distillStatus, systemImage: "sparkles")
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .onAppear { trainingCount = TrainingStore.load().count }
     }
 
     private func saveTraining() {
+        // Notes stand on their own — a transcript excerpt is attached when
+        // one is around, but "watch my talk time" needs no meeting paired.
         let text = simulation.feedbackText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !activeUtterances.isEmpty else { return }
+        guard !text.isEmpty else { return }
 
         let excerpt = activeUtterances.prefix(80)
             .map { "[\($0.formattedTime)] \($0.speaker): \($0.text)" }
@@ -1687,6 +1951,102 @@ struct FeedbackSection: View {
                 .prefix(4)
         ).joined(separator: ", ")
         mclog("[Training] Saved example with \(signals.count) parsed signals, source=\(sourceLabel)")
+
+        distillNote(text: text, exampleId: example.id)
+    }
+
+    // MARK: - Note distillation (LLM)
+
+    /// Free-form notes rarely name signals, so the keyword parse alone
+    /// leaves most pastes teaching nothing. Run the note through the local
+    /// model: built-in matches join the example's signals (the normal
+    /// training effect), and genuinely new patterns become addSignal
+    /// suggestions the user approves on the Progress dashboard — a note
+    /// never changes what the coach watches silently.
+    private func distillNote(text: String, exampleId: UUID) {
+        guard !settings.useMock else { return }
+        if settings.hasCheckedModels && settings.ollamaReachable && settings.availableModels.isEmpty { return }
+
+        distillStatus = "Reading your note with the local coach…"
+        if ollamaManager.status == .stopped { ollamaManager.start() }
+        let model = settings.selectedModel
+
+        Task { @MainActor in
+            if ollamaManager.status != .running {
+                for _ in 1...30 {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    if ollamaManager.status == .running { break }
+                    if case .error = ollamaManager.status { break }
+                }
+            }
+            guard ollamaManager.status == .running else { distillStatus = nil; return }
+            await settings.refreshModels()
+            guard !settings.availableModels.isEmpty else { distillStatus = nil; return }
+
+            do {
+                let extraction = try await NoteDistiller.distill(note: text, model: model)
+                applyExtraction(extraction, exampleId: exampleId)
+            } catch {
+                mclog("[Distill] failed: \(error.localizedDescription)")
+                distillStatus = nil
+            }
+        }
+    }
+
+    @MainActor
+    private func applyExtraction(_ extraction: NoteDistiller.Extraction, exampleId: UUID) {
+        // Built-in matches merge into the saved example — from here on they
+        // behave exactly like a keyword hit: sensitivity boost at session
+        // start plus few-shot evidence for the semantic coach.
+        var taughtNames: [String] = []
+        if !extraction.builtin.isEmpty {
+            var all = TrainingStore.load()
+            if let idx = all.firstIndex(where: { $0.id == exampleId }) {
+                let old = all[idx]
+                let existing = Set(old.signals.map(\.signalId))
+                let fresh = extraction.builtin.filter { !existing.contains($0.signalId) }
+                if !fresh.isEmpty {
+                    all[idx] = TrainingExample(
+                        id: old.id, date: old.date,
+                        transcriptExcerpt: old.transcriptExcerpt,
+                        feedback: old.feedback,
+                        signals: old.signals + fresh)
+                    TrainingStore.save(all)
+                }
+            }
+            taughtNames = extraction.builtin
+                .compactMap { TrainingStore.canonicalType(for: $0.signalId)?.displayName }
+                .reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+        }
+
+        // New patterns become pending suggestions — same approval rail as
+        // the rubric advisor's own proposals.
+        let rubric = (try? settings.loadRubricOrDefault()) ?? .builtInDefault
+        let existingIds = Set(rubric.signals.map(\.id))
+        var stored = RubricAdvisor.loadAll()
+        var proposed = 0
+        for p in extraction.custom {
+            let key = "custom:\(p.id)"
+            guard !existingIds.contains(p.id),
+                  !stored.contains(where: { $0.signalKey == key && $0.kind == .addSignal })
+            else { continue }
+            stored.append(RubricSuggestion(
+                kind: .addSignal, signalKey: key,
+                rationale: p.description,
+                evidence: p.evidence.isEmpty ? "From your coaching note." : "From your note: “\(p.evidence)”",
+                newSignalDescription: p.description,
+                newSignalNudge: p.nudge))
+            proposed += 1
+        }
+        if proposed > 0 { RubricAdvisor.saveAll(stored) }
+
+        var parts: [String] = []
+        if !taughtNames.isEmpty { parts.append("tunes \(taughtNames.prefix(3).joined(separator: ", "))") }
+        if proposed > 0 { parts.append("\(proposed) new signal\(proposed == 1 ? "" : "s") to approve on the Progress dashboard") }
+        distillStatus = parts.isEmpty
+            ? "No watchable signals found in this note"
+            : "Coach read your note — " + parts.joined(separator: " · ")
+        mclog("[Distill] builtin=\(extraction.builtin.count) custom-proposed=\(proposed)")
     }
 }
 
@@ -1785,12 +2145,18 @@ private func speakerColor(_ speaker: String) -> Color {
     if ["you", "me", "self", "noah kagan"].contains(lower) { return .blue }
     if lower == "them" { return .purple }
     if lower == "meeting" { return .secondary }
-    // Diarized speakers: stable distinct color per index.
-    if lower.hasPrefix("speaker "), let n = Int(lower.dropFirst("speaker ".count)) {
-        let palette: [Color] = [.blue, .orange, .purple, .teal, .pink, .indigo, .brown, .mint]
-        return palette[(n - 1 + palette.count) % palette.count]
+    // Diarized speakers: stable distinct color per slot index.
+    let palette: [Color] = [.blue, .orange, .purple, .teal, .pink, .indigo, .brown, .mint]
+    for prefix in ["speaker ", "them "] where lower.hasPrefix(prefix) {
+        if let n = Int(lower.dropFirst(prefix.count)) {
+            return palette[(n - 1 + palette.count) % palette.count]
+        }
     }
-    return .orange
+    // Named speakers: deterministic hash → stable color across sessions.
+    // Skips blue (slot 0) — that reads as "You" in the gutter.
+    var hash: UInt64 = 5381
+    for b in lower.utf8 { hash = hash &* 33 &+ UInt64(b) }
+    return palette[1 + Int(hash % UInt64(palette.count - 1))]
 }
 
 /// Split a long turn into readable paragraphs at sentence boundaries,

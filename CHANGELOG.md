@@ -9,6 +9,47 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.9.0 — 2026-07-28
+
+- The transcript now tells remote speakers apart: on a group call, "Them" splits into "Them 1", "Them 2", … as each person talks
+- Click any speaker's label to name them — the whole transcript relabels, and their voice is remembered on your Mac so future meetings greet them by name from the first sentence
+- The coach spots names on its own ("Them 1 sounds like Sarah") and offers a one-click confirm — it never applies a name without you
+- People you list in the call's goal form are recognized first
+- Voice matching runs entirely on-device, like everything else — no audio or voice data ever leaves your Mac
+- Tuned to stay light on long calls: less memory for audio, less work per second
+
+## 0.8.3 — 2026-07-28
+
+- Your Progress now counts real weeks: "this week" starts Monday, compared against all of last week — no more rolling 7-day windows that read like wrong numbers
+- Coach suggestion cards now say exactly what Apply will do ("waits 50% longer between nudges", "starts watching for this next call") instead of leaving you guessing
+
+## 0.8.2 — 2026-07-28
+
+- Coaching Notes now actually learn from anything you paste: feedback from Claude or any AI tool gets read by your local model — known signals tune up, and brand-new patterns ("you keep selling after they've said yes") become proposed signals you approve on the Progress dashboard before the coach starts watching for them
+- Installed models are recognized the moment the app opens — no more "Download Model" showing over a model you already downloaded
+- Time-based nudges ("1min left", time check, overrun) now only run when you give the call a length — set it in the goal form, or pick a default for every call in Settings → General
+- Questions to Ask clears itself when the call ends, ready for the next meeting's list — and still ticks off automatically as you ask them, with a tap to override either way
+- "What was said" appears only on nudges that have an actual moment to quote
+- The coach panel can be dragged much wider, and Progress tiles now say what they measure: your last 7 days vs the prior 7
+
+## 0.8.1 — 2026-07-28
+
+- Your post-meeting review is now about the conversation itself — the summary, key takeaways, and next steps come from what was actually said, decided, and promised on the call; coaching feedback lives only in "Next meeting focus"
+- The Questions to Ask checklist is clickable during the call — tick a question off yourself, or untick one it marked by mistake (it stays unticked)
+- "Great question" nudges now quote the question you asked and how they opened up — not a random slice from the middle of their answer
+
+## 0.8.0 — 2026-07-24
+
+- Your post-meeting review is now a proper card — summary, key takeaways, and next steps you can check off (they stay checked). Both the instant review and the AI review use it, and old saved reviews render in the same clean layout
+- Sessions name themselves: "Lindsay · radar & group" instead of a date, worked out from who you talked to and what about, with the date shown alongside. Right-click to rename
+- Click a session to read it right in the app — color-coded transcript, its review up top, and one click copies the whole meeting for Slack, email, or an AI tool
+- New under Advanced: Questions to Ask — paste the questions you always want covered and they show as a live checklist that ticks off as you ask them (per-meeting questions live in the goal form)
+- Nudge cards can show the exact words behind a nudge ("What was said"), say what window they're judging ("last 5 min"), and take thumbs up/down feedback
+- The floating overlay returns if you closed it mid-meeting and moves to the screen your call is on; praise stays up a little longer
+- Joining a Google Meet in the browser now prompts in about 10 seconds (was 40) and the prompt names the platform — Meet, Hangouts, or Zoom-in-browser
+- Coaching Notes now save on their own — tell the coach "watch my talk time" without pairing a transcript
+- Agent access (MCP) setup moved to Settings → General
+
 ## 0.7.0 — 2026-07-21
 
 - A calmer, simpler MeetingCoach: the live transcript is now the main event, with your talk-time split and elapsed time shown as quiet ambient info — not warnings

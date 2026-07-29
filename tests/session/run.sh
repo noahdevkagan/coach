@@ -19,6 +19,7 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Engine/AdaptiveThresholds.swift" \
   "$SRC/Engine/NudgeBackoff.swift" \
   "$SRC/Engine/SemanticCoach.swift" \
+  "$SRC/Engine/SpeakerNameInference.swift" \
   "$SRC/Engine/OllamaClient.swift" \
   "$SRC/Engine/TalkStats.swift" \
   "$SRC/Engine/Mclog.swift" \
@@ -28,6 +29,7 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Engine/TranscriptParser.swift" \
   "$SRC/Models/Utterance.swift" \
   "$SRC/Models/Nudge.swift" \
+  "$SRC/Models/MeetingReview.swift" \
   "$SRC/Models/PreCallContext.swift" \
   "$SRC/Models/TrainingExample.swift" \
   "$SRC/Models/FocusGoals.swift" \
