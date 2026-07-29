@@ -9,6 +9,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- First sessions now say when transcript accuracy is reduced: a banner during the call (and a note on the review) explains the high-accuracy engine is still downloading and will be ready next session — no more "why did it only catch random words?"
+
 ## 0.9.1 — 2026-07-29
 
 - Give MeetingCoach to a friend for FREE: grab an invite from the menu bar (you have 3) — one click copies a ready-to-send message with a code your friend redeems free on AppSumo

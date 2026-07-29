@@ -184,6 +184,22 @@ struct LiveTimelineView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 6) {
+                        // A review built from a fallback-engine transcript
+                        // inherits its gaps — say so before anyone reads
+                        // "disjointed conversation" as a verdict on their
+                        // meeting instead of on the transcription.
+                        if !liveSession.isLive && liveSession.usedFallbackEngine {
+                            HStack(alignment: .top, spacing: 6) {
+                                Image(systemName: "arrow.down.circle")
+                                    .foregroundStyle(.blue)
+                                Text("This session used the basic transcription engine — the transcript (and this review) missed words. The high-accuracy engine will be ready for your next session.")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .padding(8)
+                            .background(Color.blue.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
                         // Review card
                         if let review = liveSession.meetingReview {
                             MeetingReviewView(review: review, recapText: recapText(review)) { id in
@@ -291,6 +307,27 @@ struct LiveTimelineView: View {
                 }
                 .padding(8)
                 .background(Color.orange.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+
+            // Fallback engine: fragmented transcripts are EXPECTED here —
+            // without this banner users read them as broken settings. The
+            // one-line status that said so vanishes under the first nudge.
+            if liveSession.isLive && liveSession.usedFallbackEngine {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "arrow.down.circle")
+                        .foregroundStyle(.blue)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Transcript accuracy is reduced this session")
+                            .font(.caption.bold())
+                        Text("The high-accuracy engine wasn't ready when this session started (it downloads in the background, ~600 MB). Expect missing words today — your next session will be much better.")
+                            .font(.caption2).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                }
+                .padding(8)
+                .background(Color.blue.opacity(0.08))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 

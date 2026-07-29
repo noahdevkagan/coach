@@ -18,6 +18,12 @@ final class LiveSessionViewModel {
     /// declined) — the transcript can't tell You from the meeting.
     var micOnly = false
 
+    /// This session transcribed on the SFSpeech fallback (high-accuracy
+    /// Parakeet model not ready — usually still downloading on a fresh
+    /// install). Fragmented "random words" transcripts are expected on
+    /// this engine; the UI must say so or users blame settings.
+    var usedFallbackEngine = false
+
     /// Wall-clock moment the session started — exports stamp utterances
     /// with real times of day, like other tools' transcripts.
     private(set) var sessionStartDate: Date?
@@ -260,6 +266,7 @@ final class LiveSessionViewModel {
                 return
             }
             micOnly = manager.isMicOnly
+            usedFallbackEngine = manager.engineLabel == "SFSpeech"
             startSignalTick()
             startTimer(from: sessionStart)
             startSilenceCheck()
@@ -433,6 +440,7 @@ final class LiveSessionViewModel {
         segmentRenames = [:]
         endedCaptureManager = nil
         micOnly = false
+        usedFallbackEngine = false
         sessionStartDate = nil
         nudges = []
         activeNudge = nil
