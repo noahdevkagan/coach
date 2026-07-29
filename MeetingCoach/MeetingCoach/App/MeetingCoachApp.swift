@@ -104,6 +104,13 @@ struct MeetingCoachApp: App {
         }
         .windowResizability(.contentSize)
 
+        // The free-copy invite, opened from the menu bar dropdown. Same
+        // panel the first-session sheet shows.
+        Window("Share Meeting Coach", id: "share") {
+            ShareInviteView()
+        }
+        .windowResizability(.contentSize)
+
         // Preferences (⌘,): General (transcript folder, detection behavior)
         // and Stats (session trends + learned sensitivity).
         Settings {
@@ -236,6 +243,12 @@ struct MenuBarView: View {
             NSApp.activate(ignoringOtherApps: true)
         }
         Divider()
+        // Always-available half of the share loop; the other half is the
+        // one-time sheet after the first recorded session.
+        Button("Share Meeting Coach (free)…") {
+            openWindow(id: "share")
+            NSApp.activate(ignoringOtherApps: true)
+        }
         Button("Send Feedback…") {
             openWindow(id: "feedback")
             NSApp.activate(ignoringOtherApps: true)

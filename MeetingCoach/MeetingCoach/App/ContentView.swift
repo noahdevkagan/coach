@@ -31,6 +31,14 @@ struct ContentView: View {
             }
             .frame(minWidth: 280, idealWidth: 300, maxWidth: 340)
             .background(MCTheme.canvas)
+            // Free-copy invite after the first recorded session. It hangs off
+            // the sidebar rather than the split view so it can never contend
+            // with the first-launch welcome sheet below (one presentation per
+            // view). If the window was closed when it armed, it simply shows
+            // the next time the window opens.
+            .sheet(isPresented: $liveSession.showSharePrompt) {
+                ShareInviteView(isFirstSessionPrompt: true)
+            }
 
             // Main content — an opened session wins (closing returns you),
             // then search (clearing the box returns you), then live

@@ -46,6 +46,16 @@ final class LiveSessionViewModel {
     var savedPath: String?
     var showPostSession = false
 
+    /// Viral loop: the "give Meeting Coach to a colleague" invite, armed
+    /// once — after the user's very first real session (see armSharePrompt).
+    /// The menu bar keeps the same invite available forever after.
+    var showSharePrompt = false
+    private var sharePromptTask: Task<Void, Never>?
+    /// Sessions actually recorded on this Mac. Persisted (not derived from
+    /// the sessions folder — that can be relocated or pruned) purely so the
+    /// invite fires on the first one and never again.
+    private static let sessionsRecordedKey = "completedSessionCount"
+
     /// Pre-call form
     var showPreCallForm = false
 
@@ -330,6 +340,8 @@ final class LiveSessionViewModel {
 
         showPostSession = true
 
+        armSharePrompt()
+
         // Auto-recap: every session ends with a summary, no button. The
         // no-model path gets the instant deterministic review inside
         // generateReview, so this never blocks on an engine.
@@ -415,6 +427,11 @@ final class LiveSessionViewModel {
             try? FileManager.default.removeItem(atPath: path)
             savedPath = nil
         }
+        // A session the user just threw away is not a moment to ask them to
+        // recommend the app.
+        sharePromptTask?.cancel()
+        sharePromptTask = nil
+        showSharePrompt = false
         resetSessionState()
         showPostSession = false
         status = ""
@@ -447,6 +464,31 @@ final class LiveSessionViewModel {
 
     func dismissPostSession() {
         showPostSession = false
+    }
+
+    // MARK: - Share invite
+
+    /// One meeting coached is the moment the app has proven itself, and the
+    /// only moment it asks the user to pass it on: the invite arms on the
+    /// first recorded session and never again (the counter only ever passes
+    /// through 1). Demo replays return before this — they leave no trace.
+    private func armSharePrompt() {
+        // Nothing was heard, so nothing was proven — and saveSession skipped
+        // the file for the same reason.
+        guard !utterances.isEmpty else { return }
+
+        let defaults = UserDefaults.standard
+        let recorded = defaults.integer(forKey: Self.sessionsRecordedKey) + 1
+        defaults.set(recorded, forKey: Self.sessionsRecordedKey)
+        guard recorded == 1 else { return }
+
+        // Let the recap land first: a sheet thrown over the summary the user
+        // just stopped the meeting for is the wrong way to meet the invite.
+        sharePromptTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(4))
+            guard let self, !Task.isCancelled, !self.isLive else { return }
+            self.showSharePrompt = true
+        }
     }
 
     /// Relabel one channel's utterances with its diarized speakers —

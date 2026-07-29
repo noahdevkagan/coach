@@ -9,6 +9,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Give Meeting Coach to a colleague for free — after your first meeting, and any time from the menu bar. Copies an invite with the link and your redeem code
+
 ## 0.9.0 — 2026-07-28
 
 - The transcript now tells remote speakers apart: on a group call, "Them" splits into "Them 1", "Them 2", … as each person talks

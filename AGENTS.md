@@ -42,6 +42,7 @@ Every `git push` runs `scripts/push-gate.sh` (~4 min): build → ASR transcript 
 | `tests/`, `bench/` | Push-gate suites and longitudinal benchmark |
 | `rubrics/`, `simulator/` | Rubric YAML examples, offline simulation harness |
 | `.github/workflows/release.yml` | Tag-triggered release: build, sign, notarize, DMG, appcast |
+| `ARCHITECTURE.md` | How the app fits together: state ownership, session lifecycle, where to add a signal/scene/setting. **Read this before changing app code** — it saves re-deriving the design from source |
 | `DISTRIBUTION.md` | Release/signing details for maintainers |
 
 ## Gotchas (agents hit these)
@@ -50,6 +51,7 @@ Every `git push` runs `scripts/push-gate.sh` (~4 min): build → ASR transcript 
 - **`Resources/ollama/` is gitignored and empty in a fresh clone** — the ~80 MB runtime is vendored by CI at release time. Dev builds without it fall back to a system Ollama on `127.0.0.1:11434`; to embed locally run `./scripts/vendor-ollama.sh`.
 - **The installed `/Applications/MeetingCoach.app` shares UserDefaults and the model store with dev builds.** Never kill its processes. To clean up a dev engine use the Debug-scoped pattern: `pkill -f "Debug/MeetingCoach.app.*ollama serve"` — the broad `Resources/ollama` pattern kills the user's live session.
 - **First launch shows a welcome sheet** gated by `defaults read com.coach.MeetingCoach hasSeenDemo`; set it to `true` to skip, delete it to re-test onboarding.
+- **The share invite fires once, after the first recorded session**, gated by `completedSessionCount`. To re-test: `defaults delete com.coach.MeetingCoach completedSessionCount`. It's also always in the menu bar ("Share Meeting Coach (free)…").
 - Live capture needs mic + **Screen Recording** permission (system audio). Without Screen Recording the app runs mic-only with a warning banner. The bundled demo (`Watch a 15-second demo`) needs no permissions at all.
 - Models/log dir: `~/Library/Application Support/MeetingCoach/ollama/` (engine log: `ollama.log`). Debug app log: `/tmp/mc_debug.log`.
 
