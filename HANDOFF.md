@@ -17,10 +17,9 @@ The durable "why" behind choices goes in `decisions.md`, not here.
 
 - Verify the `coachfree` code is actually live on the AppSumo listing
   (every copied invite carries it).
-- Fallback-engine banners (Matt's "random words" report, fixed 2026-07-29)
-  are on main but unreleased — ship with the next tag. Follow up with Matt:
-  confirm his session file says `Engine: SFSpeech` and his next call reads
-  clean on Parakeet.
+- Follow up with Matt on his "random words" report (fallback-engine
+  banners shipped in v0.9.2): confirm his session file says
+  `Engine: SFSpeech` and his next call reads clean on Parakeet.
 - Speaker identity has not been exercised on a real group call yet —
   watch the first one: diarization quality on Zoom audio, enrollment
   matching, CPU during the call.
