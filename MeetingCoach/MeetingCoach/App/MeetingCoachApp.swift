@@ -104,6 +104,13 @@ struct MeetingCoachApp: App {
         }
         .windowResizability(.contentSize)
 
+        // Give-to-a-friend invite, opened from the menu bar dropdown (the
+        // same view runs as a one-time sheet after the first session).
+        Window("Give MeetingCoach", id: "give") {
+            GiveMeetingCoachView()
+        }
+        .windowResizability(.contentSize)
+
         // Preferences (⌘,): General (transcript folder, detection behavior)
         // and Stats (session trends + learned sensitivity).
         Settings {
@@ -236,6 +243,12 @@ struct MenuBarView: View {
             NSApp.activate(ignoringOtherApps: true)
         }
         Divider()
+        Button(ReferralInvites.invitesLeft > 0
+               ? "Give MeetingCoach to a Friend… (\(ReferralInvites.invitesLeft) left)"
+               : "Give MeetingCoach to a Friend…") {
+            openWindow(id: "give")
+            NSApp.activate(ignoringOtherApps: true)
+        }
         Button("Send Feedback…") {
             openWindow(id: "feedback")
             NSApp.activate(ignoringOtherApps: true)

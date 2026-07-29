@@ -10,6 +10,7 @@ struct ContentView: View {
     @State private var overlayPanel: CoachingOverlayPanel?
     @AppStorage("hasSeenDemo") private var hasSeenDemo = false
     @State private var showWelcome = false
+    @State private var showGiveSheet = false
     @State private var searchQuery = ""
     /// Session open in the main pane; nil = whatever else is active.
     @State private var selectedSessionURL: URL?
@@ -78,6 +79,17 @@ struct ContentView: View {
         }
         .onChange(of: liveSession.isLive) { _, isLive in
             if isLive { showOverlay() } else { hideOverlay() }
+        }
+        // The viral-loop trigger moment: the user's FIRST real coached
+        // meeting just ended (the "aha" high point). Once ever; demo
+        // replays never set showPostSession so they can't trigger it.
+        .onChange(of: liveSession.showPostSession) { _, shown in
+            guard shown, !ReferralInvites.firstSessionPromptShown else { return }
+            ReferralInvites.firstSessionPromptShown = true
+            showGiveSheet = true
+        }
+        .sheet(isPresented: $showGiveSheet) {
+            GiveMeetingCoachView(asSheet: true)
         }
         // Typing a new search closes an open session so results show.
         .onChange(of: searchQuery) { _, _ in

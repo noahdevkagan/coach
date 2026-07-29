@@ -9,6 +9,11 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.9.1 — 2026-07-29
+
+- Give MeetingCoach to a friend for FREE: grab an invite from the menu bar (you have 3) — one click copies a ready-to-send message with a code your friend redeems free on AppSumo
+- After your first coached meeting, MeetingCoach asks if you know someone who'd want it too
+
 ## 0.9.0 — 2026-07-28
 
 - The transcript now tells remote speakers apart: on a group call, "Them" splits into "Them 1", "Them 2", … as each person talks
