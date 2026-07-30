@@ -75,7 +75,8 @@ actor ParakeetEngine {
 /// RecognitionPipeline's interface. Buffers the current utterance and
 /// re-transcribes the whole window ~every 0.7s (RTF ~120x makes this cheap):
 /// partial results stream to the UI, and the window commits as an Utterance
-/// after a silence gap or at the max window length.
+/// after a silence gap that ends a sentence (see endsSentence) or at the
+/// max window length.
 final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
     let speaker: String
     var onUtterance: ((Utterance) -> Void)?
@@ -182,7 +183,16 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
         guard isRunning, hasVoice, duration > 0.3 else { return }
 
         let silenceFor = lastVoice.map { Date().timeIntervalSince($0) } ?? 0
-        if silenceFor > commitSilence || duration > maxChunkSeconds {
+        // Sentence-aware commit: a silence gap only commits when the window
+        // reads as a finished sentence. Remote voices duck under the floor
+        // mid-thought (meeting apps noise-gate aggressively), and committing
+        // there shredded the far side into 1-3 word chunks that transcribe
+        // with no context. A mid-sentence gap instead holds the window open
+        // — up to 3× the gap — so the thought re-transcribes as one piece.
+        // The window cap still bounds everything.
+        if duration > maxChunkSeconds
+            || (silenceFor > commitSilence
+                && (Self.endsSentence(lastPartial) || silenceFor > commitSilence * 3)) {
             await commit(force: false)
         } else if hasNew {
             let snapshot = withLock {
@@ -196,6 +206,19 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
                 onPartial?(trimmed)
             }
         }
+    }
+
+    /// Whether the latest partial looks like a completed sentence. Parakeet
+    /// punctuates reliably, so a missing terminator mid-window is strong
+    /// evidence the speaker isn't done. Empty partials (no transcription
+    /// tick yet) don't count as complete — the 3× silence cap covers them.
+    static func endsSentence(_ text: String) -> Bool {
+        var trimmed = Substring(text.trimmingCharacters(in: .whitespacesAndNewlines))
+        while let last = trimmed.last, "\"')]".contains(last) {
+            trimmed = trimmed.dropLast()
+        }
+        guard let last = trimmed.last else { return false }
+        return ".!?…".contains(last)
     }
 
     private func commit(force: Bool) async {

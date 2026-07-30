@@ -176,3 +176,57 @@ struct MeetingDetector: Sendable {
         state = .idle
     }
 }
+
+/// Decides whether an armed `.ended` report may actually stop the session.
+///
+/// The detector reports end evidence; the service vetoes stops while
+/// people are still talking (goodbyes right after the mic release). But
+/// "talking" can also be a TV in the room after the call — seen live
+/// (2026-07-29): the session ran a minute past the call transcribing
+/// background television, because the junk speech itself vetoed every
+/// stop. So the veto has a cap: once end evidence has persisted this
+/// long, whatever the mic still hears is not the meeting.
+///
+/// Mic-only sessions keep the unlimited veto: without system-audio
+/// separation there is no Screen Recording permission, hence no window
+/// evidence to corroborate the end — and a muted participant just
+/// listening (speakers → mic) would be cut off mid-call by a cap.
+struct MeetingEndArbiter: Sendable {
+    /// Quiet this long after the last heard speech before stopping.
+    var speechQuietSeconds: TimeInterval = 20
+    /// Dual-pipeline sessions stop after this much sustained end evidence
+    /// even if room speech continues (2× the longest post-release goodbye
+    /// observed before the veto was introduced).
+    var maxVetoSeconds: TimeInterval = 45
+    /// Reports arrive every detector tick (~2s) while evidence holds; a
+    /// gap this long means the evidence lapsed and the streak restarts.
+    var reportGapReset: TimeInterval = 10
+
+    private var evidenceSince: TimeInterval?
+    private var lastReportAt: TimeInterval = -.infinity
+
+    enum Verdict: Equatable, Sendable {
+        case stop(reason: String)
+        case vetoSpeechInFlight
+        case vetoRecentSpeech
+    }
+
+    mutating func endReported(now: TimeInterval,
+                              lastSpeechT: TimeInterval,
+                              speechInFlight: Bool,
+                              micOnly: Bool) -> Verdict {
+        if now - lastReportAt > reportGapReset { evidenceSince = now }
+        lastReportAt = now
+        if !micOnly, now - (evidenceSince ?? now) >= maxVetoSeconds {
+            return .stop(reason: "end evidence held \(Int(maxVetoSeconds))s through room speech")
+        }
+        if speechInFlight { return .vetoSpeechInFlight }
+        if now - lastSpeechT < speechQuietSeconds { return .vetoRecentSpeech }
+        return .stop(reason: "room quiet")
+    }
+
+    mutating func reset() {
+        evidenceSince = nil
+        lastReportAt = -.infinity
+    }
+}

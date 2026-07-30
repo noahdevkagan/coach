@@ -82,10 +82,10 @@ final class MeetingDetectionService {
     func bind(liveSession: LiveSessionViewModel) {
         isSessionLive = { [weak liveSession] in liveSession?.isLive ?? false }
         onMeetingEnded = { [weak liveSession, weak self] in
-            guard let session = liveSession, session.isLive, !session.isDemo else { return }
+            guard let self, let session = liveSession, session.isLive, !session.isDemo else { return }
             // A released mic can lie (some browsers drop the hold while
             // muted) — only stop when the room has also gone quiet. If
-            // people are still talking, skip; the detector keeps reporting
+            // people are still talking, veto; the detector keeps reporting
             // .ended every tick while the evidence holds, so this re-runs
             // until the goodbyes trail off (or the meeting resumes).
             //
@@ -93,20 +93,32 @@ final class MeetingDetectionService {
             // large chunks (100s+ mid-monologue), so the last committed
             // utterance can be minutes old while someone is mid-sentence.
             // A non-empty live partial is direct evidence of active speech.
-            guard session.livePartials.values.allSatisfy(\.isEmpty) else {
+            //
+            // The arbiter caps how long room speech can veto the stop —
+            // a TV near the mic once kept a session recording (and
+            // transcribing the TV) for a minute past the call, because the
+            // junk speech itself blocked every stop. See MeetingEndArbiter.
+            let verdict = self.endArbiter.endReported(
+                now: session.elapsedTime,
+                lastSpeechT: session.utterances.last?.t ?? 0,
+                speechInFlight: !session.livePartials.values.allSatisfy(\.isEmpty),
+                micOnly: session.micOnly)
+            switch verdict {
+            case .vetoSpeechInFlight:
                 mclog("[Detect] Mic released but speech in flight — not auto-stopping")
-                return
-            }
-            let lastHeard = session.utterances.last?.t ?? 0
-            guard session.elapsedTime - lastHeard >= 20 else {
+            case .vetoRecentSpeech:
                 mclog("[Detect] Mic released but speech within 20s — not auto-stopping")
-                return
+            case .stop(let reason):
+                mclog("[Detect] Meeting ended (\(reason)) — auto-stopping session")
+                session.stopLive()
+                self.postMeetingEndedNotification()
             }
-            mclog("[Detect] Meeting ended — auto-stopping session")
-            session.stopLive()
-            self?.postMeetingEndedNotification()
         }
     }
+
+    /// Veto/stop bookkeeping for end-of-meeting reports (pure logic,
+    /// table-tested in tests/detector).
+    @ObservationIgnored private var endArbiter = MeetingEndArbiter()
 
     /// Fired (on the main actor) when a live session's meeting looks over:
     /// the meeting app/browser released the mic for a sustained window.
@@ -125,6 +137,7 @@ final class MeetingDetectionService {
         meetingDetected = false
         windowAbsentStreak = 0
         liveMicHolderIsBrowser = nil
+        endArbiter.reset()
         detector.sessionStarted()
     }
 

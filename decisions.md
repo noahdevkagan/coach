@@ -26,3 +26,43 @@ aliasing −52dB).
 Why: no backend exists (local-first constraint); scarcity drives sharing
 but blocking generosity would be user-hostile. Unique per-user codes need
 an API — revisit only if attribution becomes worth running a service.
+
+## 2026-07-30 — End-of-meeting veto is capped at 45s (dual mode only)
+Room speech used to veto the auto-stop forever — a TV near the mic kept a
+session recording (and transcribing the TV) a minute past the call,
+because the junk speech itself blocked every stop (Nick's 2026-07-29
+report). MeetingEndArbiter now stops after 45s of sustained end evidence
+regardless of mic-side speech. Mic-only sessions keep the unlimited veto:
+they have no Screen Recording, so no window evidence corroborates the
+end, and a muted participant listening via speakers→mic would be cut off.
+45s = 2× the longest post-release goodbye observed before the veto
+existed.
+
+## 2026-07-30 — Transcripts save as coalesced turns, not raw utterances
+The far side commits in 1-3 word fragments (William corpus: median 4
+words, 40% of Them lines ≤3 words), so saved files were unreadable next
+to Granola's export even though the PANE coalesces. saveSession and the
+LLM-review prompt now run TurnBuilder over the utterance record (fixed
+corpus: median 26 words, 5% tiny lines, word accuracy unchanged). Raw
+utterances still drive signals and diarization — only the human/LLM-facing
+renders changed.
+
+## 2026-07-30 — Parakeet commits are sentence-aware
+A silence gap only commits the window when the partial ends in terminal
+punctuation; otherwise the window holds up to 3× the gap (window cap
+still bounds it). Why: meeting apps noise-gate the remote stream
+mid-thought, and committing on those gaps produced context-free 1-3 word
+transcriptions ("rived" for "riveted"). Parakeet punctuates reliably, so
+a missing terminator is strong mid-sentence evidence. Partials stream to
+the UI regardless — only commit timing changed.
+
+## 2026-07-30 — Vocabulary fixes are a post-ASR dictionary, not model work
+Parakeet takes no contextual hints, so known-term garbles ("app sumo",
+"Tidy Khắc Việt", "epsom") are repaired by VocabularyNormalizer after
+transcription; SFSpeech gets the same terms as contextualStrings. One
+user-editable list (Advanced → Vocabulary) drives both. Built-in defaults
+carry only observed garbles narrow enough that ordinary English never
+matches — "utc" → UGC was explicitly rejected (real timezone, said in
+real meetings); users who want it add `UGC = utc` themselves. Vietnamese
+diacritics fold to ASCII only for words carrying Vietnamese-specific
+codepoints — Western names (Mbappé, Dembélé) pass through untouched.

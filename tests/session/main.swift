@@ -154,6 +154,45 @@ func runTests() async {
         check(vm.turns.isEmpty && vm.utterances.isEmpty && !vm.hasSession,
               "empty session stops clean")
     }
+
+    // 5. Saved transcripts coalesce fragments into turns (2026-07-29 field
+    //    report): the far side commits in 1-3 word chunks, and a saved file
+    //    of shredded lines is unreadable next to any other tool's export.
+    //    Same-speaker fragments inside the join gap save as ONE line;
+    //    speaker changes still split.
+    do {
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext())
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let capture = AudioCaptureManager.last else {
+            check(false, "capture manager wired (5)"); return
+        }
+        capture.onUtterance?(Utterance(t: 1, speaker: "Them", text: "Can you hear", endT: 2))
+        capture.onUtterance?(Utterance(t: 2.4, speaker: "Them", text: "me?", endT: 2.8))
+        capture.onUtterance?(Utterance(t: 4, speaker: "Them", text: "I went on", endT: 5))
+        capture.onUtterance?(Utterance(t: 5.5, speaker: "Them", text: "Friday night.", endT: 6.5))
+        capture.onUtterance?(Utterance(t: 8, speaker: "You", text: "Loud and clear.", endT: 9))
+        try? await Task.sleep(for: .milliseconds(50))
+        vm.stopLive()
+
+        var body = ""
+        if let saved = try? FileManager.default.contentsOfDirectory(atPath: scratch.path) {
+            for file in saved where file.hasPrefix("session_") {
+                let content = (try? String(
+                    contentsOfFile: scratch.appendingPathComponent(file).path,
+                    encoding: .utf8)) ?? ""
+                if content.contains("Can you hear") { body = content }
+            }
+        }
+        check(body.contains("- [00:01] Them: Can you hear me? I went on Friday night."),
+              "far-side fragments save as one coalesced line",
+              "transcript: \(body.components(separatedBy: "## Transcript").last?.prefix(200) ?? "")")
+        check(!body.contains("Them: me?"),
+              "no shredded fragment lines in the saved file")
+        check(body.contains("- [00:08] You: Loud and clear."),
+              "speaker change still starts a new line")
+        vm.deleteSession()
+    }
 }
 
 await runTests()

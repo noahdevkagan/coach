@@ -47,6 +47,12 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     /// Vocabulary to bias recognition toward (participant names, deal terms).
     var contextualHints: [String] = []
 
+    /// Post-ASR repair of known-term garbles ("app sumo" → AppSumo), applied
+    /// to every commit and partial as it leaves a pipeline — BEFORE the echo
+    /// filter, so both channels' text is normalized identically and echo
+    /// overlap still matches word-for-word.
+    var vocabulary: VocabularyNormalizer?
+
     private let startTime = Date()
     private var isRunning = false
 
@@ -232,15 +238,16 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         pipe.onUtterance = { [weak self] u in self?.deliver(u) }
         pipe.onPartial = { [weak self] text in
             guard let self else { return }
-            var display = text
+            let normalized = self.vocabulary?.normalize(text) ?? text
+            var display = normalized
             if speaker == "Them" {
                 // Feed the echo pool from partials: committed "Them" text can
                 // lag the mic commit by many seconds, partials arrive in ~1s.
-                self.echoFilter.recordFarPartial(text)
-            } else if self.hasSystemAudio, !text.isEmpty {
+                self.echoFilter.recordFarPartial(normalized)
+            } else if self.hasSystemAudio, !normalized.isEmpty {
                 // The live pending line should not show the far side's words.
                 display = self.echoFilter.filter(
-                    text, since: Date().addingTimeInterval(-35))?.text ?? ""
+                    normalized, since: Date().addingTimeInterval(-35))?.text ?? ""
             }
             Task { @MainActor [onPartialText = self.onPartialText] in
                 onPartialText?(speaker, display)
@@ -249,10 +256,21 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         return pipe
     }
 
-    /// Deliver an utterance from a pipeline, applying echo suppression and
-    /// the bleed gate to the mic side.
+    /// Deliver an utterance from a pipeline, applying wake-word and
+    /// vocabulary hygiene, then echo suppression and the bleed gate on the
+    /// mic side.
     private func deliver(_ u: Utterance) {
+        // A phone/HomePod activation leaking into the room is not meeting
+        // speech — drop it before it pollutes the transcript or echo pool.
+        if WakeWordFilter.isWakeNoise(u.text) {
+            mclog("[Capture] Dropped wake-word noise (\(u.speaker)): \(u.text.prefix(30))")
+            return
+        }
         var u = u
+        if let vocabulary {
+            u = Utterance(t: u.t, speaker: u.speaker,
+                          text: vocabulary.normalize(u.text), endT: u.endT)
+        }
         if hasSystemAudio {
             if u.speaker == "Them" {
                 // Remember far-side words for echo comparison (partials feed

@@ -225,7 +225,14 @@ final class LiveSessionViewModel {
         isLive = true
 
         let manager = AudioCaptureManager()
-        manager.contextualHints = context.vocabularyHints
+        // One vocabulary list serves both engines: canonical terms bias
+        // SFSpeech recognition; the normalizer repairs the output where the
+        // engine takes no hints (Parakeet). Custom terms live under
+        // Advanced → Vocabulary.
+        let vocabulary = VocabularyNormalizer(
+            customText: UserDefaults.standard.string(forKey: "customVocabularyText") ?? "")
+        manager.contextualHints = context.vocabularyHints + vocabulary.canonicals
+        manager.vocabulary = vocabulary
         captureManager = manager
         let sessionStart = Date()
         sessionStartDate = sessionStart
@@ -723,9 +730,13 @@ final class LiveSessionViewModel {
             return
         }
 
-        // Speaker-labeled lines, not fullTranscript — the review has to
-        // attribute commitments and positions, which needs who-said-what.
-        let labeledTranscript = utterances
+        // Speaker-labeled TURNS, not raw utterances — the review has to
+        // attribute commitments and positions, which needs who-said-what,
+        // and the far side commits in 1-3 word fragments that read as
+        // noise line-by-line. Coalescing gives the model whole thoughts.
+        var reviewTurns = TurnBuilder()
+        reviewTurns.rebuild(utterances)
+        let labeledTranscript = reviewTurns.turns
             .map { "\($0.speaker): \($0.text)" }
             .joined(separator: "\n")
 
@@ -1107,12 +1118,16 @@ final class LiveSessionViewModel {
             lines.append("")
         }
 
-        // Transcript
+        // Transcript — coalesced turns, not raw utterances. The far side
+        // commits in small fragments ("Can you hear" / "me?") and a saved
+        // file full of 1-3 word lines is unreadable next to any other
+        // tool's export. Turns keep one timestamp per thought; the pane
+        // renders the same shape.
         lines.append("## Transcript")
-        for u in utterances {
-            let mm = Int(u.t) / 60
-            let ss = Int(u.t) % 60
-            lines.append("- [\(String(format: "%02d:%02d", mm, ss))] \(u.speaker): \(u.text)")
+        var transcriptTurns = TurnBuilder()
+        transcriptTurns.rebuild(utterances)
+        for turn in transcriptTurns.turns {
+            lines.append("- [\(turn.formattedTime)] \(turn.speaker): \(turn.text)")
         }
         lines.append("")
 

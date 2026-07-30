@@ -970,6 +970,8 @@ struct SidebarView: View {
                     VStack(alignment: .leading, spacing: 14) {
                         PlannedQuestionsSection()
                         Divider()
+                        VocabularySection()
+                        Divider()
                         FeedbackSection(simulation: simulation, liveSession: liveSession,
                                         settings: settings, ollamaManager: ollamaManager)
                         Divider()
@@ -1226,6 +1228,55 @@ struct PlannedQuestionsSection: View {
                 Label("Questions to Ask", systemImage: "checklist")
                     .font(.subheadline.weight(.semibold))
                 HelpDot(text: "Questions to cover on your next call — discovery questions, deal qualifiers, whatever matters. The coach tracks them live, then clears the list when the call ends.")
+                if count > 0 {
+                    Spacer()
+                    Text("\(count)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Vocabulary (custom terms)
+
+/// Advanced row: product and company names the transcriber should get
+/// right. Terms bias recognition where the engine supports it and repair
+/// its output where it doesn't (see VocabularyNormalizer). Persists across
+/// sessions — unlike questions, vocabulary isn't per-meeting.
+struct VocabularySection: View {
+    @AppStorage("customVocabularyText") private var vocabularyText = ""
+    @State private var isExpanded = false
+
+    private var count: Int {
+        vocabularyText.components(separatedBy: .newlines)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.count
+    }
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("One term per line. If the transcriber keeps mishearing a term, list what it writes after \"=\" — e.g. UGC = utc, u g c — and it's fixed on every future transcript.")
+                    .font(.caption2).foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                TextEditor(text: $vocabularyText)
+                    .font(.caption)
+                    .frame(minHeight: 70, maxHeight: 140)
+                    .scrollContentBackground(.hidden)
+                    .padding(6)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(.background))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(Color.secondary.opacity(0.2))
+                    )
+            }
+            .padding(.top, 8)
+        } label: {
+            HStack(spacing: 6) {
+                Label("Vocabulary", systemImage: "character.book.closed")
+                    .font(.subheadline.weight(.semibold))
+                HelpDot(text: "Product names, company names, jargon — terms the transcriber should never garble. Applied from the next session on.")
                 if count > 0 {
                     Spacer()
                     Text("\(count)")

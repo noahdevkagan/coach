@@ -9,6 +9,12 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Coaching now stops when your meeting ends, even with a TV or podcast playing nearby — background audio no longer keeps the session (and the transcript) running past the call
+- The other side's words now read as full sentences: transcripts save whole thoughts with one timestamp each, instead of shredded 1-3 word lines
+- Stray "Siri" / "Hey Siri" pickups from a phone or HomePod in the room no longer land in your transcript
+- Product names come out right: known garbles fix themselves ("app sumo" → AppSumo, "tidy cow" → TidyCal), and a rare bug that rendered English phrases in Vietnamese characters is repaired automatically
+- New Advanced → Vocabulary list: add your own product names and jargon (with the misspellings you keep seeing) and every future transcript gets them right
+
 ## 0.9.2 — 2026-07-29
 
 - First sessions now say when transcript accuracy is reduced: a banner during the call (and a note on the review) explains the high-accuracy engine is still downloading and will be ready next session — no more "why did it only catch random words?"

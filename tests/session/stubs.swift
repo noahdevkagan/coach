@@ -32,6 +32,7 @@ final class AudioCaptureManager {
     static var last: AudioCaptureManager?
 
     var contextualHints: [String] = []
+    var vocabulary: VocabularyNormalizer?
     var isMicOnly = false
     private(set) var stopped = false
     /// Mirrors the real manager's engine attribution (recorded into saved

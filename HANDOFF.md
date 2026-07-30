@@ -5,12 +5,24 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-07-29)
+## Current state (2026-07-30)
 
-- v0.9.1 tagged and released: viral loop (Give MeetingCoach to a friend —
-  menu bar item + one-time post-first-session sheet, AppSumo code
-  `coachfree`, 3 local invites).
-- v0.9.0 shipped yesterday: speaker identity (system-channel diarization,
+- Nick's field report (2 test calls vs Granola) addressed, batched on the
+  `claude/user-feedback-implementation-nnlcuc` branch as Unreleased:
+  1. meeting-end veto capped (MeetingEndArbiter, 45s, dual mode only) so
+     background TV can't keep a session recording past the call;
+  2. transcripts save as coalesced turns + Parakeet commits are
+     sentence-aware (far side no longer shredded into 1-3 word lines);
+  3. stray "Siri" wake-word pickups dropped (WakeWordFilter);
+  4. VocabularyNormalizer post-ASR dictionary + Advanced → Vocabulary UI
+     (garble repair both engines, Vietnamese-script fold).
+  Benchmarked on the William corpus (see decisions.md); pure logic
+  verified via Python mirrors (container has no Swift). NOT yet run
+  through the Mac push gate — run `FULL=1 ./scripts/push-gate.sh` before
+  merging/tagging; watch the tests/asr conv case (commit timing changed).
+- v0.9.1/v0.9.2 released 07-29: viral loop (AppSumo code `coachfree`,
+  3 local invites) + fallback-engine banners.
+- v0.9.0 shipped 07-28: speaker identity (system-channel diarization,
   click-to-name with on-device voice profiles, LLM name suggestions).
 
 ## Outstanding

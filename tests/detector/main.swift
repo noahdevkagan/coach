@@ -253,4 +253,66 @@ check(MeetingWindowHeuristics.evaluate(windows: [docWin], zoomRunning: true,
                                        slackRunning: false, micHolderIsBrowser: true) == nil,
       "zoom idling while the meeting is in a browser stays unknown")
 
+// MARK: - End arbiter (veto vs stop on .ended reports)
+
+/// Replay .ended reports every 2s (the detector tick cadence) from
+/// `from` to `to`; `speech` maps a report time to the last-heard speech
+/// time. Returns the time of the first .stop, or nil.
+func firstStop(_ arbiter: inout MeetingEndArbiter, from: Double, to: Double,
+               micOnly: Bool = false, inFlight: Bool = false,
+               speech: (Double) -> Double) -> Double? {
+    var t = from
+    while t <= to {
+        if case .stop = arbiter.endReported(now: t, lastSpeechT: speech(t),
+                                            speechInFlight: inFlight, micOnly: micOnly) {
+            return t
+        }
+        t += 2
+    }
+    return nil
+}
+
+// 20. Goodbyes: speech trails off shortly after the mic release — the
+//     veto holds until 20s of quiet, then the session stops.
+var a20 = MeetingEndArbiter()
+let s20 = firstStop(&a20, from: 160, to: 400) { _ in 165 }
+check(s20 == 186, "goodbye veto releases after 20s of quiet", "got \(String(describing: s20))")
+
+// 21. The 2026-07-29 TV regression: room speech NEVER goes quiet (a TV
+//     near the mic keeps the transcript fresh forever). The veto cap
+//     stops the session 45s into the evidence anyway.
+var a21 = MeetingEndArbiter()
+let s21 = firstStop(&a21, from: 160, to: 600) { t in t - 1 }
+check(s21 == 206, "continuous room speech stops at the 45s veto cap",
+      "got \(String(describing: s21))")
+
+// 22. Mic-only sessions keep the unlimited veto: without window evidence
+//     a released mic can be a muted browser participant just listening —
+//     never cut them off while speech continues.
+var a22 = MeetingEndArbiter()
+let s22 = firstStop(&a22, from: 160, to: 1200, micOnly: true) { t in t - 1 }
+check(s22 == nil, "mic-only session never capped while speech continues",
+      "got \(String(describing: s22))")
+
+// 23. Evidence lapse resets the cap: reports stop (meeting resumed), then
+//     a second release starts a fresh 45s clock — no instant stop from
+//     stale streak state.
+var a23 = MeetingEndArbiter()
+_ = firstStop(&a23, from: 160, to: 190) { t in t - 1 }   // 30s of vetoed reports
+let s23 = firstStop(&a23, from: 400, to: 600) { t in t - 1 }
+check(s23 == 446, "lapsed evidence restarts the cap clock", "got \(String(describing: s23))")
+
+// 24. In-flight speech (live partial) vetoes like recent speech — and the
+//     cap still overrides it in dual mode.
+var a24 = MeetingEndArbiter()
+let s24 = firstStop(&a24, from: 160, to: 600, inFlight: true) { _ in 0 }
+check(s24 == 206, "cap overrides an in-flight partial", "got \(String(describing: s24))")
+
+// 25. sessionStarted/reset clears the streak.
+var a25 = MeetingEndArbiter()
+_ = firstStop(&a25, from: 160, to: 200) { t in t - 1 }
+a25.reset()
+let s25 = firstStop(&a25, from: 202, to: 400) { t in t - 1 }
+check(s25 == 248, "reset clears the streak", "got \(String(describing: s25))")
+
 exit(fail ? 1 : 0)

@@ -47,5 +47,6 @@ tests/demo/.build/
 tests/asr/.out/
 tests/nudges/.build/
 tests/echo/.build/
+tests/hygiene/.build/
 .wrangler/
 tests/session/.build

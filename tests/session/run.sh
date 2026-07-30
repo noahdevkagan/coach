@@ -15,6 +15,7 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/ViewModels/LiveSessionViewModel.swift" \
   "$SRC/Engine/SignalEngine.swift" \
   "$SRC/Engine/TranscriptAnalysis.swift" \
+  "$SRC/Engine/TranscriptCleanup.swift" \
   "$SRC/Engine/TuningTypes.swift" \
   "$SRC/Engine/AdaptiveThresholds.swift" \
   "$SRC/Engine/NudgeBackoff.swift" \

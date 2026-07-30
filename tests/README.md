@@ -46,6 +46,13 @@ of the "You" channel. Covers: echoed sentence stripped from a mixed
 chunk, all-echo chunk dropped, genuine speech untouched, short
 backchannels always kept, the time window, and partial-delta pooling.
 
+And `tests/hygiene/run.sh`: pure-logic checks compiling the app's real
+`TranscriptCleanup.swift` — the wake-word filter (stray "Siri"
+activations dropped, sentences that merely mention an assistant kept)
+and the vocabulary normalizer (known-term garbles repaired on both
+engines' output, Vietnamese-script artifacts folded, Western-diacritic
+names left alone, custom-term parsing).
+
 ## Stage 3: nudges (`tests/nudges`)
 
 Two parts:
