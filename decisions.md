@@ -80,6 +80,19 @@ real meetings); users who want it add `UGC = utc` themselves. Vietnamese
 diacritics fold to ASCII only for words carrying Vietnamese-specific
 codepoints — Western names (Mbappé, Dembélé) pass through untouched.
 
+## 2026-07-30 — Gate streamlined by cutting ritual, not tests
+Noah asked whether the push pipeline had grown too heavy. Answer: the
+suites stay (each blocking suite is sub-minute or guards transcription
+quality — the product); the ritual goes. Three changes: docs/markdown-
+only pushes short-circuit to the changelog check (site pages and
+redemption-code batches were paying ~4 min of build+audio for files no
+code touches); stage 1 runs xcodegen itself (kills the stale-.xcodeproj
+failure class); stage 4 auto-commits its benchmark records (the manual
+"Gate benchmark record" commit is gone — records ride along with the
+next push). Balance principle going forward: new checks join existing
+suites rather than becoming new ones; no new recorded metrics unless
+they would change a ship decision.
+
 ## 2026-07-30 — Synthetic hard-conversation ASR fixture is a trend, not a gate
 `tests/asr/hard.sh` runs a ~2-min scripted two-speaker stress case
 (tight handoffs, backchannels, proper nouns, numbers, 155–210 wpm) and

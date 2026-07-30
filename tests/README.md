@@ -14,7 +14,12 @@ New clone setup (one time): `git config core.hooksPath scripts/githooks`
 | 4. ship scorecard (`bench/scorecard.py`) | accuracy + nudge quality vs previous records | no (informational) |
 
 Escape hatches: `SKIP_GATE=1 git push` (emergency), `FAST=1 git push`
-(skips the slowest audio case).
+(skips the slowest audio case). Pushes touching only `docs/`, markdown,
+or the bench history files short-circuit to the changelog check (~2 s) —
+nothing in them executes on a user's Mac. Stage 1 runs `xcodegen` itself,
+so a stale `.xcodeproj` can't fail the build or silently test old code,
+and stage 4 auto-commits the benchmark records it appends (they ride
+along with the next push; a record-only push skips the gate).
 
 ## Stage 2: transcript (`tests/asr`)
 
@@ -49,8 +54,8 @@ corpus `synthetic-hard`. It never fails the gate; the audio is identical
 across runs, so comparing the rate across commits shows whether an ASR
 change made transcription better or worse. The push gate runs it
 automatically whenever the full audio set runs (i.e. ASR-adjacent code
-changed, or FULL=1); commit the appended history line afterwards like
-the stage-4 benchmark record. It can also be run by hand any time:
+changed, or FULL=1) and auto-commits the appended history line in
+stage 4. It can also be run by hand any time:
 `tests/asr/hard.sh`. (First run on a machine generates the audio via
 `say`; if Parakeet's digit formatting shifts, tune the hard-case
 entries in `score.py`'s `NUMBER_FORMS`.)

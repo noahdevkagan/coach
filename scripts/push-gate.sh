@@ -27,6 +27,16 @@ if [ -n "$upstream" ]; then
         echo "=== push gate SKIPPED — outgoing commits touch only bench history records ==="
         exit 0
     fi
+    # Docs/site-only pushes (site pages, redemption codes, markdown notes):
+    # nothing in them executes on a user's Mac, so build + suites prove
+    # nothing. The changelog freshness check is the only gate that applies.
+    if [ -n "$changed" ] && \
+       [ -z "$(echo "$changed" | grep -v -e '^docs/' -e '\.md$' \
+               -e '^bench/history\.jsonl$' -e '^bench/asr-history\.jsonl$')" ]; then
+        python3 scripts/build-changelog.py --check || { echo "CHANGELOG GATE FAILED"; exit 1; }
+        echo "=== push gate PASSED (docs-only push — changelog check only) ==="
+        exit 0
+    fi
 fi
 
 echo "=== push gate ==="
@@ -38,6 +48,13 @@ echo "--- [0/4] changelog"
 python3 scripts/build-changelog.py --check || { echo "CHANGELOG GATE FAILED"; exit 1; }
 
 echo "--- [1/4] build"
+# Regenerate the project first — a push after adding/removing files with a
+# stale .xcodeproj either fails confusingly or silently tests old code.
+if command -v xcodegen >/dev/null 2>&1; then
+    (cd MeetingCoach && xcodegen >/dev/null) || { echo "XCODEGEN FAILED"; exit 1; }
+else
+    echo "(xcodegen not installed — building with the existing project)"
+fi
 if ! xcodebuild -project MeetingCoach/MeetingCoach.xcodeproj -scheme MeetingCoach \
      -configuration Debug -derivedDataPath MeetingCoach/build build 2>&1 \
      | grep -q "BUILD SUCCEEDED"; then
@@ -95,6 +112,15 @@ fi
 # shape per committed corpus, and nudge quality, each vs the previous
 # recorded run. Records fresh ASR scores so the trend accrues per push.
 python3 bench/scorecard.py --record
+# Auto-commit the fresh records — nobody should have to remember the
+# "Gate benchmark record" ritual. The commit rides along with the NEXT
+# push (this one's refs are already decided), and a record-only push
+# skips the gate entirely, so nothing loops.
+if ! git diff --quiet -- bench/history.jsonl bench/asr-history.jsonl; then
+    git commit -q -m "Gate benchmark record for $(git rev-parse --short HEAD)" \
+        -- bench/history.jsonl bench/asr-history.jsonl
+    echo "records committed — they ride along with your next push"
+fi
 echo "history: bench/history.jsonl + bench/asr-history.jsonl"
 
 echo "=== push gate PASSED in $(( $(date +%s) - start ))s ==="
