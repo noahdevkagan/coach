@@ -39,6 +39,22 @@ Chunk boundaries depend on wall-clock ticks, so runs aren't
 byte-identical — that's why the gate scores WER + count bands, never
 exact text.
 
+There is also a **non-blocking trend case**: `tests/asr/hard.sh` runs a
+~2-minute scripted two-speaker conversation deliberately built to be
+hard — fast speaker handoffs (0.2–0.4s gaps), an interruption, one-word
+backchannels ("Mm-hmm."), numbers/currency/dates, proper nouns (Nguyen,
+Priya, Kubernetes, AppSumo), acronyms (SOC two), and speech rates from
+155 to 210 wpm — and appends the WER to `bench/asr-history.jsonl` as
+corpus `synthetic-hard`. It never fails the gate; the audio is identical
+across runs, so comparing the rate across commits shows whether an ASR
+change made transcription better or worse. The push gate runs it
+automatically whenever the full audio set runs (i.e. ASR-adjacent code
+changed, or FULL=1); commit the appended history line afterwards like
+the stage-4 benchmark record. It can also be run by hand any time:
+`tests/asr/hard.sh`. (First run on a machine generates the audio via
+`say`; if Parakeet's digit formatting shifts, tune the hard-case
+entries in `score.py`'s `NUMBER_FORMS`.)
+
 Stage 2 also runs `tests/echo/run.sh`: pure-logic checks (seconds, no
 audio) compiling the app's real `EchoFilter.swift` — the sentence-level
 suppression that keeps the far side's voice (speakers → mic bleed) out

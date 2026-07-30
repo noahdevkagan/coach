@@ -12,6 +12,9 @@ for key, spec in refs.items():
     out = f"audio/{key}.aiff"
     if os.path.exists(out):
         continue
-    subprocess.run(["say", "-v", spec["voice"], "-o", out, spec["text"]], check=True)
+    cmd = ["say", "-v", spec["voice"], "-o", out]
+    if "rate" in spec:                      # words per minute (say -r)
+        cmd += ["-r", str(spec["rate"])]
+    subprocess.run(cmd + [spec["text"]], check=True)
     print(f"generated {out}")
 PY

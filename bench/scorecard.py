@@ -134,6 +134,29 @@ def main() -> int:
             warns.append(f"{r['corpus']}: Them fragmentation rose "
                          f"({prev_shape['tinyPct']}% -> {shape['tinyPct']}% tiny lines)")
 
+    # ---- History-only corpora (e.g. synthetic-hard, recorded by
+    # tests/asr/hard.sh on the Mac — no committed capture pair to rescore
+    # here, so render the latest record vs the one before it) ----
+    scored_names = {r["corpus"] for r in corpora}
+    trend_names = sorted({h["corpus"] for h in asr_history
+                          if h.get("corpus") not in scored_names and "combined" in h})
+    for name in trend_names:
+        recs = [h for h in asr_history if h.get("corpus") == name]
+        curr, prev = recs[-1], (recs[-2] if len(recs) > 1 else None)
+        curr_rate = curr["combined"]["rate"]
+        prev_rate = prev["combined"]["rate"] if prev else None
+        text.append(f"  {name}   (recorded trend"
+                    + (f", vs {prev.get('commit', '?')})" if prev else ", first record)"))
+        text.append(f"    {'WER':9s} {pct(curr_rate):>6s}   "
+                    f"(prev {pct(prev_rate) if prev_rate is not None else '  n/a'},"
+                    f" {delta_pp(curr_rate, prev_rate)})   @ {curr.get('commit', '?')}")
+        md.append(f"| {name} | WER (trend) | "
+                  f"{pct(prev_rate) if prev_rate is not None else 'n/a'} | "
+                  f"{pct(curr_rate)} | {delta_pp(curr_rate, prev_rate)} |")
+        if prev_rate is not None and curr_rate - prev_rate > 0.01:
+            warns.append(f"{name}: WER rose {delta_pp(curr_rate, prev_rate)} "
+                         f"vs {prev.get('commit', '?')}")
+
     # ---- Nudge-signal quality (real-session replay records) ----
     nudge_history = load_history(NUDGE_HISTORY)
     text.append("")

@@ -27,6 +27,14 @@ The durable "why" behind choices goes in `decisions.md`, not here.
   shape + nudge quality, each vs the previous record — prints in push-gate
   stage 4 (recording ASR scores per push) and renders into the CI gate's
   job summary on every release run. Baseline record seeded.
+- ASR trend fixture (merged to main from
+  `claude/meeting-coach-test-audio-le18f3`): `tests/asr/hard.sh` runs a
+  ~2-minute scripted two-speaker "hard" conversation through the real
+  ParakeetPipeline, appending WER to `bench/asr-history.jsonl` as corpus
+  `synthetic-hard`; the push gate runs it on ASR-adjacent changes and the
+  scorecard renders its movement. First run on the Mac calibrates the
+  baseline (number-format mappings in `score.py` may need one round of
+  tuning).
 - v0.9.1/v0.9.2 released 07-29: viral loop (AppSumo code `coachfree`,
   3 local invites) + fallback-engine banners.
 - v0.9.0 shipped 07-28: speaker identity (system-channel diarization,

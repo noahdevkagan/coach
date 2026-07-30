@@ -1,0 +1,18 @@
+[
+ {"file": "audio/hard1.aiff",  "gapAfter": 0.7},
+ {"file": "audio/hard2.aiff",  "gapAfter": 0.4},
+ {"file": "audio/hard3.aiff",  "gapAfter": 0.3},
+ {"file": "audio/hard4.aiff",  "gapAfter": 0.8},
+ {"file": "audio/hard5.aiff",  "gapAfter": 0.6},
+ {"file": "audio/hard6.aiff",  "gapAfter": 0.5},
+ {"file": "audio/hard7.aiff",  "gapAfter": 0.3},
+ {"file": "audio/hard8.aiff",  "gapAfter": 0.2},
+ {"file": "audio/hard9.aiff",  "gapAfter": 0.7},
+ {"file": "audio/hard10.aiff", "gapAfter": 0.6},
+ {"file": "audio/hard11.aiff", "gapAfter": 0.9},
+ {"file": "audio/hard12.aiff", "gapAfter": 1.2},
+ {"file": "audio/hard13.aiff", "gapAfter": 0.6},
+ {"file": "audio/hard14.aiff", "gapAfter": 0.5},
+ {"file": "audio/hard15.aiff", "gapAfter": 0.4},
+ {"file": "audio/hard16.aiff", "gapAfter": 0.5}
+]

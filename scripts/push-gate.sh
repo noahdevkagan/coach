@@ -16,8 +16,9 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-# A benchmark-record commit touches only the bench history files. Re-running
-# the gate on it appends yet more lines, so the tree never comes clean.
+# A benchmark-record commit touches only the bench history files.
+# Re-running the gate on it appends yet more lines, so the tree never
+# comes clean.
 upstream=$(git rev-parse '@{u}' 2>/dev/null)
 if [ -n "$upstream" ]; then
     changed=$(git diff --name-only "$upstream"..HEAD)
@@ -62,6 +63,12 @@ fi
 if [ "${FULL:-0}" = "1" ] || { [ "$asr_touched" = "1" ] && [ "${FAST:-0}" != "1" ]; }; then
     echo "(full audio set — ASR code changed or FULL=1)"
     bash tests/asr/run.sh || { echo "TRANSCRIPT GATE FAILED"; exit 1; }
+    # ASR code changed → record a trend point on the fixed hard
+    # conversation (never blocks; see tests/asr/hard.sh). Commit the
+    # appended bench/asr-history.jsonl line afterwards, like the
+    # stage-4 benchmark record.
+    echo "(hard-conversation ASR trend — informational)"
+    bash tests/asr/hard.sh || echo "hard trend case failed (non-blocking)"
 else
     echo "(short audio set — ASR code untouched; FULL=1 for everything)"
     FAST=1 bash tests/asr/run.sh || { echo "TRANSCRIPT GATE FAILED"; exit 1; }
