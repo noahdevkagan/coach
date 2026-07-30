@@ -51,10 +51,20 @@ jobs:
       # 5% bar (validated 2026-07-17) — they need real hardware and stay in
       # the local push gate (scripts/push-gate.sh). CI enforces everything
       # deterministic.
-      - name: Deterministic suites (nudges, rubric, detector, demo)
+      - name: Deterministic suites (nudges, rubric, detector, session, demo, hygiene)
         run: |
           bash tests/nudges/run.sh
           bash tests/rubric/run.sh
           bash tests/detector/run.sh
           bash tests/session/run.sh
           bash tests/demo/run.sh
+          bash tests/hygiene/run.sh
+
+      # The compare-before-you-ship report: transcription accuracy + Them
+      # turn shape per committed corpus and nudge quality, each against the
+      # previous recorded run. Rendered into the job summary so every
+      # release run shows the numbers on its Actions page before anything
+      # is signed or published. Read-only here — records accrue from the
+      # local push gate, where real saved sessions live.
+      - name: Ship scorecard
+        run: python3 bench/scorecard.py --summary "$GITHUB_STEP_SUMMARY"

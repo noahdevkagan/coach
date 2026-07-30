@@ -56,6 +56,19 @@ transcriptions ("rived" for "riveted"). Parakeet punctuates reliably, so
 a missing terminator is strong mid-sentence evidence. Partials stream to
 the UI regardless — only commit timing changed.
 
+## 2026-07-30 — Ship scorecard on every push and release, informational
+Noah wants the benchmark comparison IN FRONT of him before anything
+ships, every time. bench/scorecard.py renders one report — transcription
+accuracy + Them turn shape per committed corpus (vs bench/asr-history
+.jsonl) and nudge quality (vs bench/history.jsonl) — printed by push-gate
+stage 4 (which records fresh ASR scores) and rendered into the CI gate's
+job summary on every release run. Kept informational (WARN, not block):
+real-session numbers move for non-code reasons, and the existing stage-4
+philosophy already settled that; the point is visibility, not automation.
+Fragmentation (median words/line, % tiny lines) was added to the recorded
+schema so the 2026-07-29 regression class shows up as a trend, not an
+anecdote.
+
 ## 2026-07-30 — Vocabulary fixes are a post-ASR dictionary, not model work
 Parakeet takes no contextual hints, so known-term garbles ("app sumo",
 "Tidy Khắc Việt", "epsom") are repaired by VocabularyNormalizer after

@@ -20,6 +20,11 @@ The durable "why" behind choices goes in `decisions.md`, not here.
   verified via Python mirrors (container has no Swift). NOT yet run
   through the Mac push gate — run `FULL=1 ./scripts/push-gate.sh` before
   merging/tagging; watch the tests/asr conv case (commit timing changed).
+- Ship scorecard added (Noah: "I wanna see the results every time before
+  I ship it"): `bench/scorecard.py` — transcription accuracy + Them turn
+  shape + nudge quality, each vs the previous record — prints in push-gate
+  stage 4 (recording ASR scores per push) and renders into the CI gate's
+  job summary on every release run. Baseline record seeded.
 - v0.9.1/v0.9.2 released 07-29: viral loop (AppSumo code `coachfree`,
   3 local invites) + fallback-engine banners.
 - v0.9.0 shipped 07-28: speaker identity (system-channel diarization,

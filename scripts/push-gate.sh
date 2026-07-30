@@ -16,13 +16,14 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-# A benchmark-record commit touches only bench/history.jsonl. Re-running the
-# gate on it appends yet another line, so the tree never comes clean.
+# A benchmark-record commit touches only the bench history files. Re-running
+# the gate on it appends yet more lines, so the tree never comes clean.
 upstream=$(git rev-parse '@{u}' 2>/dev/null)
 if [ -n "$upstream" ]; then
     changed=$(git diff --name-only "$upstream"..HEAD)
-    if [ -n "$changed" ] && [ "$changed" = "bench/history.jsonl" ]; then
-        echo "=== push gate SKIPPED — outgoing commits touch only bench/history.jsonl ==="
+    if [ -n "$changed" ] && \
+       [ -z "$(echo "$changed" | grep -v -e '^bench/history\.jsonl$' -e '^bench/asr-history\.jsonl$')" ]; then
+        echo "=== push gate SKIPPED — outgoing commits touch only bench history records ==="
         exit 0
     fi
 fi
@@ -75,46 +76,18 @@ bash tests/detector/run.sh || { echo "DETECTOR GATE FAILED"; exit 1; }
 bash tests/session/run.sh || { echo "SESSION GATE FAILED"; exit 1; }
 bash tests/demo/run.sh || { echo "DEMO GATE FAILED"; exit 1; }
 
-echo "--- [4/4] benchmark trend (informational)"
+echo "--- [4/4] ship scorecard (informational)"
+# Refresh the nudge-signal record from real saved sessions when this
+# machine has any; the scorecard below compares whatever is recorded.
 if ls "$HOME/Documents/MeetingCoach"/session_*.md >/dev/null 2>&1; then
-    bash bench/run.sh --label "push-gate" 2>/dev/null | tail -4
-    # Release-over-release guard: compare against the previous record with
-    # the SAME session corpus (fingerprinted), so engine changes — not new
-    # meetings — explain any movement. Informational, but loud.
-    python3 - <<'PY'
-import json
-records = []
-with open("bench/history.jsonl") as f:
-    for line in f:
-        line = line.strip()
-        if line:
-            records.append(json.loads(line))
-if len(records) >= 2:
-    curr = records[-1]
-    prev = next((r for r in reversed(records[:-1])
-                 if r.get("corpus") == curr.get("corpus")), None)
-    if curr.get("corpus") is None or prev is None:
-        print("trend: no earlier record with this session corpus — nothing to compare")
-    else:
-        def rate(r, m, t):
-            return (r[m] / r[t]) if r.get(t) else None
-        d_nag10 = curr["per10min"] - prev["per10min"]
-        print(f"trend vs {prev['commit']}: nudges/10min {prev['per10min']} -> {curr['per10min']} ({d_nag10:+.1f})")
-        u_prev, u_curr = rate(prev, "usefulMatched", "usefulTotal"), rate(curr, "usefulMatched", "usefulTotal")
-        n_prev, n_curr = rate(prev, "nagMatched", "nagTotal"), rate(curr, "nagMatched", "nagTotal")
-        if u_prev is not None and u_curr is not None:
-            print(f"trend: useful agreement {u_prev:.0%} -> {u_curr:.0%} (higher is better)")
-        if n_prev is not None and n_curr is not None:
-            print(f"trend: nag agreement {n_prev:.0%} -> {n_curr:.0%} (lower is better)")
-        regressed = d_nag10 > 0.5 \
-            or (u_prev is not None and u_curr is not None and u_curr < u_prev) \
-            or (n_prev is not None and n_curr is not None and n_curr > n_prev)
-        if regressed:
-            print("WARN: benchmark regressed vs previous same-corpus record — review before release")
-PY
-    echo "history: bench/history.jsonl (compare per10min / perType across commits)"
+    bash bench/run.sh --label "push-gate" 2>/dev/null | tail -2
 else
-    echo "no saved sessions on this machine — skipped"
+    echo "(no saved sessions on this machine — nudge record not refreshed)"
 fi
+# The compare-before-you-ship report: transcription accuracy + Them turn
+# shape per committed corpus, and nudge quality, each vs the previous
+# recorded run. Records fresh ASR scores so the trend accrues per push.
+python3 bench/scorecard.py --record
+echo "history: bench/history.jsonl + bench/asr-history.jsonl"
 
 echo "=== push gate PASSED in $(( $(date +%s) - start ))s ==="

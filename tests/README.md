@@ -11,7 +11,7 @@ New clone setup (one time): `git config core.hooksPath scripts/githooks`
 | 1. build | app compiles | yes |
 | 2. transcript (`tests/asr`) | ASR quality + edge cases | yes |
 | 3. nudges (`tests/nudges`) | signal behavior unchanged | yes |
-| 4. trend (`bench/run.sh`) | longitudinal score per commit | no (informational) |
+| 4. ship scorecard (`bench/scorecard.py`) | accuracy + nudge quality vs previous records | no (informational) |
 
 Escape hatches: `SKIP_GATE=1 git push` (emergency), `FAST=1 git push`
 (skips the slowest audio case).
@@ -72,11 +72,25 @@ Two parts:
    long answer but not for a monologue ending in "?"; and positive
    phrase signals respect their per-meeting fire cap.
 
-## Stage 4: trend (`bench/run.sh`)
+## Stage 4: ship scorecard (`bench/scorecard.py`)
 
-The existing signal-engine benchmark over real saved sessions in
-`~/Documents/MeetingCoach/`, appended to `bench/history.jsonl` tagged
-`push-gate @ <commit>`. Non-blocking because real-session scores move
-for reasons unrelated to code. To judge "are the benchmarks getting
-better," compare `per10min`, `perType`, and the useful/nag agreement
-columns across entries.
+The compare-before-you-ship report, printed on every push (and rendered
+into the job summary of every CI gate run, so each release shows it on
+its Actions page):
+
+- **Transcription accuracy** — word disagreement vs the Zoom reference
+  per committed corpus pair (`bench/asr-corpus/*/`), You/Them/Combined,
+  plus the Them **turn shape** (median words per line, share of 1-3 word
+  lines — the fragmentation axis from the 2026-07-29 field report). Each
+  number sits next to the previous record from `bench/asr-history.jsonl`
+  with a delta; `--record` (the push-gate default) appends fresh scores
+  so the trend accrues per push. To benchmark a new real meeting, drop
+  its pair into `bench/asr-corpus/<name>/{zoom.txt,capture.md}`.
+- **Nudge quality** — the latest `bench/run.sh` record vs the previous
+  same-session-corpus record: nudges/10min, useful/nag agreement. The
+  push gate refreshes the record first when this machine has saved
+  sessions (`~/Documents/MeetingCoach/`).
+
+Regressions print `WARN` lines and a "review before shipping" banner.
+Non-blocking because real-session scores move for reasons unrelated to
+code — a WARN is a reason to look, not an automated block.

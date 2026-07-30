@@ -35,7 +35,7 @@ Debug builds show `· dev` in the sidebar footer and a hammer menu-bar icon, so 
 
 ## Tests / push gate
 
-Every `git push` runs `scripts/push-gate.sh` (~4 min): build → ASR transcript checks (`tests/asr`) → nudge signal regression (`tests/nudges`) → benchmark trend (`bench/`, informational). Run it directly any time: `./scripts/push-gate.sh`. Escape hatches: `SKIP_GATE=1 git push`, `FAST=1 git push`. Per-suite runners live in each `tests/*/run.sh`.
+Every `git push` runs `scripts/push-gate.sh` (~4 min): build → ASR transcript checks (`tests/asr`) → nudge signal regression (`tests/nudges`) → **ship scorecard** (`bench/scorecard.py`, informational — transcription accuracy, Them turn shape, and nudge quality, each vs the previous recorded run; the CI gate renders the same table into every release run's job summary). Run it directly any time: `./scripts/push-gate.sh`; scorecard alone: `python3 bench/scorecard.py`. Escape hatches: `SKIP_GATE=1 git push`, `FAST=1 git push`. Per-suite runners live in each `tests/*/run.sh`.
 
 ## Repo map
 

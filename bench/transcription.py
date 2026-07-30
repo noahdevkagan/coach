@@ -61,6 +61,47 @@ def parse(path: Path, you_name: str) -> dict[str, list[str]]:
     return channels
 
 
+def them_shape(path: Path, you_name: str) -> dict:
+    """Turn granularity of the capture's Them channel — the "second speaker
+    shredded into 1-3 word chunks" axis from the 2026-07-29 field report.
+    Counts transcript LINES (session format) or caption blocks (block
+    format): how many, median words each, and the share at <=3 words."""
+    text = path.read_text(errors="replace")
+
+    def is_them(label: str) -> bool:
+        norm = label.strip().lower()
+        return norm != "you" and norm != you_name.lower()
+
+    lines: list[int] = []
+    session_lines = re.findall(r"^- \[\d+:\d+\] ([^:]+): (.*)$", text, re.M)
+    if session_lines:
+        lines = [len(words(spoken)) for label, spoken in session_lines if is_them(label)]
+    else:
+        current = None
+        for line in text.splitlines():
+            if "-->" in line or not line.strip():
+                continue
+            m = re.match(r"^([^:]{1,40}): (.*)$", line)
+            if m:
+                if current is not None:
+                    lines.append(current)
+                    current = None
+                if is_them(m.group(1)):
+                    current = len(words(m.group(2)))
+            elif current is not None:
+                current += len(words(line))
+        if current is not None:
+            lines.append(current)
+    if not lines:
+        return {"lines": 0, "medianWords": 0, "tinyPct": 0.0}
+    ordered = sorted(lines)
+    return {
+        "lines": len(lines),
+        "medianWords": ordered[len(ordered) // 2],
+        "tinyPct": round(100 * sum(1 for n in lines if n <= 3) / len(lines), 1),
+    }
+
+
 def disagreement(ref: list[str], hyp: list[str]) -> dict:
     """Word-level disagreement via difflib opcodes (near-minimal edits)."""
     sm = SequenceMatcher(a=ref, b=hyp, autojunk=False)
@@ -98,6 +139,7 @@ def main() -> int:
         result[ch] = disagreement(ref[ch], hyp[ch])
     both = disagreement(ref["you"] + ref["them"], hyp["you"] + hyp["them"])
     result["combined"] = both
+    result["themShape"] = them_shape(hyp_path, you)
 
     print(f"reference: {ref_path.name}  ({len(ref['you'])} you / {len(ref['them'])} them words)")
     print(f"capture:   {hyp_path.name}  ({len(hyp['you'])} you / {len(hyp['them'])} them words)")
@@ -106,6 +148,9 @@ def main() -> int:
         r = result[ch]
         print(f"  {label:24s} disagreement {r['rate']*100:5.1f}%  "
               f"({r['errors']} errs / {r['refWords']} ref words)")
+    shape = result["themShape"]
+    print(f"  {'Them turn shape':24s} {shape['lines']} lines, median "
+          f"{shape['medianWords']} words, {shape['tinyPct']}% at <=3 words")
     print(json.dumps(result))
     return 0
 
