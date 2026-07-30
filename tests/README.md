@@ -47,8 +47,11 @@ Priya, Kubernetes, AppSumo), acronyms (SOC two), and speech rates from
 155 to 210 wpm — and appends the WER to `bench/asr-history.jsonl` as
 corpus `synthetic-hard`. It never fails the gate; the audio is identical
 across runs, so comparing the rate across commits shows whether an ASR
-change made transcription better or worse. Run it after any
-ASR-adjacent change. (First run on a machine generates the audio via
+change made transcription better or worse. The push gate runs it
+automatically whenever the full audio set runs (i.e. ASR-adjacent code
+changed, or FULL=1); commit the appended history line afterwards like
+the stage-4 benchmark record. It can also be run by hand any time:
+`tests/asr/hard.sh`. (First run on a machine generates the audio via
 `say`; if Parakeet's digit formatting shifts, tune the hard-case
 entries in `score.py`'s `NUMBER_FORMS`.)
 
