@@ -7,8 +7,8 @@ The durable "why" behind choices goes in `decisions.md`, not here.
 
 ## Current state (2026-07-30)
 
-- Nick's field report (2 test calls vs Granola) addressed, batched on the
-  `claude/user-feedback-implementation-nnlcuc` branch as Unreleased:
+- Nick's field report (2 test calls vs Granola) addressed, merged to
+  `main` (Noah approved 2026-07-30) as Unreleased:
   1. meeting-end veto capped (MeetingEndArbiter, 45s, dual mode only) so
      background TV can't keep a session recording past the call;
   2. transcripts save as coalesced turns + Parakeet commits are
@@ -18,8 +18,10 @@ The durable "why" behind choices goes in `decisions.md`, not here.
      (garble repair both engines, Vietnamese-script fold).
   Benchmarked on the William corpus (see decisions.md); pure logic
   verified via Python mirrors (container has no Swift). NOT yet run
-  through the Mac push gate — run `FULL=1 ./scripts/push-gate.sh` before
-  merging/tagging; watch the tests/asr conv case (commit timing changed).
+  through the Mac push gate (CI dispatch denied for the integration) —
+  run `FULL=1 ./scripts/push-gate.sh` locally, or hit Run workflow on
+  test-gate in the Actions tab, BEFORE tagging; watch the tests/asr conv
+  case (commit timing changed). A release tag runs the CI gate anyway.
 - Ship scorecard added (Noah: "I wanna see the results every time before
   I ship it"): `bench/scorecard.py` — transcription accuracy + Them turn
   shape + nudge quality, each vs the previous record — prints in push-gate
