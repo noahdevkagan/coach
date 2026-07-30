@@ -5,8 +5,19 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-07-29)
+## Current state (2026-07-30)
 
+- In progress (branch `claude/meeting-coach-test-audio-le18f3`): ASR
+  trend fixture — a ~2-minute scripted two-speaker "hard" conversation
+  (fast handoffs, an interruption, backchannels, numbers, proper nouns,
+  acronyms, varied speech rates) run through the real ParakeetPipeline
+  by `tests/asr/hard.sh`, WER appended to `bench/asr-history.jsonl` as
+  corpus `synthetic-hard`. Non-blocking by design: it's a longitudinal
+  number to compare across MeetingCoach updates, not a gate. Plan:
+  refs + playlist in `tests/asr/cases/`, `gen_audio.sh` learns a per-line
+  `rate`, `score.py` learns the informational `hard` case, new runner
+  `tests/asr/hard.sh`. First run on the Mac calibrates the baseline
+  (number-format mappings in `score.py` may need one round of tuning).
 - v0.9.1 tagged and released: viral loop (Give MeetingCoach to a friend —
   menu bar item + one-time post-first-session sheet, AppSumo code
   `coachfree`, 3 local invites).

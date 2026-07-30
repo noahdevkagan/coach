@@ -26,3 +26,13 @@ aliasing −52dB).
 Why: no backend exists (local-first constraint); scarcity drives sharing
 but blocking generosity would be user-hostile. Unique per-user codes need
 an API — revisit only if attribution becomes worth running a service.
+
+## 2026-07-30 — Synthetic hard-conversation ASR fixture is a trend, not a gate
+`tests/asr/hard.sh` runs a ~2-min scripted two-speaker stress case
+(tight handoffs, backchannels, proper nouns, numbers, 155–210 wpm) and
+appends WER to `bench/asr-history.jsonl` (corpus `synthetic-hard`).
+Why non-blocking: unlike the conv/silence/cut/long gates it is built to
+be hard, so its absolute WER is meaningless — only movement across
+commits matters. Same generated audio every run means any movement is
+the code, unlike the real-meeting corpus where Zoom's own errors and new
+meetings confound the number.

@@ -2,7 +2,7 @@
 """Score rig output against cases/refs.json and enforce the transcript gate.
 
 Usage: score.py <case> <rig-output-file>
-  case: conv | silence | cut | long
+  case: conv | silence | cut | long | hard
 
 Chunk boundaries shift run to run (wall-clock ticks), so the gate scores
 word error rate over the concatenated transcript plus utterance-count
@@ -13,6 +13,11 @@ Gates:
   silence : exactly 0 utterances (hallucination guard)
   cut     : >= 1 utterance, WER <= 5% (stop-mid-speech tail flush)
   long    : 1-4 utterances, WER <= 5% (30s window-cap boundary)
+  hard    : NON-BLOCKING trend — the ~2-min two-speaker stress
+            conversation (fast handoffs, backchannels, proper nouns,
+            numbers, rate changes). Always exits 0; prints WER and a
+            JSON line that tests/asr/hard.sh appends to
+            bench/asr-history.jsonl. Compare the rate across commits.
 """
 import json
 import re
@@ -24,6 +29,14 @@ NUMBER_FORMS = {
     "fifty seven": "57", "forty thousand": "40,000", "five percent": "5%",
     "thirty eight percent": "38%", "version one": "version 1",
     "top line": "top-line",
+    # hard case (calibrate on first real run — Parakeet's digit forms vary)
+    "quarter three": "q3", "ten minutes": "10 minutes", "eleven": "11",
+    "fourteen point two percent": "14.2%", "six point one percent": "6.1%",
+    "march third": "march 3rd", "ninety seconds": "90 seconds",
+    "three hundred seconds": "300 seconds", "soc two": "soc 2",
+    "two weeks": "2 weeks", "eight hundred twenty thousand": "820,000",
+    "two of the four": "2 of the 4", "sixty one percent": "61%",
+    "thirty first": "31st",
 }
 
 
@@ -73,6 +86,21 @@ def main():
         ref = refs["long"]["text"]
         count_ok = 1 <= len(utts) <= 4
         band = "1-4"
+    elif case == "hard":
+        keys = sorted((k for k in refs if re.fullmatch(r"hard\d+", k)),
+                      key=lambda k: int(k[4:]))
+        ref = " ".join(refs[k]["text"] for k in keys)
+        errors, n = wer(ref, hyp)
+        rate = errors / n if n else 1.0
+        print(f"hard: {len(utts)} utterances ({len(keys)} scripted turns), "
+              f"WER {errors}/{n} = {rate:.1%} (trend, non-blocking)")
+        print("JSON\t" + json.dumps({
+            "corpus": "synthetic-hard",
+            "combined": {"refWords": n, "hypWords": len(norm(hyp)),
+                         "errors": errors, "rate": round(rate, 4)},
+            "utterances": len(utts),
+        }))
+        sys.exit(0)
     else:
         sys.exit(f"unknown case {case}")
 
