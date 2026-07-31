@@ -14,6 +14,9 @@ struct GeneralSettingsView: View {
     /// the transcript's "Fix a misheard term" flow write to.
     @AppStorage("customVocabularyText") private var vocabularyText = ""
 
+    /// Editable row mirror of `vocabularyText` (see parseVocab/serializeVocab).
+    @State private var vocabEntries: [VocabEntry] = []
+
     private var displayPath: String {
         sessionsPath.replacingOccurrences(of: NSHomeDirectory(), with: "~")
     }
@@ -64,14 +67,31 @@ struct GeneralSettingsView: View {
             }
 
             Section("Vocabulary") {
-                TextEditor(text: $vocabularyText)
-                    .font(.callout)
-                    .frame(minHeight: 64, maxHeight: 110)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .strokeBorder(Color.secondary.opacity(0.2))
-                    )
-                Text("Product names and jargon the transcriber must get right — one per line. If it keeps mishearing a term, add what it writes after \u{201C}=\u{201D}, e.g. UGC = utc, u g c. Fastest way: click a misheard word in any transcript, type what it should be — it lands here automatically.")
+                ForEach($vocabEntries) { $entry in
+                    HStack(spacing: 8) {
+                        TextField("It wrote…", text: $entry.wrote)
+                            .textFieldStyle(.roundedBorder)
+                        Image(systemName: "arrow.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                        TextField("Corrected to…", text: $entry.term)
+                            .textFieldStyle(.roundedBorder)
+                        Button {
+                            vocabEntries.removeAll { $0.id == entry.id }
+                        } label: {
+                            Image(systemName: "minus.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Remove this term")
+                    }
+                }
+                Button {
+                    vocabEntries.append(VocabEntry(wrote: "", term: ""))
+                } label: {
+                    Label("Add term", systemImage: "plus")
+                }
+                Text("Terms the transcriber keeps mishearing: what it wrote (comma-separate variants, e.g. utc, u g c) and what it should be. Leave \u{201C}it wrote\u{201D} empty to just teach a spelling. Clicking a misheard word in any transcript adds a row here automatically. Built in already: \(VocabularyNormalizer.defaultTerms.map(\.canonical).joined(separator: ", ")).")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -103,6 +123,55 @@ struct GeneralSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .onAppear { syncVocabFromStorage() }
+        // The transcript's "Fix a misheard term" flow writes to the same
+        // store — refresh the rows if it changes while Settings is open.
+        .onChange(of: vocabularyText) { _, _ in syncVocabFromStorage() }
+        .onChange(of: vocabEntries) { _, _ in
+            let serialized = Self.serializeVocab(vocabEntries)
+            if serialized != vocabularyText { vocabularyText = serialized }
+        }
+    }
+
+    // MARK: - Vocabulary rows
+
+    /// One vocabulary rule as the user thinks of it: the error → the fix.
+    /// Backed by the same "Canonical = garble, garble" line format the
+    /// normalizer parses and the transcript fix-flow appends to.
+    struct VocabEntry: Identifiable, Equatable {
+        let id = UUID()
+        var wrote: String   // what the transcriber wrote (comma-separated)
+        var term: String    // what it should be
+    }
+
+    private func syncVocabFromStorage() {
+        let parsed = Self.parseVocab(vocabularyText)
+        // Ignore round-trip echoes of our own serialization, so rows keep
+        // their identity (and focus) while the user is typing in them —
+        // including a half-finished row that serialization skips.
+        guard Self.serializeVocab(parsed) != Self.serializeVocab(vocabEntries) else { return }
+        vocabEntries = parsed
+    }
+
+    static func parseVocab(_ text: String) -> [VocabEntry] {
+        text.components(separatedBy: .newlines).compactMap { line in
+            let parts = line.split(separator: "=", maxSplits: 1)
+            guard let head = parts.first?.trimmingCharacters(in: .whitespaces),
+                  !head.isEmpty, !head.hasPrefix("#") else { return nil }
+            let garbles = parts.count > 1
+                ? parts[1].trimmingCharacters(in: .whitespaces) : ""
+            return VocabEntry(wrote: garbles, term: head)
+        }
+    }
+
+    static func serializeVocab(_ entries: [VocabEntry]) -> String {
+        entries.compactMap { entry in
+            let term = entry.term.trimmingCharacters(in: .whitespaces)
+            let wrote = entry.wrote.trimmingCharacters(in: .whitespaces)
+            guard !term.isEmpty else { return nil }   // half-finished row
+            return wrote.isEmpty ? term : "\(term) = \(wrote)"
+        }
+        .joined(separator: "\n")
     }
 
     @State private var mcpCopied = false
