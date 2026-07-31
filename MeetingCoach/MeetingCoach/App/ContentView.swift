@@ -533,13 +533,15 @@ private struct TranscriptTurnRow: View, Equatable {
     /// closures defeat SwiftUI's automatic struct diffing, so without this
     /// every partial tick re-evaluated (and re-laid-out) every row, which
     /// made long transcripts feel sluggish once words became link runs.
-    /// Paired with .equatable() at the use site.
-    static func == (lhs: Self, rhs: Self) -> Bool {
+    /// Paired with .equatable() at the use site. `nonisolated` because
+    /// Equatable's requirement lives outside the view's main-actor
+    /// isolation — which also means it may only touch Sendable lets, so
+    /// it compares the turn and deliberately ignores the closures (the
+    /// pane always passes the same handlers).
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.turn.id == rhs.turn.id
             && lhs.turn.text == rhs.turn.text
             && lhs.turn.speaker == rhs.turn.speaker
-            && (lhs.onRename != nil) == (rhs.onRename != nil)
-            && (lhs.onFixTerm != nil) == (rhs.onFixTerm != nil)
     }
 
     let turn: Turn

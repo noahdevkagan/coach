@@ -1,6 +1,18 @@
 import SwiftUI
 import AppKit
 
+/// One vocabulary rule as the user thinks of it: the error → the fix.
+/// Backed by the same "Canonical = garble, garble" line format the
+/// normalizer parses and the transcript fix-flow appends to. File-scoped
+/// (not nested in the view): a type nested in a View inherits its
+/// main-actor isolation, which Swift 6 rejects for the synthesized
+/// Equatable/Identifiable conformances.
+struct VocabEntry: Identifiable, Equatable {
+    let id = UUID()
+    var wrote: String   // what the transcriber wrote (comma-separated)
+    var term: String    // what it should be
+}
+
 /// The Settings window's General tab: where transcripts live on disk, and
 /// the meeting-detection behavior toggles (mirrors of the menu bar ones).
 struct GeneralSettingsView: View {
@@ -134,15 +146,6 @@ struct GeneralSettingsView: View {
     }
 
     // MARK: - Vocabulary rows
-
-    /// One vocabulary rule as the user thinks of it: the error → the fix.
-    /// Backed by the same "Canonical = garble, garble" line format the
-    /// normalizer parses and the transcript fix-flow appends to.
-    struct VocabEntry: Identifiable, Equatable {
-        let id = UUID()
-        var wrote: String   // what the transcriber wrote (comma-separated)
-        var term: String    // what it should be
-    }
 
     private func syncVocabFromStorage() {
         let parsed = Self.parseVocab(vocabularyText)
