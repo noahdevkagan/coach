@@ -71,7 +71,7 @@ struct GeneralSettingsView: View {
                         RoundedRectangle(cornerRadius: 6)
                             .strokeBorder(Color.secondary.opacity(0.2))
                     )
-                Text("Product names and jargon the transcriber must get right — one per line. If it keeps mishearing a term, add what it writes after \u{201C}=\u{201D}, e.g. UGC = utc, u g c. Fastest way: right-click any transcript line and choose \u{201C}Fix a misheard term\u{201D} — it lands here automatically.")
+                Text("Product names and jargon the transcriber must get right — one per line. If it keeps mishearing a term, add what it writes after \u{201C}=\u{201D}, e.g. UGC = utc, u g c. Fastest way: click a misheard word in any transcript, type what it should be — it lands here automatically.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

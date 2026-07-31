@@ -93,6 +93,17 @@ next push). Balance principle going forward: new checks join existing
 suites rather than becoming new ones; no new recorded metrics unless
 they would change a ship decision.
 
+## 2026-07-30 — Transcript words are click-to-fix via invisible links
+Noah's ask: click the misheard word itself, don't retype it. SwiftUI's
+Text can't report which word was clicked, so every word carries an
+mcfix:// link styled as plain text and an OpenURLAction routes the click
+to the fix popover with the word pre-filled (focus jumps to "should be").
+Chosen over per-word subviews (hundreds of turns × dozens of words would
+wreck the pane's rendering budget) and over NSTextView rows (heavyweight,
+sizing quirks). Right-click stays for multi-word phrases. Vocabulary
+management moved from the sidebar Advanced list to Settings → General —
+it's set-and-forget, not per-call.
+
 ## 2026-07-30 — Synthetic hard-conversation ASR fixture is a trend, not a gate
 `tests/asr/hard.sh` runs a ~2-min scripted two-speaker stress case
 (tight handoffs, backchannels, proper nouns, numbers, 155–210 wpm) and

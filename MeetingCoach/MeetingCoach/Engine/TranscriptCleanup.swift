@@ -51,9 +51,9 @@ enum WakeWordFilter {
 // MARK: - Vocabulary normalization
 
 /// Repairs recognizer garbles of known terms. Built-in defaults cover the
-/// product's home domain; users extend them by right-clicking a transcript
-/// line ("Fix a misheard term") or in Settings → General → Vocabulary
-/// (one term per line, optional garble aliases after "="):
+/// product's home domain; users extend them by clicking a misheard word in
+/// the transcript (right-click for phrases) or in Settings → General →
+/// Vocabulary (one term per line, optional garble aliases after "="):
 ///
 ///     AppSumo
 ///     UGC = utc, u g c

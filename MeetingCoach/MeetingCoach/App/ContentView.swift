@@ -532,10 +532,11 @@ private struct TranscriptTurnRow: View {
     let turn: Turn
     /// Present = this speaker can be given a real name (click the label).
     var onRename: ((String, String) -> Void)?
-    /// Present = right-clicking the text offers "Fix a misheard term…"
-    /// (wrote, shouldBe) — lands in the vocabulary and rewrites the
-    /// transcript in place, so corrections happen where the mistake is
-    /// seen instead of in a settings field.
+    /// Present = words are click-to-fix (wrote, shouldBe): clicking a
+    /// misheard word opens the fix popover with it pre-filled; right-click
+    /// covers multi-word phrases. Fixes land in the vocabulary and rewrite
+    /// the transcript in place — corrections happen where the mistake is
+    /// seen, not in a settings field.
     var onFixTerm: ((String, String) -> Void)?
 
     @State private var showRenamePopover = false
@@ -543,6 +544,7 @@ private struct TranscriptTurnRow: View {
     @State private var showFixPopover = false
     @State private var fixWrote = ""
     @State private var fixShouldBe = ""
+    @FocusState private var focusShouldBe: Bool
 
     private var renameable: Bool { onRename != nil && !turn.isYou }
 
@@ -589,15 +591,28 @@ private struct TranscriptTurnRow: View {
             // still sees one turn.
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(Array(paragraphs(turn.text).enumerated()), id: \.offset) { _, para in
-                    Text(para)
+                    Text(onFixTerm != nil ? Self.clickableWords(para) : AttributedString(para))
                         .font(.callout)
                         .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            // Every word carries an invisible mcfix:// link (see
+            // clickableWords) — clicking a misheard word opens the fix
+            // popover with that word pre-filled, so the user only types
+            // what it SHOULD be.
+            .environment(\.openURL, OpenURLAction { url in
+                guard url.scheme == "mcfix" else { return .systemAction }
+                fixWrote = url.lastPathComponent
+                fixShouldBe = ""
+                showFixPopover = true
+                return .handled
+            })
             .contextMenu {
                 if onFixTerm != nil {
-                    Button("Fix a misheard term…") {
+                    // Multi-word garbles ("tidy khac viet") — start blank
+                    // and type the phrase.
+                    Button("Fix a misheard phrase…") {
                         fixWrote = ""
                         fixShouldBe = ""
                         showFixPopover = true
@@ -606,14 +621,18 @@ private struct TranscriptTurnRow: View {
             }
             .popover(isPresented: $showFixPopover, arrowEdge: .bottom) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Fix a misheard term")
+                    Text(fixWrote.isEmpty ? "Fix a misheard phrase"
+                                          : "Fix \u{201C}\(fixWrote)\u{201D}")
                         .font(.caption.bold())
+                        .lineLimit(1)
+                        .frame(maxWidth: 190, alignment: .leading)
                     TextField("It wrote…", text: $fixWrote)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 190)
                     TextField("It should be…", text: $fixShouldBe)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 190)
+                        .focused($focusShouldBe)
                         .onSubmit { submitFix() }
                     Text("Fixed in this transcript now, and on every future one. Manage terms in Settings → General → Vocabulary.")
                         .font(.caption2)
@@ -626,6 +645,11 @@ private struct TranscriptTurnRow: View {
                                   || fixShouldBe.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
                 .padding(12)
+                .onAppear {
+                    // Word-click pre-fills what was written — the only thing
+                    // left to type is the correction.
+                    if !fixWrote.isEmpty { focusShouldBe = true }
+                }
             }
             Spacer(minLength: 0)
         }
@@ -637,6 +661,37 @@ private struct TranscriptTurnRow: View {
         guard !wrote.isEmpty, !shouldBe.isEmpty else { return }
         showFixPopover = false
         onFixTerm?(wrote, shouldBe)
+    }
+
+    /// The paragraph with every word wrapped in an invisible `mcfix://`
+    /// link, styled as plain text. SwiftUI's Text can't report which word
+    /// was clicked, but it CAN route link activations — so words become
+    /// their own click targets while the row stays one cheap Text view
+    /// (no per-word subviews; the pane's O(session) rendering holds).
+    static func clickableWords(_ para: String) -> AttributedString {
+        var out = AttributedString()
+        var word = ""
+        func flushWord() {
+            guard !word.isEmpty else { return }
+            var run = AttributedString(word)
+            if let encoded = word.addingPercentEncoding(withAllowedCharacters: .alphanumerics),
+               let url = URL(string: "mcfix://w/\(encoded)") {
+                run.link = url
+                run.foregroundColor = .primary
+            }
+            out += run
+            word = ""
+        }
+        for ch in para {
+            if ch.isLetter || ch.isNumber || ch == "'" || ch == "\u{2019}" || ch == "-" {
+                word.append(ch)
+            } else {
+                flushWord()
+                out += AttributedString(String(ch))
+            }
+        }
+        flushWord()
+        return out
     }
 
     private func submitRename() {

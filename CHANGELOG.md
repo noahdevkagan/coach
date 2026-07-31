@@ -13,7 +13,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 - The other side's words now read as full sentences: transcripts save whole thoughts with one timestamp each, instead of shredded 1-3 word lines
 - Stray "Siri" / "Hey Siri" pickups from a phone or HomePod in the room no longer land in your transcript
 - Product names come out right: known garbles fix themselves ("app sumo" → AppSumo, "tidy cow" → TidyCal), and a rare bug that rendered English phrases in Vietnamese characters is repaired automatically
-- Right-click any transcript line to fix a misheard term — the fix applies to the transcript on the spot, the rest of the call, and every future meeting; your term list lives in Settings → General → Vocabulary
+- Click a misheard word in the transcript to fix it — the word comes pre-filled, you type what it should be, and the fix applies on the spot, to the rest of the call, and to every future meeting (right-click a line for multi-word phrases); your term list lives in Settings → General → Vocabulary
 
 ## 0.9.2 — 2026-07-29
 
