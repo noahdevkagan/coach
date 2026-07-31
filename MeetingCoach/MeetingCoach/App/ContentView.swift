@@ -528,7 +528,20 @@ private struct TranscriptHeaderStats: View {
 /// (an O(text) sentence/word pass) re-runs only for the turn whose text is
 /// still coalescing — not for every turn on every utterance, which made the
 /// pane O(session²) over an hour-long call.
-private struct TranscriptTurnRow: View {
+private struct TranscriptTurnRow: View, Equatable {
+    /// Rows re-render only when the turn's CONTENT changed — the stored
+    /// closures defeat SwiftUI's automatic struct diffing, so without this
+    /// every partial tick re-evaluated (and re-laid-out) every row, which
+    /// made long transcripts feel sluggish once words became link runs.
+    /// Paired with .equatable() at the use site.
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.turn.id == rhs.turn.id
+            && lhs.turn.text == rhs.turn.text
+            && lhs.turn.speaker == rhs.turn.speaker
+            && (lhs.onRename != nil) == (rhs.onRename != nil)
+            && (lhs.onFixTerm != nil) == (rhs.onFixTerm != nil)
+    }
+
     let turn: Turn
     /// Present = this speaker can be given a real name (click the label).
     var onRename: ((String, String) -> Void)?
@@ -663,14 +676,29 @@ private struct TranscriptTurnRow: View {
         onFixTerm?(wrote, shouldBe)
     }
 
+    /// Built word-link paragraphs, keyed by text. A turn's text is stable
+    /// once it stops coalescing, so everything but the actively-growing
+    /// turn hits this cache. Main-actor confined (only View bodies touch
+    /// it); crudely capped so an hours-long session can't grow it forever.
+    @MainActor private static var wordLinkCache: [String: AttributedString] = [:]
+
     /// The paragraph with every word wrapped in an invisible `mcfix://`
     /// link, styled as plain text. SwiftUI's Text can't report which word
     /// was clicked, but it CAN route link activations — so words become
     /// their own click targets while the row stays one cheap Text view
-    /// (no per-word subviews; the pane's O(session) rendering holds).
+    /// (no per-word subviews). Separator runs stay UNLINKED: clicking the
+    /// gap between words must not pop a fix for the word before it.
+    @MainActor
     static func clickableWords(_ para: String) -> AttributedString {
+        if let hit = wordLinkCache[para] { return hit }
         var out = AttributedString()
         var word = ""
+        var gap = ""
+        func flushGap() {
+            guard !gap.isEmpty else { return }
+            out += AttributedString(gap)
+            gap = ""
+        }
         func flushWord() {
             guard !word.isEmpty else { return }
             var run = AttributedString(word)
@@ -684,13 +712,17 @@ private struct TranscriptTurnRow: View {
         }
         for ch in para {
             if ch.isLetter || ch.isNumber || ch == "'" || ch == "\u{2019}" || ch == "-" {
+                flushGap()
                 word.append(ch)
             } else {
                 flushWord()
-                out += AttributedString(String(ch))
+                gap.append(ch)
             }
         }
         flushWord()
+        flushGap()
+        if wordLinkCache.count > 4000 { wordLinkCache.removeAll() }
+        wordLinkCache[para] = out
         return out
     }
 
@@ -783,6 +815,7 @@ private struct LiveTranscriptPane: View {
                                 onFixTerm: { wrote, shouldBe in
                                     liveSession.fixMisheardTerm(wrote: wrote, canonical: shouldBe)
                                 })
+                                .equatable()
                                 .padding(.horizontal, 14).padding(.vertical, 9)
                             Divider().opacity(0.35).padding(.leading, 14)
                         }
