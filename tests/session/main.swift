@@ -193,6 +193,39 @@ func runTests() async {
               "speaker change still starts a new line")
         vm.deleteSession()
     }
+
+    // 6. "Fix a misheard term" (transcript right-click): persists into the
+    //    custom vocabulary, rewrites the current transcript in place, and
+    //    hands the capture manager an updated normalizer for the rest of
+    //    the call.
+    do {
+        UserDefaults.standard.removeObject(forKey: "customVocabularyText")
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext())
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let capture = AudioCaptureManager.last else {
+            check(false, "capture manager wired (6)"); return
+        }
+        capture.onUtterance?(Utterance(t: 1, speaker: "Them",
+            text: "We can sync on rock furred tomorrow.", endT: 3))
+        try? await Task.sleep(for: .milliseconds(50))
+
+        vm.fixMisheardTerm(wrote: "rock furred", canonical: "Rockford")
+        check(vm.utterances.first?.text == "We can sync on Rockford tomorrow.",
+              "fix rewrites the committed transcript in place",
+              "got \(vm.utterances.first?.text ?? "nil")")
+        check(vm.turns.first?.text.contains("Rockford") == true,
+              "fix reaches the visible turns")
+        let stored = UserDefaults.standard.string(forKey: "customVocabularyText") ?? ""
+        check(stored.contains("Rockford = rock furred"),
+              "fix persists into the custom vocabulary", "stored: \(stored)")
+        check(capture.vocabulary?.normalize("more rock furred talk")
+              == "more Rockford talk",
+              "running capture gets the updated normalizer")
+        vm.stopLive()
+        vm.deleteSession()
+        UserDefaults.standard.removeObject(forKey: "customVocabularyText")
+    }
 }
 
 await runTests()

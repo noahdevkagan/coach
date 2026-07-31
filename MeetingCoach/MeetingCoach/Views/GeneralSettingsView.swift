@@ -10,6 +10,10 @@ struct GeneralSettingsView: View {
     /// Re-read after "Change…" so the row updates without relaunching.
     @State private var sessionsPath = AppSupport.sessionsDir.path
 
+    /// Custom transcription vocabulary — same store the live pipeline and
+    /// the transcript's "Fix a misheard term" flow write to.
+    @AppStorage("customVocabularyText") private var vocabularyText = ""
+
     private var displayPath: String {
         sessionsPath.replacingOccurrences(of: NSHomeDirectory(), with: "~")
     }
@@ -55,6 +59,19 @@ struct GeneralSettingsView: View {
                     }
                 }
                 Text("Arms the time-based nudges (time check, next-steps countdown, overrun) on every call started without a scheduled duration. \u{201C}Not timed\u{201D} keeps them off unless you set a duration in the goal form.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Vocabulary") {
+                TextEditor(text: $vocabularyText)
+                    .font(.callout)
+                    .frame(minHeight: 64, maxHeight: 110)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .strokeBorder(Color.secondary.opacity(0.2))
+                    )
+                Text("Product names and jargon the transcriber must get right — one per line. If it keeps mishearing a term, add what it writes after \u{201C}=\u{201D}, e.g. UGC = utc, u g c. Fastest way: right-click any transcript line and choose \u{201C}Fix a misheard term\u{201D} — it lands here automatically.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

@@ -50,8 +50,15 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     /// Post-ASR repair of known-term garbles ("app sumo" → AppSumo), applied
     /// to every commit and partial as it leaves a pipeline — BEFORE the echo
     /// filter, so both channels' text is normalized identically and echo
-    /// overlap still matches word-for-word.
-    var vocabulary: VocabularyNormalizer?
+    /// overlap still matches word-for-word. Lock-guarded: "Fix a misheard
+    /// term" swaps in an updated normalizer MID-CALL from the main actor
+    /// while the pipeline queues are reading it.
+    var vocabulary: VocabularyNormalizer? {
+        get { vocabLock.lock(); defer { vocabLock.unlock() }; return _vocabulary }
+        set { vocabLock.lock(); _vocabulary = newValue; vocabLock.unlock() }
+    }
+    private let vocabLock = NSLock()
+    private var _vocabulary: VocabularyNormalizer?
 
     private let startTime = Date()
     private var isRunning = false

@@ -532,9 +532,17 @@ private struct TranscriptTurnRow: View {
     let turn: Turn
     /// Present = this speaker can be given a real name (click the label).
     var onRename: ((String, String) -> Void)?
+    /// Present = right-clicking the text offers "Fix a misheard term…"
+    /// (wrote, shouldBe) — lands in the vocabulary and rewrites the
+    /// transcript in place, so corrections happen where the mistake is
+    /// seen instead of in a settings field.
+    var onFixTerm: ((String, String) -> Void)?
 
     @State private var showRenamePopover = false
     @State private var nameField = ""
+    @State private var showFixPopover = false
+    @State private var fixWrote = ""
+    @State private var fixShouldBe = ""
 
     private var renameable: Bool { onRename != nil && !turn.isYou }
 
@@ -587,8 +595,48 @@ private struct TranscriptTurnRow: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .contextMenu {
+                if onFixTerm != nil {
+                    Button("Fix a misheard term…") {
+                        fixWrote = ""
+                        fixShouldBe = ""
+                        showFixPopover = true
+                    }
+                }
+            }
+            .popover(isPresented: $showFixPopover, arrowEdge: .bottom) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Fix a misheard term")
+                        .font(.caption.bold())
+                    TextField("It wrote…", text: $fixWrote)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 190)
+                    TextField("It should be…", text: $fixShouldBe)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 190)
+                        .onSubmit { submitFix() }
+                    Text("Fixed in this transcript now, and on every future one. Manage terms in Settings → General → Vocabulary.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(width: 190)
+                    Button("Fix it") { submitFix() }
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(fixWrote.trimmingCharacters(in: .whitespaces).isEmpty
+                                  || fixShouldBe.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+                .padding(12)
+            }
             Spacer(minLength: 0)
         }
+    }
+
+    private func submitFix() {
+        let wrote = fixWrote.trimmingCharacters(in: .whitespaces)
+        let shouldBe = fixShouldBe.trimmingCharacters(in: .whitespaces)
+        guard !wrote.isEmpty, !shouldBe.isEmpty else { return }
+        showFixPopover = false
+        onFixTerm?(wrote, shouldBe)
     }
 
     private func submitRename() {
@@ -672,9 +720,14 @@ private struct LiveTranscriptPane: View {
                             .padding(.horizontal, 14).padding(.top, 10)
                         }
                         ForEach(liveSession.turns) { turn in
-                            TranscriptTurnRow(turn: turn) { label, name in
-                                liveSession.renameSpeaker(label, to: name)
-                            }
+                            TranscriptTurnRow(
+                                turn: turn,
+                                onRename: { label, name in
+                                    liveSession.renameSpeaker(label, to: name)
+                                },
+                                onFixTerm: { wrote, shouldBe in
+                                    liveSession.fixMisheardTerm(wrote: wrote, canonical: shouldBe)
+                                })
                                 .padding(.horizontal, 14).padding(.vertical, 9)
                             Divider().opacity(0.35).padding(.leading, 14)
                         }
@@ -970,8 +1023,6 @@ struct SidebarView: View {
                     VStack(alignment: .leading, spacing: 14) {
                         PlannedQuestionsSection()
                         Divider()
-                        VocabularySection()
-                        Divider()
                         FeedbackSection(simulation: simulation, liveSession: liveSession,
                                         settings: settings, ollamaManager: ollamaManager)
                         Divider()
@@ -1232,55 +1283,6 @@ struct PlannedQuestionsSection: View {
                 Label("Questions to Ask", systemImage: "checklist")
                     .font(.subheadline.weight(.semibold))
                 HelpDot(text: "Questions to cover on your next call — discovery questions, deal qualifiers, whatever matters. The coach tracks them live, then clears the list when the call ends.")
-                if count > 0 {
-                    Spacer()
-                    Text("\(count)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Vocabulary (custom terms)
-
-/// Advanced row: product and company names the transcriber should get
-/// right. Terms bias recognition where the engine supports it and repair
-/// its output where it doesn't (see VocabularyNormalizer). Persists across
-/// sessions — unlike questions, vocabulary isn't per-meeting.
-struct VocabularySection: View {
-    @AppStorage("customVocabularyText") private var vocabularyText = ""
-    @State private var isExpanded = false
-
-    private var count: Int {
-        vocabularyText.components(separatedBy: .newlines)
-            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.count
-    }
-
-    var body: some View {
-        DisclosureGroup(isExpanded: $isExpanded) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("One term per line. If the transcriber keeps mishearing a term, list what it writes after \"=\" — e.g. UGC = utc, u g c — and it's fixed on every future transcript.")
-                    .font(.caption2).foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
-                TextEditor(text: $vocabularyText)
-                    .font(.caption)
-                    .frame(minHeight: 70, maxHeight: 140)
-                    .scrollContentBackground(.hidden)
-                    .padding(6)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(.background))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(Color.secondary.opacity(0.2))
-                    )
-            }
-            .padding(.top, 8)
-        } label: {
-            HStack(spacing: 6) {
-                Label("Vocabulary", systemImage: "character.book.closed")
-                    .font(.subheadline.weight(.semibold))
-                HelpDot(text: "Product names, company names, jargon — terms the transcriber should never garble. Applied from the next session on.")
                 if count > 0 {
                     Spacer()
                     Text("\(count)")

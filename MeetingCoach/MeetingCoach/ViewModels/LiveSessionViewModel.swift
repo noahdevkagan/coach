@@ -227,8 +227,8 @@ final class LiveSessionViewModel {
         let manager = AudioCaptureManager()
         // One vocabulary list serves both engines: canonical terms bias
         // SFSpeech recognition; the normalizer repairs the output where the
-        // engine takes no hints (Parakeet). Custom terms live under
-        // Advanced → Vocabulary.
+        // engine takes no hints (Parakeet). Custom terms come from the
+        // transcript's "Fix a misheard term" flow and Settings → General.
         let vocabulary = VocabularyNormalizer(
             customText: UserDefaults.standard.string(forKey: "customVocabularyText") ?? "")
         manager.contextualHints = context.vocabularyHints + vocabulary.canonicals
@@ -591,6 +591,51 @@ final class LiveSessionViewModel {
     /// Accept an LLM name suggestion — routes through the full rename path.
     func confirmNameSuggestion(_ suggestion: SpeakerNameSuggestion) {
         renameSpeaker(suggestion.label, to: suggestion.name)
+    }
+
+    /// "Fix a misheard term" from a transcript row: persist the correction
+    /// into the custom vocabulary (every future session repairs it), rewrite
+    /// the current transcript in place so the fix lands instantly, and hand
+    /// the running capture pipeline the updated normalizer so the rest of
+    /// THIS call comes out right too.
+    func fixMisheardTerm(wrote rawWrote: String, canonical rawCanonical: String) {
+        let wrote = rawWrote.trimmingCharacters(in: .whitespaces)
+            .replacingOccurrences(of: "\n", with: " ")
+        // "=" is the vocabulary line separator — it can't appear in a term.
+        let canonical = rawCanonical.trimmingCharacters(in: .whitespaces)
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "=", with: " ")
+            .trimmingCharacters(in: .whitespaces)
+        guard !wrote.isEmpty, !canonical.isEmpty, wrote.lowercased() != canonical.lowercased()
+        else { return }
+
+        let key = "customVocabularyText"
+        let existing = UserDefaults.standard.string(forKey: key) ?? ""
+        let line = "\(canonical) = \(wrote)"
+        UserDefaults.standard.set(existing.isEmpty ? line : existing + "\n" + line, forKey: key)
+
+        let fixer = VocabularyNormalizer(customText: line)
+        var changed = false
+        for i in utterances.indices {
+            let fixed = fixer.normalize(utterances[i].text)
+            if fixed != utterances[i].text {
+                utterances[i] = Utterance(t: utterances[i].t, speaker: utterances[i].speaker,
+                                          text: fixed, endT: utterances[i].endT)
+                changed = true
+            }
+        }
+        if changed {
+            var builder = TurnBuilder()
+            builder.rebuild(utterances)
+            turns = builder.turns
+            if var engine = signalEngine {
+                engine.invalidateTurnCache()
+                signalEngine = engine
+            }
+        }
+        captureManager?.vocabulary = VocabularyNormalizer(
+            customText: UserDefaults.standard.string(forKey: key) ?? "")
+        mclog("[VM] Vocabulary fix: \"\(wrote)\" → \"\(canonical)\" (rewrote \(changed ? "transcript" : "nothing"))")
     }
 
     func dismissNameSuggestion(_ suggestion: SpeakerNameSuggestion) {
