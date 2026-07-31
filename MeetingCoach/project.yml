@@ -80,6 +80,20 @@ targets:
           fi
         outputFiles:
           - "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/meetingcoach-mcp"
+      # Stamp Debug builds with the git commit they were built from. The
+      # MARKETING_VERSION here is a placeholder (CI stamps the real one at
+      # release), so the footer read "v0.1.0 · dev" and every dev build
+      # looked ancient. Runs before Xcode's CodeSign step, so the seal
+      # covers the edited plist.
+      - name: "Stamp dev build commit"
+        script: |
+          if [ "${CONFIGURATION}" = "Debug" ]; then
+            SHA=$(git -C "${SRCROOT}" rev-parse --short HEAD 2>/dev/null || echo local)
+            PLIST="${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
+            /usr/libexec/PlistBuddy -c "Delete :MCBuildCommit" "$PLIST" 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Add :MCBuildCommit string ${SHA}" "$PLIST"
+          fi
+        basedOnDependencyAnalysis: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.coach.MeetingCoach

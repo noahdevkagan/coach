@@ -1005,10 +1005,14 @@ struct SidebarView: View {
     }
 
     static var versionLabel: String {
-        let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
         #if DEBUG
-        return "v\(v) · dev"
+        // Dev builds carry a placeholder MARKETING_VERSION (CI stamps the
+        // real one only at release), which made every dev build read as
+        // ancient. Show the commit instead (stamped by project.yml).
+        let sha = Bundle.main.object(forInfoDictionaryKey: "MCBuildCommit") as? String
+        return "dev @ \(sha ?? "local") · unreleased"
         #else
+        let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
         return "v\(v)"
         #endif
     }
