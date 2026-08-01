@@ -26,7 +26,18 @@ The durable "why" behind choices goes in `decisions.md`, not here.
   I ship it"): `bench/scorecard.py` — transcription accuracy + Them turn
   shape + nudge quality, each vs the previous record — prints in push-gate
   stage 4 (recording ASR scores per push) and renders into the CI gate's
-  job summary on every release run. Baseline record seeded.
+  job summary on every release run. Baseline record seeded; first Mac
+  gate run passed @ e13cde4 (synthetic-hard WER baseline 4.2%).
+- Vocabulary UX round 2 (Noah's live-testing feedback, verified on his
+  Mac @ 0993023): click a misheard word in the transcript → popover with
+  the word pre-filled → type the correction (invisible mcfix:// links;
+  right-click for phrases); term list is editable wrote→corrected rows in
+  Settings → General; transcript rows are Equatable so long sessions stay
+  smooth; dev builds stamp their git commit into the footer ("dev @ sha",
+  needed ENABLE_USER_SCRIPT_SANDBOXING=NO on Xcode 26); Credits.rtf
+  thank-you (Nick Christensen) in the About panel. NOTE: tests/session
+  case 6 (fixMisheardTerm) has not executed yet — the next gate run on a
+  Mac covers it.
 - ASR trend fixture (merged to main from
   `claude/meeting-coach-test-audio-le18f3`): `tests/asr/hard.sh` runs a
   ~2-minute scripted two-speaker "hard" conversation through the real
