@@ -147,3 +147,21 @@ jobs:
             -f message="Appcast for v$VERSION" \
             -f content="$(base64 -i dist/appcast.xml)" \
             ${SHA:+-f sha="$SHA"}
+
+      # The site (getmeetingcoach.com, including the changelog page that
+      # build-changelog.py keeps in lockstep with CHANGELOG.md) deploys
+      # automatically with each release. Skips with a note — never fails
+      # the release — when the Cloudflare secrets aren't configured:
+      # add CLOUDFLARE_API_TOKEN (Pages:Edit) and CLOUDFLARE_ACCOUNT_ID
+      # under Settings → Secrets and variables → Actions.
+      - name: Deploy site (changelog page)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "CLOUDFLARE_API_TOKEN secret not set — skipping site deploy."
+            echo "Manual fallback: npx wrangler pages deploy docs --project-name meetcoach"
+            exit 0
+          fi
+          npx -y wrangler pages deploy docs --project-name meetcoach
