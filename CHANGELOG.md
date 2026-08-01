@@ -9,6 +9,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.10.0 — 2026-07-31
+
 - Coaching now stops when your meeting ends, even with a TV or podcast playing nearby — background audio no longer keeps the session (and the transcript) running past the call
 - The other side's words now read as full sentences: transcripts save whole thoughts with one timestamp each, instead of shredded 1-3 word lines
 - Stray "Siri" / "Hey Siri" pickups from a phone or HomePod in the room no longer land in your transcript
