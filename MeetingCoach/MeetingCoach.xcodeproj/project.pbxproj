@@ -82,11 +82,13 @@
 		CE29BF1EE8DA68A7A94EA4E2 /* AppSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F05A5F9043EE4F2C14B8D5 /* AppSupport.swift */; };
 		CFFBB860B8F9AB35E34F7AEA /* StackedQuestionsSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC33A03F287BAB0CDBCFC8FD /* StackedQuestionsSignal.swift */; };
 		D18015A9C5944D5D37845BC9 /* PromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78FD64A28567F115FD3944A4 /* PromptBuilder.swift */; };
+		D3610C9D3F85F755820E10C3 /* TranscriptCleanup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16524492B9725FF3E217054B /* TranscriptCleanup.swift */; };
 		D77C09AA85DC5397A7D1B114 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 2ADB653C496B73D902CC4DFD /* Sparkle */; };
 		DC339E0767F4891CCD3BAF02 /* ReferralInvites.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947B36BFD468E1C108A1381C /* ReferralInvites.swift */; };
 		E50CF069AE16583B2665E1BE /* AppSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F05A5F9043EE4F2C14B8D5 /* AppSupport.swift */; };
 		E64A1CF9A596EDF1578EA6E0 /* InterruptionSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88673BD63F55A97082E19D05 /* InterruptionSignal.swift */; };
 		E7FFC6FB0B3CCA7EA40EEFD0 /* MeetingReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 656450659BC1ACF5F68F709C /* MeetingReviewView.swift */; };
+		EB6A5F6E68FD130E49B7DEC9 /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = 06F4E4B9E736297E660D19A4 /* Credits.rtf */; };
 		ED79D15397793472C866F5FE /* TalkCharts.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B794F3FFF35F998081042B /* TalkCharts.swift */; };
 		F1CADB35E72BF742F5571672 /* Yams in Frameworks */ = {isa = PBXBuildFile; productRef = F03462EBA44605723460996E /* Yams */; };
 		F285F58F0AEDB1C24B9ACF59 /* YesManSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AA57261742100AD1915A9F4 /* YesManSignal.swift */; };
@@ -111,12 +113,14 @@
 		0039986CEDE49DF43FF2342E /* MeetingWindowHeuristics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingWindowHeuristics.swift; sourceTree = "<group>"; };
 		02B06A3C2CEC6987AF46994E /* SpeakerNameInference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeakerNameInference.swift; sourceTree = "<group>"; };
 		0302009AC6EADB2189C6E775 /* PreCallContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreCallContext.swift; sourceTree = "<group>"; };
+		06F4E4B9E736297E660D19A4 /* Credits.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = Credits.rtf; sourceTree = "<group>"; };
 		07506FC59991300DD4578DB0 /* SemanticCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticCoach.swift; sourceTree = "<group>"; };
 		0A77874939901EA598BC1814 /* RepetitionLoopSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepetitionLoopSignal.swift; sourceTree = "<group>"; };
 		0AA57261742100AD1915A9F4 /* YesManSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YesManSignal.swift; sourceTree = "<group>"; };
 		0B4B0AF697805859194CB8FB /* ProgressDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressDashboardView.swift; sourceTree = "<group>"; };
 		0F81DB4510A2BF8EF10A65C7 /* TuningTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TuningTypes.swift; sourceTree = "<group>"; };
 		14D8000DD43FC31EDFC5A989 /* bird_chirp.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = bird_chirp.wav; sourceTree = "<group>"; };
+		16524492B9725FF3E217054B /* TranscriptCleanup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptCleanup.swift; sourceTree = "<group>"; };
 		169665A106EBBC6CCDA1F018 /* AudioCaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCaptureManager.swift; sourceTree = "<group>"; };
 		1AD95CCA3F1885640ECB50DE /* demo_meeting.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = demo_meeting.txt; sourceTree = "<group>"; };
 		1E8658BF35A80CECD00D0FBE /* VoiceProfileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceProfileStore.swift; sourceTree = "<group>"; };
@@ -259,6 +263,7 @@
 			children = (
 				99FF311B3C3C0B29ECF0C296 /* Assets.xcassets */,
 				14D8000DD43FC31EDFC5A989 /* bird_chirp.wav */,
+				06F4E4B9E736297E660D19A4 /* Credits.rtf */,
 				23D1C856F0DF834FA86ED8B8 /* default_rubric.yaml */,
 				1AD95CCA3F1885640ECB50DE /* demo_meeting.txt */,
 				59A325315611300C1A9E2C53 /* demo_nudges.json */,
@@ -292,6 +297,7 @@
 				02B06A3C2CEC6987AF46994E /* SpeakerNameInference.swift */,
 				B97FD941E80BA5417049F9CE /* TalkStats.swift */,
 				9FFBE4A37EC6EEE8D7A7516D /* TranscriptAnalysis.swift */,
+				16524492B9725FF3E217054B /* TranscriptCleanup.swift */,
 				CA1F99166785B46F89B17133 /* TranscriptParser.swift */,
 				0F81DB4510A2BF8EF10A65C7 /* TuningTypes.swift */,
 				1E8658BF35A80CECD00D0FBE /* VoiceProfileStore.swift */,
@@ -411,6 +417,7 @@
 				0874089BE662ED1DAB699DEB /* Resources */,
 				7DC22CA249D6D735BC064D04 /* Frameworks */,
 				1AB0B55174E14AD2592325A2 /* Embed MCP helper */,
+				FC022119AEFF1BFA9E8F1191 /* Stamp dev build commit */,
 			);
 			buildRules = (
 			);
@@ -477,6 +484,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				98104496237EA3D2AEC65205 /* Assets.xcassets in Resources */,
+				EB6A5F6E68FD130E49B7DEC9 /* Credits.rtf in Resources */,
 				602166D3A6873647DC911FDE /* bird_chirp.wav in Resources */,
 				1A069F944F7C5D988C7FADC0 /* default_rubric.yaml in Resources */,
 				C0B318FF6582287A051C4103 /* demo_meeting.txt in Resources */,
@@ -524,6 +532,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "mkdir -p \"${SRCROOT}/MeetingCoach/Resources/ollama\"\n";
+		};
+		FC022119AEFF1BFA9E8F1191 /* Stamp dev build commit */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Stamp dev build commit";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${CONFIGURATION}\" = \"Debug\" ]; then\n  SHA=$(git -C \"${SRCROOT}\" rev-parse --short HEAD 2>/dev/null || echo local)\n  PLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n  /usr/libexec/PlistBuddy -c \"Delete :MCBuildCommit\" \"$PLIST\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Add :MCBuildCommit string ${SHA}\" \"$PLIST\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -608,6 +635,7 @@
 				0562C24581425CB3865E1A8F /* TimeCheckSignal.swift in Sources */,
 				4C4CE6FBC1FF6641932BEC3B /* TrainingExample.swift in Sources */,
 				A1D971DC2241B73DC1713D26 /* TranscriptAnalysis.swift in Sources */,
+				D3610C9D3F85F755820E10C3 /* TranscriptCleanup.swift in Sources */,
 				FBBB2B4DB3372B0DD8A7CEE8 /* TranscriptParser.swift in Sources */,
 				97BBFAF4DAC944901C41F097 /* TranscriptSearch.swift in Sources */,
 				B1EEF82CF42D4472D319BA92 /* Trigger.swift in Sources */,
@@ -643,6 +671,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MeetingCoach/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Meeting Coach";
@@ -791,6 +820,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MeetingCoach/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Meeting Coach";
@@ -816,6 +846,7 @@
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_TEAM = "";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -835,6 +866,7 @@
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_TEAM = "";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

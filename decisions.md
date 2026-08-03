@@ -113,3 +113,14 @@ be hard, so its absolute WER is meaningless — only movement across
 commits matters. Same generated audio every run means any movement is
 the code, unlike the real-meeting corpus where Zoom's own errors and new
 meetings confound the number.
+
+## 2026-08-03 — Launch at login: default on, register release builds only
+Noah's ask: the app should be running again after a restart. Toggle in
+Settings → General → Startup, backed by SMAppService.mainApp; default
+on, applied once when the pref is first unset (existing users get it on
+their first launch after updating), then only on explicit toggle — never
+re-applied every launch, so turning the item off in System Settings →
+Login Items is respected instead of fought. Registration is compiled out
+of Debug builds: dev and installed app share bundle ID + UserDefaults,
+so a dev build registering itself would point the login item at the
+Debug build path and hijack the installed app's registration.

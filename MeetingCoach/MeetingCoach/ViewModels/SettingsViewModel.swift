@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import ServiceManagement
 
 @MainActor @Observable
 final class SettingsViewModel {
@@ -31,6 +32,15 @@ final class SettingsViewModel {
         didSet { UserDefaults.standard.set(defaultMeetingMinutes, forKey: "defaultMeetingMinutes") }
     }
 
+    /// Open MeetingCoach automatically at login. Default on — meeting
+    /// detection only helps if the app is running after a restart.
+    var launchAtLogin: Bool {
+        didSet {
+            UserDefaults.standard.set(launchAtLogin, forKey: "launchAtLogin")
+            Self.applyLaunchAtLogin(launchAtLogin)
+        }
+    }
+
     // Download state
     var downloadingModel: String?
     var downloadProgress: Double = 0
@@ -43,6 +53,8 @@ final class SettingsViewModel {
         self.semanticCoachEnabled = UserDefaults.standard.object(forKey: "semanticCoachEnabled") as? Bool ?? true
         self.showOverlayClock = UserDefaults.standard.object(forKey: "showOverlayClock") as? Bool ?? true
         self.defaultMeetingMinutes = UserDefaults.standard.object(forKey: "defaultMeetingMinutes") as? Int ?? 0
+        let storedLaunchAtLogin = UserDefaults.standard.object(forKey: "launchAtLogin") as? Bool
+        self.launchAtLogin = storedLaunchAtLogin ?? true
         self.selectedModel = UserDefaults.standard.string(forKey: "selectedModel")
             ?? "qwen3.5:9b"
         self.rubricPath = UserDefaults.standard.string(forKey: "rubricPath") ?? ""
@@ -59,6 +71,39 @@ final class SettingsViewModel {
                 AppSupport.backupActiveRubric(label: label)
             }
         }
+        // First run (or first launch after updating to this version):
+        // register the login item so the default actually takes effect.
+        // After that, only an explicit toggle re-applies — if the user
+        // turns the item off in System Settings > Login Items instead of
+        // here, we don't re-register behind their back on every launch.
+        if storedLaunchAtLogin == nil {
+            UserDefaults.standard.set(true, forKey: "launchAtLogin")
+            Self.applyLaunchAtLogin(true)
+        }
+    }
+
+    /// Register/unregister the app as a login item. Release builds only:
+    /// a Debug build registering `SMAppService.mainApp` would point the
+    /// login item at the dev build's path — and since dev and installed
+    /// builds share the bundle ID (and UserDefaults), it would hijack the
+    /// installed app's registration.
+    static func applyLaunchAtLogin(_ enabled: Bool) {
+        #if DEBUG
+        mclog("[Settings] launchAtLogin=\(enabled) (debug build — not touching the login item)")
+        #else
+        let service = SMAppService.mainApp
+        do {
+            if enabled {
+                guard service.status != .enabled else { return }
+                try service.register()
+            } else {
+                guard service.status == .enabled || service.status == .requiresApproval else { return }
+                try service.unregister()
+            }
+        } catch {
+            mclog("[Settings] Launch-at-login \(enabled ? "register" : "unregister") failed: \(error.localizedDescription)")
+        }
+        #endif
     }
 
     func save() {

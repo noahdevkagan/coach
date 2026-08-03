@@ -35,6 +35,13 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
+            Section("Startup") {
+                Toggle("Start MeetingCoach at login", isOn: $settings.launchAtLogin)
+                Text("Opens MeetingCoach automatically after a restart or log-in, so meeting detection is ready before your first call. Also manageable under System Settings \u{2192} General \u{2192} Login Items.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Transcripts") {
                 LabeledContent("Saved to") {
                     Text(displayPath)

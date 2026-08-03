@@ -9,6 +9,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- MeetingCoach now starts automatically when you log in (so it's ready after a restart) — turn it off any time in Settings → General → Startup
+
 ## 0.10.0 — 2026-07-31
 
 - Coaching now stops when your meeting ends, even with a TV or podcast playing nearby — background audio no longer keeps the session (and the transcript) running past the call
