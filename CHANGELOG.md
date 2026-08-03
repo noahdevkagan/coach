@@ -9,6 +9,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.10.1 — 2026-08-03
+
 - MeetingCoach now starts automatically when you log in (so it's ready after a restart) — turn it off any time in Settings → General → Startup
 
 ## 0.10.0 — 2026-07-31
