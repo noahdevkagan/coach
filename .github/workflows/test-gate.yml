@@ -42,9 +42,25 @@ jobs:
           xcodebuild -project MeetingCoach.xcodeproj -scheme MeetingCoach \
             -configuration Debug -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            build > build.log 2>&1 || { grep -E "error" build.log | head -20; exit 1; }
+            build > build.log 2>&1 || {
+              # Real diagnostics first ("error:" with context), then the tail —
+              # a bare "error" grep matches compile-command flags and drowns
+              # the actual failure (seen 2026-08-04).
+              grep -E "(error|fatal error): " build.log | head -40
+              echo "--- last 60 lines of build.log ---"
+              tail -60 build.log
+              exit 1
+            }
           grep -m1 "BUILD SUCCEEDED" build.log
           test -x build/Build/Products/Debug/MeetingCoach.app/Contents/MacOS/MeetingCoach
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: MeetingCoach/build.log
+          if-no-files-found: ignore
 
       # The real-time ASR transcript + echo suites are NOT run here: on
       # virtualized CI runners Parakeet underruns and scores ~35% WER vs the
