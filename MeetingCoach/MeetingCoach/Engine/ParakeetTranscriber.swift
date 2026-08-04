@@ -76,6 +76,10 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
     private var tickTask: Task<Void, Never>?
     private let converter = AudioConverter()
     private var lastPartial = ""
+    /// Voiced audio arrived after the snapshot behind `lastPartial` — when
+    /// false at commit time, `lastPartial` already covers the window and the
+    /// commit-time re-transcription can be skipped entirely.
+    private var voicedSinceLastPartial = false
 
     private let voiceFloor: Float
     private let commitSilence: TimeInterval
@@ -99,9 +103,12 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
         lock.lock()
         running = true
         lock.unlock()
+        // 1s tick: every partial pass costs a fixed 15s-padded encoder run
+        // (FluidAudio pads short windows), so cadence is the direct CPU
+        // knob. 700ms → 1s cut inference ~30% with no visible partial lag.
         tickTask = Task.detached(priority: .userInitiated) { [weak self] in
             while let self, self.isRunning {
-                try? await Task.sleep(for: .milliseconds(700))
+                try? await Task.sleep(for: .seconds(1))
                 await self.tick()
             }
         }
@@ -135,6 +142,14 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
                 chunkStartedAt = Date().addingTimeInterval(-Double(converted.count) / 16_000)
             }
             lastVoiceAt = Date()
+            // Only VOICED audio marks the window dirty. Silent buffers keep
+            // appending (they belong in the final transcription) but must not
+            // trigger a re-transcribe: each pass costs a full 15s-padded
+            // encoder run no matter how little is pending, and the trailing
+            // commitSilence gap alone was burning ~3 wasted passes per
+            // utterance on the system-audio channel.
+            newAudioSinceTick = true
+            voicedSinceLastPartial = true
         }
         samples.append(contentsOf: converted)
         if chunkStartedAt == nil {
@@ -143,8 +158,6 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
             if samples.count > preRollSamples {
                 samples.removeFirst(samples.count - preRollSamples)
             }
-        } else {
-            newAudioSinceTick = true
         }
         lock.unlock()
     }
@@ -181,6 +194,10 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
         } else if hasNew {
             let snapshot = withLock {
                 newAudioSinceTick = false
+                // Cleared at snapshot time, not after the (slow) transcribe:
+                // voice arriving mid-inference re-marks the flag, so a commit
+                // never reuses a partial that misses audio.
+                voicedSinceLastPartial = false
                 return samples
             }
             guard let text = await ParakeetEngine.shared.transcribe(snapshot) else { return }
@@ -206,26 +223,38 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
     }
 
     private func commit(force: Bool) async {
-        let (snapshot, started, ended): ([Float], Date?, Date?) = withLock {
-            guard force || chunkStartedAt != nil else { return ([], nil, nil) }
+        let (snapshot, started, ended, reusable): ([Float], Date?, Date?, Bool) = withLock {
+            guard force || chunkStartedAt != nil else { return ([], nil, nil, false) }
             let snap = samples
             let s = chunkStartedAt
             let e = lastVoiceAt
+            let r = !voicedSinceLastPartial
             samples.removeAll(keepingCapacity: true)
             chunkStartedAt = nil
             lastVoiceAt = nil
             newAudioSinceTick = false
-            return (snap, s, e)
+            voicedSinceLastPartial = false
+            return (snap, s, e, r)
         }
         guard !snapshot.isEmpty else { return }
 
+        let priorPartial = lastPartial
         lastPartial = ""
         onPartial?("")
 
         // Voice must have been detected: a forced flush of pre-roll silence
         // makes Parakeet hallucinate short filler words ("Okay.").
         guard snapshot.count > 3_200, started != nil else { return }
-        guard let text = await ParakeetEngine.shared.transcribe(snapshot) else { return }
+        let text: String
+        if reusable, !priorPartial.isEmpty {
+            // No voiced audio since the last partial — the window is what the
+            // partial already transcribed, so skip the second full pass. On a
+            // typical call this halves commit-path inference.
+            text = priorPartial
+        } else {
+            guard let fresh = await ParakeetEngine.shared.transcribe(snapshot) else { return }
+            text = fresh
+        }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 

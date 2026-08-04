@@ -5,7 +5,51 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-08-03)
+## Current state (2026-08-04) — Batch A in progress (Noah's usage feedback)
+
+v0.11.1 shipped earlier today (row-binding crash fix + vocab save
+feedback; see decisions.md for the CI toolchain lesson). Now executing
+"Batch A" from Noah's four-part feedback (CPU, overlay, session names,
+detection). Calendar/EventKit integration (pre-meeting prompt, exact
+event titles, join button) is explicitly deferred — Noah chose fixes
+only. Plan, in commit order:
+
+1. **CPU/engine ordering bug** (`AudioCaptureManager.start()`): system
+   audio pipeline is built BEFORE `usingParakeet` is set, so the "Them"
+   channel always runs SFSpeech even with Parakeet loaded (two engines
+   every meeting; also the 0.10.0 far-side turn-shape params silently
+   never applied). Fix: select engine before `startSystemAudio()`.
+2. **Parakeet tick waste** (`ParakeetTranscriber.swift`): skips —
+   don't re-transcribe when no new samples arrived; reuse last
+   hypothesis at commit when unchanged. (Full streaming API move is
+   out of scope.)
+3. **Detection poll while live** (`MeetingDetectionService`): 2s HAL +
+   CGWindowList + runningApps scans continue during sessions; slow the
+   poll to ~6s while live (end-detection tolerance is fine).
+4. **Overlay** (`CoachingOverlayPanel` + `ContentView`): persist
+   dragged frame (UserDefaults), stop `repositionToActiveScreen`
+   re-snapping when a saved/dragged position exists, closing sticks for
+   the rest of the session (nudges stop re-asserting), new master
+   Settings toggle "Show coaching overlay" (nudges still land in the
+   main-window rail).
+5. **Session names from meeting window titles**: detection already
+   reads window titles (`meetingWindowSnapshot`) — capture a cleaned
+   title (strip "Meet – ", browser suffixes; ignore generic "Zoom
+   Meeting"/meet codes) at session start, save as `**Title:**` with
+   precedence window-title > pre-call-derived > word-frequency
+   heuristic. Also fix: clearing a rename gets clobbered by
+   `reloadRecent()` re-writing the heuristic title.
+6. **Search matches titles** (`TranscriptSearch.search` +
+   sidebar list): title hits surface sessions even when the words were
+   never spoken; sidebar list filters by query.
+7. **Pill wording** (`MeetingPromptPanel.swift:106/116`): drop the
+   repetitive "& open Meeting Coach" second line.
+8. **Failed-start re-prompt** (`MeetingDetectionService` state
+   machine): a start that dies <15s parks the detector in `.prompted`
+   until the mic is released — meaning no pill for the rest of that
+   meeting. Re-arm instead.
+
+## Previous state (2026-08-03)
 
 - **v0.11.0 SHIPPED** (tag → CI → DMG + appcast verified live): onboarding
   checklist with zero-click model downloads + real progress, Granola CSV

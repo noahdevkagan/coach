@@ -106,17 +106,16 @@ struct MeetingPromptView: View {
                         Text("Start Coaching")
                             .font(.callout.weight(.semibold))
                             .fixedSize()
+                        // No subtitle outside a countdown: "& open Meeting
+                        // Coach" restated the app's own name back at the
+                        // user (Noah: "repetitive") — opening the window is
+                        // implied by starting.
                         if let remaining = detection.autoStartCountdown {
                             Text("auto-starts in \(remaining)s")
                                 .font(.caption2)
                                 .foregroundStyle(.green)
                                 .fixedSize()
                                 .contentTransition(.numericText(countsDown: true))
-                        } else {
-                            Text("& open Meeting Coach")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .fixedSize()
                         }
                     }
                     .padding(.leading, 10)

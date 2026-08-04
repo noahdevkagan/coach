@@ -138,8 +138,19 @@ final class MeetingDetectionService {
         windowAbsentStreak = 0
         liveMicHolderIsBrowser = nil
         endArbiter.reset()
+        sessionStartedAt = Date()
+        detectedMeetingTitle = nil
         detector.sessionStarted()
     }
+
+    /// When a session start reached the detector; a session that dies within
+    /// seconds of this was a failed start, not a finished meeting.
+    @ObservationIgnored private var sessionStartedAt: Date?
+
+    /// Human meeting name gleaned from the live meeting's window title
+    /// (Meet tab name, Zoom topic). Captured once per session; consumed by
+    /// session save as the preferred title. Reset on session start.
+    @ObservationIgnored private(set) var detectedMeetingTitle: String?
 
     // MARK: - Auto-start countdown
 
@@ -173,7 +184,14 @@ final class MeetingDetectionService {
         pollTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
                 self?.tick()
-                try? await Task.sleep(for: .seconds(2))
+                // Each tick costs a CoreAudio process enumeration, two
+                // runningApplications scans, and (while live) an all-Spaces
+                // CGWindowList — real CPU during the meeting we're coaching.
+                // While a session is live the tick only watches for the
+                // meeting END, where 6s latency is imperceptible; 2s stays
+                // for prompt latency when idle.
+                let interval: Duration = (self?.isSessionLive() ?? false) ? .seconds(6) : .seconds(2)
+                try? await Task.sleep(for: interval)
                 if self == nil { return }
             }
         }
@@ -199,7 +217,11 @@ final class MeetingDetectionService {
             meetingDetected = false
             // Starts that didn't route through us (main window button)
             // still put the detector in live mode.
-            if !detector.isLive { detector.sessionStarted() }
+            if !detector.isLive {
+                sessionStartedAt = Date()
+                detectedMeetingTitle = nil
+                detector.sessionStarted()
+            }
             // Window evidence only matters while live — skip CGWindowList
             // entirely in every other state.
             signals.meetingWindowPresent = sampleWindowEvidence(signals: rawSignals,
@@ -233,9 +255,21 @@ final class MeetingDetectionService {
             }
             return
         }
-        // The session stopped without the detector hearing about it —
-        // suppress re-prompting until this meeting's signals drop.
-        if detector.isLive { detector.sessionEnded() }
+        // The session stopped without the detector hearing about it.
+        if detector.isLive {
+            if let startedAt = sessionStartedAt, Date().timeIntervalSince(startedAt) < 15 {
+                // Died within seconds of starting — a failed start (mic
+                // denied, engine unavailable), not a finished meeting.
+                // .prompted would suppress the pill until the mic releases,
+                // i.e. for the REST of the meeting, with no visible error.
+                // Rearm instead so the prompt comes back after the debounce.
+                mclog("[Detect] Session died right after start — rearming prompt")
+                detector.reset()
+            } else {
+                // Suppress re-prompting until this meeting's signals drop.
+                detector.sessionEnded()
+            }
+        }
         windowAbsentStreak = 0
         liveMicHolderIsBrowser = nil
 
@@ -358,8 +392,18 @@ final class MeetingDetectionService {
             windowAbsentStreak = 0
             return nil
         }
+        let windows = Self.meetingWindowSnapshot()
+        // First sighting of a nameable meeting window becomes the session
+        // title candidate ("Weekly Sync" from the Meet tab) — real names
+        // beat the transcript word-frequency titler. First wins: the tab
+        // title degrades once the user tabs away mid-call.
+        if detectedMeetingTitle == nil,
+           let title = MeetingWindowHeuristics.meetingTitle(from: windows) {
+            detectedMeetingTitle = title
+            mclog("[Detect] Meeting title from window: \(title)")
+        }
         let raw = MeetingWindowHeuristics.evaluate(
-            windows: Self.meetingWindowSnapshot(),
+            windows: windows,
             zoomRunning: Self.appRunning(prefix: "us.zoom.xos"),
             slackRunning: Self.appRunning(prefix: "com.tinyspeck.slackmacgap"),
             micHolderIsBrowser: liveMicHolderIsBrowser ?? true)

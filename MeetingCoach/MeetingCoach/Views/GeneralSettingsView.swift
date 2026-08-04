@@ -99,7 +99,12 @@ struct GeneralSettingsView: View {
             }
 
             Section("Coaching overlay") {
+                Toggle("Show floating overlay during meetings", isOn: $settings.showCoachOverlay)
+                Text("The small \u{201C}Listening\u{201D} pill that floats above your call. Turn it off and nudges appear only in the Meeting Coach window. Wherever you drag it, it stays.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Toggle("Show session timer", isOn: $settings.showOverlayClock)
+                    .disabled(!settings.showCoachOverlay)
                 Text("A small clock next to \u{201C}Listening\u{201D} in the floating overlay, so you always know how long the meeting has run.")
                     .font(.caption)
                     .foregroundStyle(.secondary)

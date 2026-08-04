@@ -37,6 +37,11 @@ final class LiveSessionViewModel {
     var elapsedTime: TimeInterval = 0
     var preCallContext = PreCallContext()
 
+    /// Supplies the live meeting's real name at save time (wired to the
+    /// detection service's window-title capture by the App; nil-returning
+    /// when nothing nameable was seen).
+    @ObservationIgnored var meetingTitleProvider: (() -> String?)?
+
     /// End-of-meeting review (structured — both the deterministic and the
     /// LLM path produce the same MeetingReview shape).
     var meetingReview: MeetingReview?
@@ -1129,11 +1134,12 @@ final class LiveSessionViewModel {
 
         var lines: [String] = []
         lines.append("# Meeting Coach Session — \(formatter.string(from: Date()))")
-        // Human title (person · subject) derived from pre-call context —
-        // the filename stays date-based (it's the sort key and is parsed
-        // for the session date); the title lives in the header and is
-        // user-editable later via the sessions list.
-        if let title = Self.sessionTitle(context: preCallContext) {
+        // Title precedence: the real meeting name (from the meeting's
+        // window title, via detection) beats the pre-call-derived
+        // "person · subject", which beats nothing (the sidebar's transcript
+        // heuristic fills that in later). Filename stays date-based — it's
+        // the sort key and is parsed for the session date.
+        if let title = meetingTitleProvider?() ?? Self.sessionTitle(context: preCallContext) {
             lines.append("**Title:** \(title)")
         }
         lines.append("**Duration:** \(elapsedFormatted)")

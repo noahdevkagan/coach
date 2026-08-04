@@ -223,19 +223,28 @@ enum TranscriptSearch {
         }
     }
 
-    /// Rename a session: write (or, when empty, remove) the Title header
-    /// line. The date-based filename is untouched — it's the sort key and
-    /// is parsed for the session date.
+    /// A Title line exists at all — even an empty one. An empty line is the
+    /// "user cleared the title, show the date" sentinel: removing the line
+    /// instead would make the sidebar's auto-titler re-suggest a topic
+    /// title on the next reload, silently undoing the clear.
+    static func hasTitleLine(in content: String) -> Bool {
+        for line in content.components(separatedBy: "\n").prefix(16) {
+            if line.hasPrefix("**Title:**") { return true }
+            if line.hasPrefix("## ") { break }
+        }
+        return false
+    }
+
+    /// Rename a session: write (or, when cleared, blank out) the Title
+    /// header line. The date-based filename is untouched — it's the sort
+    /// key and is parsed for the session date.
     static func setTitle(_ title: String, for file: URL) {
         guard let content = try? String(contentsOf: file, encoding: .utf8) else { return }
         var lines = content.components(separatedBy: "\n")
         let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
         if let i = lines.firstIndex(where: { $0.hasPrefix("**Title:**") }) {
-            if cleaned.isEmpty {
-                lines.remove(at: i)
-            } else {
-                lines[i] = "**Title:** \(cleaned)"
-            }
+            // Cleared: keep a bare "**Title:**" marker (see hasTitleLine).
+            lines[i] = cleaned.isEmpty ? "**Title:**" : "**Title:** \(cleaned)"
         } else if !cleaned.isEmpty {
             let insertAt = lines.firstIndex(where: { $0.hasPrefix("# ") })
                 .map { lines.index(after: $0) } ?? 0
@@ -261,6 +270,16 @@ enum TranscriptSearch {
             else { continue }
             let sessionTitle = headerTitle(in: content) ?? title(for: file)
             var inSession = 0
+            // A title match surfaces the session even when the words were
+            // never spoken — meeting names ("Cal · tidy & affiliate",
+            // "Weekly Sync") are how people remember sessions, and titles
+            // aren't transcript lines so the loop below can't see them.
+            if sessionTitle.range(of: q, options: [.caseInsensitive, .diacriticInsensitive]) != nil {
+                hits.append(TranscriptHit(file: file, sessionTitle: sessionTitle,
+                                          timestamp: "", speaker: "",
+                                          text: sessionTitle))
+                inSession += 1
+            }
             for rawLine in content.split(separator: "\n") {
                 guard inSession < maxPerSession, hits.count < limit else { break }
                 guard let line = parseTranscriptLine(String(rawLine)),

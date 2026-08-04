@@ -149,6 +149,12 @@ struct MenuBarLabel: View {
                 // Countdown expiry uses the same start path as the pill's
                 // "Start Coaching" button.
                 detection.onAutoStart = { startFromDetection() }
+                // Real meeting names (window titles seen while live) title
+                // the saved session; weak capture — detection outlives any
+                // one session but not the app.
+                liveSession.meetingTitleProvider = { [weak detection] in
+                    detection?.detectedMeetingTitle
+                }
                 // Downloads start at launch, not first use — this label is
                 // the app's only always-alive view, so login/menu-bar-only
                 // launches fetch too. Sequential on purpose: Parakeet

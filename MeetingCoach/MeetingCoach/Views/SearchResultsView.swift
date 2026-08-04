@@ -66,17 +66,25 @@ struct SearchResultsView: View {
                                     .help("Open the saved transcript")
                                 }
                                 ForEach(group.hits) { hit in
-                                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                        Text(hit.timestamp)
-                                            .font(.system(.caption2, design: .monospaced))
+                                    // Timestamp-less hits are title matches
+                                    // (the chat's name, not a spoken line).
+                                    if hit.timestamp.isEmpty {
+                                        Text("Matches the chat name")
+                                            .font(.caption2.italic())
                                             .foregroundStyle(.tertiary)
-                                        Text(hit.speaker)
-                                            .font(.caption2.bold())
-                                            .foregroundStyle(hit.speaker == "You" ? .blue : .purple)
-                                        Text(highlighted(hit.text))
-                                            .font(.callout)
-                                            .textSelection(.enabled)
-                                            .fixedSize(horizontal: false, vertical: true)
+                                    } else {
+                                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                            Text(hit.timestamp)
+                                                .font(.system(.caption2, design: .monospaced))
+                                                .foregroundStyle(.tertiary)
+                                            Text(hit.speaker)
+                                                .font(.caption2.bold())
+                                                .foregroundStyle(hit.speaker == "You" ? .blue : .purple)
+                                            Text(highlighted(hit.text))
+                                                .font(.callout)
+                                                .textSelection(.enabled)
+                                                .fixedSize(horizontal: false, vertical: true)
+                                        }
                                     }
                                 }
                             }

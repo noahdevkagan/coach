@@ -8,6 +8,9 @@ struct ContentView: View {
     @Bindable var settings: SettingsViewModel
     @State private var simulation = SimulationViewModel()
     @State private var overlayPanel: CoachingOverlayPanel?
+    /// The user closed the overlay this session — nudges stop re-asserting
+    /// it until the next session starts.
+    @State private var overlayDismissed = false
     @AppStorage("hasSeenDemo") private var hasSeenDemo = false
     @State private var showWelcome = false
     @State private var showGiveSheet = false
@@ -80,7 +83,12 @@ struct ContentView: View {
             }
         }
         .onChange(of: liveSession.isLive) { _, isLive in
-            if isLive { showOverlay() } else { hideOverlay() }
+            // A new session gets a fresh overlay — a close only ever means
+            // "not this meeting".
+            if isLive { overlayDismissed = false; showOverlay() } else { hideOverlay() }
+        }
+        .onChange(of: settings.showCoachOverlay) { _, on in
+            if !on { hideOverlay() } else if liveSession.isLive { showOverlay() }
         }
         // The viral-loop trigger moment: the user's SECOND real coached
         // meeting just ended — they've seen the value twice, and the ask
@@ -103,11 +111,11 @@ struct ContentView: View {
             selectedSessionURL = nil
         }
         .onChange(of: liveSession.activeNudge?.id) { _, id in
-            // Re-assert the overlay whenever a nudge fires: brings it back if
-            // it was closed mid-meeting (closed-once used to mean gone for
-            // the whole session) and moves it to the screen the user is
-            // actually looking at (fullscreen call on another display).
-            if id != nil, liveSession.isLive { showOverlay() }
+            // Re-assert the overlay whenever a nudge fires — but never
+            // against an explicit close: Noah closed it repeatedly and it
+            // kept coming back. Close now holds for the rest of the
+            // session; nudges still land in the coach rail.
+            if id != nil, liveSession.isLive, !overlayDismissed { showOverlay() }
         }
         .onAppear {
             // The window can open into an already-live session (started from
@@ -118,13 +126,16 @@ struct ContentView: View {
 
     private func toggleOverlay() {
         if overlayPanel?.isVisible == true {
+            overlayDismissed = true
             hideOverlay()
         } else {
+            overlayDismissed = false
             showOverlay()
         }
     }
 
     private func showOverlay() {
+        guard settings.showCoachOverlay else { return }
         if overlayPanel == nil {
             overlayPanel = CoachingOverlayPanel()
         }
@@ -135,12 +146,16 @@ struct ContentView: View {
         // talk meter for the whole session without being rebuilt.
         if !(panel.contentView is NSHostingView<CoachingOverlayView>) {
             let view = CoachingOverlayView(liveSession: liveSession, settings: settings) { [weak panel] in
+                // Close = gone for the rest of this session (the per-nudge
+                // re-show checks the flag); a new session resets it.
+                overlayDismissed = true
                 panel?.orderOut(nil)
             }
             panel.contentView = NSHostingView(rootView: view)
         }
         // Follow the user's attention: position on the screen holding the
-        // frontmost app's window (the call), not wherever init saw last.
+        // frontmost app's window (the call) — unless the user has dragged
+        // the panel somewhere, which wins permanently.
         panel.repositionToActiveScreen()
         panel.orderFront(nil)
     }
@@ -1292,7 +1307,10 @@ private struct SessionsSection: View {
                 if let header = TranscriptSearch.headerTitle(in: content) {
                     return (url: url, title: header)
                 }
-                if let suggested = TranscriptSearch.suggestedTitle(in: content) {
+                // A bare Title line is the user's cleared-title sentinel —
+                // show the date and do NOT re-suggest over it.
+                if !TranscriptSearch.hasTitleLine(in: content),
+                   let suggested = TranscriptSearch.suggestedTitle(in: content) {
                     TranscriptSearch.setTitle(suggested, for: url)
                     return (url: url, title: suggested)
                 }

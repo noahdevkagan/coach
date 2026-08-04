@@ -108,16 +108,13 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         guard !isRunning else { return }
         isRunning = true
 
-        // System audio first — whether it works decides mic configuration
-        // (echo cancellation on, mic speaker label "You" vs "Meeting").
-        do {
-            try await startSystemAudio()
-            hasSystemAudio = true
-        } catch {
-            mclog("[Capture] System audio failed: \(error.localizedDescription)")
-            hasSystemAudio = false
-        }
-
+        // Engine selection MUST precede startSystemAudio(): the "Them"
+        // pipeline is created inside it via makePipeline, which branches on
+        // usingParakeet. For months this ran after, so the far side was
+        // always transcribed by SFSpeech — a second engine running all
+        // session (localspeechrecognition at ~37% CPU) with the 0.10.0
+        // far-side thresholds silently discarded.
+        //
         // Prefer the Parakeet engine (far more accurate than SFSpeech on
         // meeting audio); fall back to SFSpeech if the model can't load.
         // When the model isn't on disk yet, don't hold the session hostage
@@ -134,6 +131,16 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         }
         engineLabel = usingParakeet ? "Parakeet" : "SFSpeech"
         mclog("[Capture] Transcription engine: \(engineLabel)")
+
+        // System audio next — whether it works decides mic configuration
+        // (echo cancellation on, mic speaker label "You" vs "Meeting").
+        do {
+            try await startSystemAudio()
+            hasSystemAudio = true
+        } catch {
+            mclog("[Capture] System audio failed: \(error.localizedDescription)")
+            hasSystemAudio = false
+        }
 
         // Mic pipeline. Without system audio there is no You/Them separation,
         // so keep the old generic label.

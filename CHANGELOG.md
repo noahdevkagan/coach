@@ -9,6 +9,12 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Much lower CPU during meetings: a bug ran two transcription engines at once every session (Apple's engine on the other side's audio even when the fast Parakeet model was loaded), and transcription re-processed audio far more often than needed — both fixed, along with meeting detection scanning your windows every 2 seconds mid-meeting
+- Sessions are now named after the real meeting when possible — the Meet tab or Zoom topic ("Weekly Sync") instead of a guessed "person · topic" — and search finds chats by name, not just by what was said
+- The floating overlay behaves: it stays where you drag it (forever), closing it keeps it closed for the rest of the meeting, and Settings → General has a switch to turn it off entirely — nudges still show in the main window
+- The meeting-detected pill stopped repeating itself ("& open Meeting Coach" line removed), and a start that fails no longer silences the pill for the rest of that meeting
+- Renaming a chat back to its date now sticks instead of a topic name reappearing
+
 ## 0.11.1 — 2026-08-04
 
 - Fixed a crash when editing lists with a row deleted mid-edit — typing in a vocabulary term, pre-call participant, or custom coaching signal and removing a row could quit the app and lose what you typed

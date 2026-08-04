@@ -75,6 +75,60 @@ enum MeetingWindowHeuristics {
             || title.contains("google hangouts")
     }
 
+    /// Best-effort human meeting NAME from the window snapshot — "Weekly
+    /// Sync" out of a tab titled "Meet – Weekly Sync - Google Chrome".
+    /// nil when every candidate is generic (bare "Zoom Meeting", a Meet
+    /// room code) — a generic name is worse than letting the transcript
+    /// heuristic title the session.
+    static func meetingTitle(from windows: [WindowInfo]) -> String? {
+        for w in windows {
+            if isMeetTabWindow(w) || isHangoutsTabWindow(w) {
+                if let t = cleanedBrowserMeetingTitle(w.title) { return t }
+            }
+            if isZoomMeetingWindow(w) {
+                // Zoom titles are almost always the bare generic; anything
+                // beyond it is the meeting topic.
+                let t = w.title
+                    .replacingOccurrences(of: "Zoom Meeting", with: "")
+                    .replacingOccurrences(of: "Zoom Webinar", with: "")
+                    .trimmingCharacters(in: CharacterSet(charactersIn: " -–—:"))
+                if !t.isEmpty { return t }
+            }
+            if isSlackHuddleWindow(w) {
+                let t = w.title.trimmingCharacters(in: .whitespaces)
+                if !t.isEmpty { return t }
+            }
+        }
+        return nil
+    }
+
+    /// "Meet – Weekly Sync - Google Chrome" → "Weekly Sync".
+    static func cleanedBrowserMeetingTitle(_ raw: String) -> String? {
+        var t = raw
+        // Strip a trailing " - <Browser>" (any known browser, hyphen or
+        // dash variants — Chrome uses " - ", Firefox " — ").
+        for browser in browserOwners {
+            for sep in [" - ", " – ", " — "] {
+                if t.hasSuffix(sep + browser) {
+                    t = String(t.dropLast(sep.count + browser.count))
+                }
+            }
+        }
+        // Strip the product prefix.
+        for prefix in ["meet – ", "meet - ", "hangouts – ", "hangouts - "] {
+            if t.lowercased().hasPrefix(prefix) {
+                t = String(t.dropFirst(prefix.count))
+            }
+        }
+        t = t.trimmingCharacters(in: .whitespaces)
+        // A bare Meet room code ("kgx-vrbo-abc") names nothing.
+        if t.range(of: #"^[a-z]{3}-[a-z]{4}-[a-z]{3}$"#, options: .regularExpression) != nil {
+            return nil
+        }
+        if t.isEmpty || t.lowercased().contains("meet.google.com") { return nil }
+        return t
+    }
+
     /// Best-effort platform label for a browser-hosted meeting, from tab
     /// titles — nil when nothing gives it away (label stays generic).
     static func browserMeetingPlatform(_ windows: [WindowInfo]) -> String? {

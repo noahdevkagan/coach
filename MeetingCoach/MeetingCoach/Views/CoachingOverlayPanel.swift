@@ -24,7 +24,14 @@ final class CoachingOverlayPanel: NSPanel {
         hasShadow = true
         sharingType = .none  // invisible in screen shares
 
-        positionAtTopRight(of: NSScreen.main)
+        // A dragged position is the user telling us where the overlay
+        // belongs — restore it forever after (Noah moved it repeatedly and
+        // every nudge snapped it back to the main screen's top-right).
+        if let saved = Self.savedUserFrame(), Self.isOnSomeScreen(saved) {
+            setFrame(saved, display: false)
+        } else {
+            positionAtTopRight(of: NSScreen.main)
+        }
 
         // A display being plugged/unplugged can strand the panel on a
         // screen that no longer exists — re-clamp onto a live one.
@@ -32,10 +39,46 @@ final class CoachingOverlayPanel: NSPanel {
         NotificationCenter.default.addObserver(
             self, selector: #selector(screenConfigChanged),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(didMove),
+            name: NSWindow.didMoveNotification, object: self)
     }
 
     @objc private func screenConfigChanged() {
-        if screen == nil { positionAtTopRight(of: NSScreen.main) }
+        // Clamp only; the saved preference survives — the user's display
+        // will usually come back.
+        if screen == nil { repositionProgrammatically { positionAtTopRight(of: NSScreen.main) } }
+    }
+
+    // MARK: - User-position memory
+
+    private static let userFrameKey = "coachOverlayUserFrame"
+    private var inProgrammaticMove = false
+
+    /// Whether the user has ever dragged the panel (persisted).
+    var hasUserPosition: Bool {
+        UserDefaults.standard.string(forKey: Self.userFrameKey) != nil
+    }
+
+    @objc private func didMove() {
+        guard !inProgrammaticMove else { return }
+        UserDefaults.standard.set(NSStringFromRect(frame), forKey: Self.userFrameKey)
+    }
+
+    private func repositionProgrammatically(_ body: () -> Void) {
+        inProgrammaticMove = true
+        body()
+        inProgrammaticMove = false
+    }
+
+    private static func savedUserFrame() -> NSRect? {
+        guard let s = UserDefaults.standard.string(forKey: userFrameKey) else { return nil }
+        let rect = NSRectFromString(s)
+        return rect.isEmpty ? nil : rect
+    }
+
+    private static func isOnSomeScreen(_ rect: NSRect) -> Bool {
+        NSScreen.screens.contains { $0.visibleFrame.intersects(rect) }
     }
 
     // Allow the panel to become key for dragging but not steal focus
@@ -44,12 +87,13 @@ final class CoachingOverlayPanel: NSPanel {
 
     /// Move to the screen holding the frontmost app's window — the one the
     /// user is actually looking at (a fullscreen call on a second display).
-    /// If the panel is already visible on that screen, leave it where the
-    /// user put it (they may have dragged it).
+    /// A user who has ever dragged the panel has picked its home — never
+    /// override that (follow-the-action only serves the default position).
     func repositionToActiveScreen() {
+        guard !hasUserPosition else { return }
         guard let target = Self.screenOfFrontmostWindow() ?? NSScreen.main else { return }
         if isVisible, screen == target { return }
-        positionAtTopRight(of: target)
+        repositionProgrammatically { positionAtTopRight(of: target) }
     }
 
     private func positionAtTopRight(of screen: NSScreen?) {

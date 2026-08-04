@@ -21,6 +21,12 @@ final class SettingsViewModel {
         didSet { UserDefaults.standard.set(semanticCoachEnabled, forKey: "semanticCoachEnabled") }
     }
 
+    /// Master switch for the floating coaching overlay. Off = nudges only
+    /// appear in the main window's coach rail. Default on.
+    var showCoachOverlay: Bool {
+        didSet { UserDefaults.standard.set(showCoachOverlay, forKey: "showCoachOverlay") }
+    }
+
     /// Session clock in the coaching overlay's ambient row. Default on.
     var showOverlayClock: Bool {
         didSet { UserDefaults.standard.set(showOverlayClock, forKey: "showOverlayClock") }
@@ -51,6 +57,7 @@ final class SettingsViewModel {
 
     init() {
         self.semanticCoachEnabled = UserDefaults.standard.object(forKey: "semanticCoachEnabled") as? Bool ?? true
+        self.showCoachOverlay = UserDefaults.standard.object(forKey: "showCoachOverlay") as? Bool ?? true
         self.showOverlayClock = UserDefaults.standard.object(forKey: "showOverlayClock") as? Bool ?? true
         self.defaultMeetingMinutes = UserDefaults.standard.object(forKey: "defaultMeetingMinutes") as? Int ?? 0
         let storedLaunchAtLogin = UserDefaults.standard.object(forKey: "launchAtLogin") as? Bool
