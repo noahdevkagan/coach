@@ -194,3 +194,17 @@ the overflowing ScrollView content, clipping every card in the rail,
 review included. Fix: rail minWidth 200 → 280 (the card's real floor) and
 the scope hint ("· last 5 min") may truncate; the type badge keeps its
 never-fold guarantee.
+
+## 2026-08-04 — How to simulate a "new user" for onboarding tests
+Faking $HOME does NOT work on this macOS: UserDefaults (cfprefsd),
+homeDirectoryForCurrentUser, AND urls(for:.applicationSupportDirectory)
+all resolve the real account home and ignore the env var (verified
+empirically — three separate leaks found this way). Working recipe:
+argument-domain defaults overrides at launch (`-hasSeenDemo NO
+-autoModelPullAttempted NO -sessionFolderPath <empty dir>`), rename the
+real model stores aside (`FluidAudio/Models`,
+`MeetingCoach/ollama/manifests` → `.pretest`), and run a scratch
+`ollama serve` (the installed bundle's binary) with OLLAMA_MODELS at an
+empty dir so the app adopts an engine with zero models. TCC rows
+(mic/Screen Recording) cannot be faked per-launch — they're keyed to the
+bundle. Restore = rename back, kill scratch engine.
