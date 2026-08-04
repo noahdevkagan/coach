@@ -27,6 +27,9 @@ targets:
       path: MeetingCoach/Info.plist
       properties:
         NSScreenCaptureUsageDescription: "Meeting Coach captures system audio to transcribe what other meeting participants say."
+        # Bundled Dorado-redesign fonts (Barlow/Roboto/Roboto Mono) — CoreText
+        # loads every font in this bundle subdirectory at launch.
+        ATSApplicationFontsPath: "Fonts"
         # Sparkle auto-updates: feed lives in the PUBLIC releases repo
         # (noahdevkagan/meeting-coach-releases) so the app code + personal
         # rubrics/transcripts in this repo stay private.
@@ -41,6 +44,13 @@ targets:
       - path: MeetingCoach
         excludes:
           - "Resources/ollama/**"
+          - "Resources/Fonts/**"
+      # Folder reference so the TTFs land in Contents/Resources/Fonts/ —
+      # the ATSApplicationFontsPath above points there; flat resource files
+      # would silently never register.
+      - path: MeetingCoach/Resources/Fonts
+        type: folder
+        buildPhase: resources
       - path: MeetingCoach/Resources/ollama
         type: folder
         buildPhase: resources

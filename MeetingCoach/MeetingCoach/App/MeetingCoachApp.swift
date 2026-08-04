@@ -77,7 +77,11 @@ struct MeetingCoachApp: App {
             // It will be started lazily when post-call review is requested
             // or when running the legacy LLM-based simulation.
         }
-        .defaultSize(width: 960, height: 640)
+        .defaultSize(width: 1120, height: 740)
+        // Dorado redesign: the content view draws its own 46px title bar
+        // (centered app name + gear); hiding the native bar keeps only the
+        // traffic lights, which overlay the custom bar's left edge.
+        .windowStyle(.hiddenTitleBar)
         .commands {
             CommandGroup(after: .appInfo) {
                 CheckForUpdatesView(updater: updaterController.updater)

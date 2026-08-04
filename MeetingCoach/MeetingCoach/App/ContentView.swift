@@ -23,44 +23,73 @@ struct ContentView: View {
         return q.count >= 2 ? q : ""
     }
 
-    var body: some View {
-        HSplitView {
-            // Left sidebar
-            VStack(spacing: 0) {
-                SidebarView(simulation: simulation, settings: settings,
-                            liveSession: liveSession, ollamaManager: ollamaManager,
-                            searchQuery: $searchQuery,
-                            selectedSession: $selectedSessionURL,
-                            onToggleOverlay: toggleOverlay)
-            }
-            .frame(minWidth: 280, idealWidth: 300, maxWidth: 340)
-            .background(MCTheme.canvas)
+    @Environment(\.openSettings) private var openSettings
 
-            // Main content — an opened session wins (closing returns you),
-            // then search (clearing the box returns you), then live
-            // session, loaded transcript, or progress
-            if let sessionURL = selectedSessionURL {
-                SessionDetailView(url: sessionURL) {
-                    selectedSessionURL = nil
+    var body: some View {
+        VStack(spacing: 0) {
+            // Custom 46px title bar (window uses .hiddenTitleBar; the
+            // native traffic lights overlay the left edge).
+            HStack {
+                Spacer()
+                Text("Meeting Coach")
+                    .font(Dorado.barlowBold(14))
+                    .foregroundStyle(Dorado.grey500)
+                Spacer()
+            }
+            .overlay(alignment: .trailing) {
+                Button { openSettings() } label: {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Dorado.grey500)
+                        .contentShape(Rectangle())
                 }
-                .frame(minWidth: 400)
-            } else if !activeSearch.isEmpty {
-                SearchResultsView(query: activeSearch) { url in
-                    selectedSessionURL = url
+                .buttonStyle(.plain)
+                .padding(.trailing, 16)
+                .help("Settings")
+            }
+            .frame(height: 46)
+            .background(Color.white)
+
+            HStack(spacing: 0) {
+                DoradoRail(simulation: simulation, settings: settings,
+                           liveSession: liveSession, ollamaManager: ollamaManager,
+                           searchQuery: $searchQuery,
+                           selectedSession: $selectedSessionURL,
+                           onToggleOverlay: toggleOverlay)
+
+                // Main pane: a live/finishing session always wins (its data
+                // is only in memory), then the selected saved session, then
+                // simulation playback, then the first-run state.
+                Group {
+                    if liveSession.isLive || liveSession.hasSession {
+                        LiveTimelineView(liveSession: liveSession)
+                    } else if let sessionURL = selectedSessionURL {
+                        SessionDetailView(url: sessionURL, highlightQuery: activeSearch) {
+                            selectedSessionURL = nil
+                        }
+                    } else if simulation.transcriptFileName != nil {
+                        SimulationTimelineView(simulation: simulation)
+                    } else {
+                        emptyMainPane
+                    }
                 }
-                .frame(minWidth: 400)
-            } else if liveSession.isLive || liveSession.hasSession {
-                LiveTimelineView(liveSession: liveSession)
-                    .frame(minWidth: 400)
-            } else if simulation.transcriptFileName != nil {
-                SimulationTimelineView(simulation: simulation)
-                    .frame(minWidth: 400)
-            } else {
-                ProgressDashboardView(liveSession: liveSession, settings: settings)
-                    .frame(minWidth: 400)
+                .frame(minWidth: 500, maxWidth: .infinity)
+                .background(Color.white)
+            }
+        }
+        .preferredColorScheme(.light)   // the Dorado design is light-only
+        .onChange(of: liveSession.isLive) { _, live in
+            // Ending a session lands you on its saved file.
+            if !live, let saved = liveSession.savedPath {
+                selectedSessionURL = URL(fileURLWithPath: saved)
             }
         }
         .task {
+            // The redesign always shows a session in the main pane —
+            // default to the most recent one.
+            if selectedSessionURL == nil, !liveSession.isLive, !liveSession.hasSession {
+                selectedSessionURL = TranscriptSearch.sessionFiles().first
+            }
             // No longer wait for Ollama before allowing app use.
             // Refresh models in background for when post-call review is needed.
             settings.ollamaManager = ollamaManager
@@ -121,6 +150,17 @@ struct ContentView: View {
             // The window can open into an already-live session (started from
             // the menu bar with no window) — onChange never fires for that.
             if liveSession.isLive { showOverlay() }
+        }
+    }
+
+    /// Zero sessions, nothing live: first-run onboarding (kept from 0.11.0
+    /// — a richer take on the spec's "single centered line").
+    private var emptyMainPane: some View {
+        ScrollView {
+            OnboardingChecklistView(liveSession: liveSession, settings: settings)
+                .padding(28)
+                .frame(maxWidth: 620)
+                .frame(maxWidth: .infinity)
         }
     }
 

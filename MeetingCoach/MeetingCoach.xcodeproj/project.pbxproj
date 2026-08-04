@@ -67,6 +67,7 @@
 		97BBFAF4DAC944901C41F097 /* TranscriptSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48F9343259F30B3410C031F9 /* TranscriptSearch.swift */; };
 		98104496237EA3D2AEC65205 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 99FF311B3C3C0B29ECF0C296 /* Assets.xcassets */; };
 		9CFEB7F1FAAB9B376743DE9E /* MeetingReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35964E2F9634996C0ACEB39C /* MeetingReview.swift */; };
+		A113E174C9E4738E99D17427 /* Dorado.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98DF6673920BD9AAF4C4B8E0 /* Dorado.swift */; };
 		A1D971DC2241B73DC1713D26 /* TranscriptAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FFBE4A37EC6EEE8D7A7516D /* TranscriptAnalysis.swift */; };
 		A36D1448B1484E7ACF6E53D5 /* MeetingDetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A12E30BEB51DFB2F939AE4 /* MeetingDetectionService.swift */; };
 		A4FE039B5DC3EE1C8C2793AD /* SemanticCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07506FC59991300DD4578DB0 /* SemanticCoach.swift */; };
@@ -83,6 +84,7 @@
 		C4B5DD336F4BEA94B577F930 /* PositiveSignals.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6012F4265B831203CEF29D7 /* PositiveSignals.swift */; };
 		C7D931047233C23F27CBE934 /* HighStakesSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AC5039B5EC737FFECE6A190 /* HighStakesSignal.swift */; };
 		CAD8C8E966931110E2D6415E /* SimulationTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42E54C36F44DC42BE2B8D5D9 /* SimulationTimelineView.swift */; };
+		CE20F93E50F815AC45DAC03E /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = 74A9072A6A77D0C9F86838A1 /* Fonts */; };
 		CE29BF1EE8DA68A7A94EA4E2 /* AppSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F05A5F9043EE4F2C14B8D5 /* AppSupport.swift */; };
 		CFFBB860B8F9AB35E34F7AEA /* StackedQuestionsSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC33A03F287BAB0CDBCFC8FD /* StackedQuestionsSignal.swift */; };
 		D18015A9C5944D5D37845BC9 /* PromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78FD64A28567F115FD3944A4 /* PromptBuilder.swift */; };
@@ -161,6 +163,7 @@
 		6A1BF8C4DA14D327E81E1832 /* OllamaClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaClient.swift; sourceTree = "<group>"; };
 		736B9D6AC7AFE9AA6A2D5725 /* Nudge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Nudge.swift; sourceTree = "<group>"; };
 		73E93FA8D25DA2577F2827FF /* ParakeetTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParakeetTranscriber.swift; sourceTree = "<group>"; };
+		74A9072A6A77D0C9F86838A1 /* Fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fonts; path = MeetingCoach/Resources/Fonts; sourceTree = SOURCE_ROOT; };
 		78FD64A28567F115FD3944A4 /* PromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptBuilder.swift; sourceTree = "<group>"; };
 		7A2619C7DBDE479D92329B84 /* SessionTrendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTrendsView.swift; sourceTree = "<group>"; };
 		7BFDDC5E15E6CA9D8E03D659 /* SessionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionDetailView.swift; sourceTree = "<group>"; };
@@ -173,6 +176,7 @@
 		947B36BFD468E1C108A1381C /* ReferralInvites.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferralInvites.swift; sourceTree = "<group>"; };
 		94EF3B004043BDF659A8C3C2 /* VagueAnswerSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VagueAnswerSignal.swift; sourceTree = "<group>"; };
 		96F44479B82669A57E95C7E4 /* MeetingPromptPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingPromptPanel.swift; sourceTree = "<group>"; };
+		98DF6673920BD9AAF4C4B8E0 /* Dorado.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Dorado.swift; sourceTree = "<group>"; };
 		99FF311B3C3C0B29ECF0C296 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		9AA712484D677FBBAA951166 /* OllamaManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaManager.swift; sourceTree = "<group>"; };
 		9AC5039B5EC737FFECE6A190 /* HighStakesSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HighStakesSignal.swift; sourceTree = "<group>"; };
@@ -228,6 +232,7 @@
 			isa = PBXGroup;
 			children = (
 				E80054B1508EFBBFD8D840F3 /* CoachingOverlayPanel.swift */,
+				98DF6673920BD9AAF4C4B8E0 /* Dorado.swift */,
 				35B1ADEF0B99BDEB25D36FE4 /* FeedbackFormView.swift */,
 				35350EAFCF72EF5D24FA7AA1 /* GeneralSettingsView.swift */,
 				D51D181953D6BD49C3F54771 /* GiveMeetingCoachView.swift */,
@@ -396,6 +401,7 @@
 		E53D33D29284EA222E7580F9 = {
 			isa = PBXGroup;
 			children = (
+				74A9072A6A77D0C9F86838A1 /* Fonts */,
 				69834923A05B2FEECE228263 /* ollama */,
 				C68A2F067F5AC35731743405 /* mcp-server */,
 				59CB2AB05B7F9A533618B1AD /* MeetingCoach */,
@@ -500,6 +506,7 @@
 			files = (
 				98104496237EA3D2AEC65205 /* Assets.xcassets in Resources */,
 				EB6A5F6E68FD130E49B7DEC9 /* Credits.rtf in Resources */,
+				CE20F93E50F815AC45DAC03E /* Fonts in Resources */,
 				602166D3A6873647DC911FDE /* bird_chirp.wav in Resources */,
 				1A069F944F7C5D988C7FADC0 /* default_rubric.yaml in Resources */,
 				C0B318FF6582287A051C4103 /* demo_meeting.txt in Resources */,
@@ -592,6 +599,7 @@
 				831AAAE68BDAAC75DC37FB2B /* ContentView.swift in Sources */,
 				965F05D47B12F506C3B6CE55 /* DemoScript.swift in Sources */,
 				0B9771217CC1244125C2B177 /* DeterministicReview.swift in Sources */,
+				A113E174C9E4738E99D17427 /* Dorado.swift in Sources */,
 				3777383CF5218E48A0B5262D /* EchoFilter.swift in Sources */,
 				7738C639EFAA02BEF8DD5765 /* FeedbackFormView.swift in Sources */,
 				0C80F4E7CBCBC9D2C7FA9664 /* FocusGoals.swift in Sources */,

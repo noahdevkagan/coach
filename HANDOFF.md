@@ -5,7 +5,25 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-08-04) — Batch A in progress (Noah's usage feedback)
+## Current state (2026-08-04, late) — Dorado redesign built, awaiting Noah's eyes
+
+- **v0.12.0 SHIPPED** (Batch A CPU/overlay/naming/detection fixes, Granola
+  import fix + test suite, speaker-tagging fixes). Sparkle live.
+- **Main-window redesign (design handoff "2a Merged") implemented**:
+  new `Views/Dorado.swift` (tokens/rail) + rewritten SessionDetailView
+  (meta header, inline rename, Copy/Export, coaching strip from
+  SessionTrends, Transcript/Summary/Coaching tabs, search-highlight +
+  scroll-to-hit), custom 46px title bar (.hiddenTitleBar), bundled
+  Barlow/Roboto/Roboto Mono via ATSApplicationFontsPath.
+  Deviations from the handoff, all deliberate: SF Symbols not Font
+  Awesome (README allowed), onboarding checklist kept as the empty
+  state, light-only appearance forced, live/post-session rail controls
+  reuse the proven LiveSection (handoff left live state undesigned),
+  ProgressDashboardView is now UNREACHABLE (design killed the stats
+  pane) — Noah should decide whether progress stats return somewhere.
+  Not yet released; on main only.
+
+## Earlier (2026-08-04) — Batch A plan (done)
 
 v0.11.1 shipped earlier today (row-binding crash fix + vocab save
 feedback; see decisions.md for the CI toolchain lesson). Now executing
