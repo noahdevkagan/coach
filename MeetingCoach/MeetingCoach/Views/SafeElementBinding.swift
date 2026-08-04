@@ -9,6 +9,11 @@ extension Binding where Value: MutableCollection, Value.Element: Identifiable {
     /// binding on the next layout pass: index out of range, hard crash
     /// (seen in the wild on 0.10.1). This looks the element up by identity
     /// instead; reads of a gone row fall back to its last value, writes no-op.
+    ///
+    /// @MainActor so the get/set closures are main-actor-isolated: formed
+    /// nonisolated, Swift 6 on the Xcode 16.2 SDK requires their captured
+    /// row to be Sendable, which rows nested in MainActor types can't be.
+    @MainActor
     func safeElement(_ element: Value.Element) -> Binding<Value.Element> {
         Binding<Value.Element>(
             get: {
