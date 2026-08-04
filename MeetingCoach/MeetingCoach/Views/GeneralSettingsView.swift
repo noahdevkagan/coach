@@ -30,6 +30,11 @@ struct GeneralSettingsView: View {
     /// Editable row mirror of `vocabularyText` (see parseVocab/serializeVocab).
     @State private var vocabEntries: [VocabEntry] = []
 
+    /// Transient "Saved" confirmation for vocabulary edits — rows persist on
+    /// every keystroke, but silently, which read as "did it save?".
+    @State private var vocabSavedFlash = false
+    @State private var vocabSavedDismiss: Task<Void, Never>?
+
     // Granola import state
     @State private var isImporting = false
     @State private var importResult: String?
@@ -110,14 +115,15 @@ struct GeneralSettingsView: View {
             }
 
             Section("Vocabulary") {
-                ForEach($vocabEntries) { $entry in
+                ForEach(vocabEntries) { entry in
+                    let row = $vocabEntries.safeElement(entry)
                     HStack(spacing: 8) {
-                        TextField("It wrote…", text: $entry.wrote)
+                        TextField("It wrote…", text: row.wrote)
                             .textFieldStyle(.roundedBorder)
                         Image(systemName: "arrow.right")
                             .font(.caption)
                             .foregroundStyle(.tertiary)
-                        TextField("Corrected to…", text: $entry.term)
+                        TextField("Corrected to…", text: row.term)
                             .textFieldStyle(.roundedBorder)
                         Button {
                             vocabEntries.removeAll { $0.id == entry.id }
@@ -129,10 +135,23 @@ struct GeneralSettingsView: View {
                         .help("Remove this term")
                     }
                 }
-                Button {
-                    vocabEntries.append(VocabEntry(wrote: "", term: ""))
-                } label: {
-                    Label("Add term", systemImage: "plus")
+                HStack {
+                    Button {
+                        vocabEntries.append(VocabEntry(wrote: "", term: ""))
+                    } label: {
+                        Label("Add term", systemImage: "plus")
+                    }
+                    Spacer()
+                    if hasUnfinishedVocabRow {
+                        Text("Fill in \u{201C}Corrected to\u{2026}\u{201D} to save the row")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    } else if vocabSavedFlash {
+                        Label("Saved", systemImage: "checkmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                            .transition(.opacity)
+                    }
                 }
                 Text("Terms the transcriber keeps mishearing: what it wrote (comma-separate variants, e.g. utc, u g c) and what it should be. Leave \u{201C}it wrote\u{201D} empty to just teach a spelling. Clicking a misheard word in any transcript adds a row here automatically. Built in already: \(VocabularyNormalizer.defaultTerms.map(\.canonical).joined(separator: ", ")).")
                     .font(.caption)
@@ -172,11 +191,33 @@ struct GeneralSettingsView: View {
         .onChange(of: vocabularyText) { _, _ in syncVocabFromStorage() }
         .onChange(of: vocabEntries) { _, _ in
             let serialized = Self.serializeVocab(vocabEntries)
-            if serialized != vocabularyText { vocabularyText = serialized }
+            if serialized != vocabularyText {
+                vocabularyText = serialized
+                flashVocabSaved()
+            }
         }
     }
 
     // MARK: - Vocabulary rows
+
+    /// A row typed into but missing its "corrected to" term — serialization
+    /// skips it, so tell the user instead of silently not saving.
+    private var hasUnfinishedVocabRow: Bool {
+        vocabEntries.contains {
+            $0.term.trimmingCharacters(in: .whitespaces).isEmpty &&
+            !$0.wrote.trimmingCharacters(in: .whitespaces).isEmpty
+        }
+    }
+
+    private func flashVocabSaved() {
+        vocabSavedDismiss?.cancel()
+        withAnimation { vocabSavedFlash = true }
+        vocabSavedDismiss = Task {
+            try? await Task.sleep(for: .seconds(2.5))
+            guard !Task.isCancelled else { return }
+            withAnimation { vocabSavedFlash = false }
+        }
+    }
 
     private func syncVocabFromStorage() {
         let parsed = Self.parseVocab(vocabularyText)

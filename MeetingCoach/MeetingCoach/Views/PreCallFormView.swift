@@ -69,11 +69,12 @@ struct PreCallFormView: View {
                                 .foregroundStyle(.tertiary)
                         }
 
-                        ForEach($context.participants) { $participant in
+                        ForEach(context.participants) { participant in
+                            let row = $context.participants.safeElement(participant)
                             HStack(spacing: 8) {
-                                TextField("Name", text: $participant.name)
+                                TextField("Name", text: row.name)
                                     .textFieldStyle(.roundedBorder)
-                                TextField("Role", text: $participant.role)
+                                TextField("Role", text: row.role)
                                     .textFieldStyle(.roundedBorder)
                                     .frame(width: 120)
                                 Button {

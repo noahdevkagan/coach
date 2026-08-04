@@ -76,6 +76,7 @@
 		B1EEF82CF42D4472D319BA92 /* Trigger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 826E23E63EE91A96C88BA0F1 /* Trigger.swift */; };
 		B2AC75147E4394FD58C99445 /* LiveSessionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67120DB8C352138595D0B749 /* LiveSessionViewModel.swift */; };
 		B61F4F0049C5BEBE7D264905 /* ProgressDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B4B0AF697805859194CB8FB /* ProgressDashboardView.swift */; };
+		BCC30F8C241C9E69FF414B44 /* SafeElementBinding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B24680F8123FEF4092933AF /* SafeElementBinding.swift */; };
 		C0B318FF6582287A051C4103 /* demo_meeting.txt in Resources */ = {isa = PBXBuildFile; fileRef = 1AD95CCA3F1885640ECB50DE /* demo_meeting.txt */; };
 		C322C07D3607C86B929C4345 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 226945101416D23B896436E1 /* SettingsViewModel.swift */; };
 		C333FB6099F885862570B759 /* SessionTrends.swift in Sources */ = {isa = PBXBuildFile; fileRef = C383A162604A3D3AE197F2A2 /* SessionTrends.swift */; };
@@ -121,6 +122,7 @@
 		07506FC59991300DD4578DB0 /* SemanticCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticCoach.swift; sourceTree = "<group>"; };
 		0A77874939901EA598BC1814 /* RepetitionLoopSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepetitionLoopSignal.swift; sourceTree = "<group>"; };
 		0AA57261742100AD1915A9F4 /* YesManSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YesManSignal.swift; sourceTree = "<group>"; };
+		0B24680F8123FEF4092933AF /* SafeElementBinding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafeElementBinding.swift; sourceTree = "<group>"; };
 		0B4B0AF697805859194CB8FB /* ProgressDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressDashboardView.swift; sourceTree = "<group>"; };
 		0F81DB4510A2BF8EF10A65C7 /* TuningTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TuningTypes.swift; sourceTree = "<group>"; };
 		14D8000DD43FC31EDFC5A989 /* bird_chirp.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = bird_chirp.wav; sourceTree = "<group>"; };
@@ -235,6 +237,7 @@
 				25F544EB2BBE998E71984423 /* PreCallFormView.swift */,
 				0B4B0AF697805859194CB8FB /* ProgressDashboardView.swift */,
 				C0AE8468D0484EFAC70C4D7F /* RubricBuilderView.swift */,
+				0B24680F8123FEF4092933AF /* SafeElementBinding.swift */,
 				38AF9EC84551A2A07E86DADF /* SearchResultsView.swift */,
 				7BFDDC5E15E6CA9D8E03D659 /* SessionDetailView.swift */,
 				7A2619C7DBDE479D92329B84 /* SessionTrendsView.swift */,
@@ -633,6 +636,7 @@
 				92904ECCEF60B928FB98FB5A /* RubricAdvisorApply.swift in Sources */,
 				5FCEF8098F7F2F2A4A90B811 /* RubricBuilderView.swift in Sources */,
 				0283EBAC26A5C0417A1983DA /* RubricBuilderViewModel.swift in Sources */,
+				BCC30F8C241C9E69FF414B44 /* SafeElementBinding.swift in Sources */,
 				230953F58905C232A72F61EF /* SearchResultsView.swift in Sources */,
 				A4FE039B5DC3EE1C8C2793AD /* SemanticCoach.swift in Sources */,
 				FFB7FE0F2B5AAC40276DA50F /* SessionDetailView.swift in Sources */,

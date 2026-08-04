@@ -208,3 +208,29 @@ real model stores aside (`FluidAudio/Models`,
 empty dir so the app adopts an engine with zero models. TCC rows
 (mic/Screen Recording) cannot be faked per-launch — they're keyed to the
 bundle. Restore = rename back, kill scratch engine.
+
+## 2026-08-04 — Row bindings in editable lists are id-keyed, never positional
+A user crash report (0.10.1, `Array._checkSubscript` via
+`Binding.subscript.getter` under `SystemTextField`) exposed that the
+element bindings `ForEach($array)` vends read `array[index]` positionally
+on every access: delete a row while one of its TextFields has a pending
+edit and the next layout pass indexes past the end — hard crash. All three
+editable-row lists (pre-call participants, custom rubric rows, Settings
+vocabulary) now go through `Binding.safeElement(_:)`
+(Views/SafeElementBinding.swift), which resolves the element by id — reads
+of a deleted row return its last value, writes no-op. The vocabulary
+screen was the likeliest crash site: its `.onChange(of: vocabularyText)`
+sync rebuilds `vocabEntries` wholesale and `parseVocab` drops
+term-less rows, so the transcript fix-flow writing to the same store could
+shrink the array mid-edit with no user action. `builtinRows` keeps plain
+bindings — that list never shrinks. Rule: any ForEach whose array can
+shrink while a row control is focused must use id-keyed bindings.
+
+## 2026-08-04 — Vocabulary saves get visible feedback
+Vocab rows persist on every keystroke but did so silently, and rows
+missing "Corrected to…" are silently skipped by serialization — Noah
+couldn't tell whether an added term saved at all. The section now shows a
+transient green "Saved" label when an edit actually reaches storage, and
+an orange "Fill in 'Corrected to…' to save the row" hint when a row won't
+serialize. Matches the RubricBuilder footer's existing green-checkmark
+saved idiom.

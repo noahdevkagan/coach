@@ -140,10 +140,11 @@ struct RubricBuilderView: View {
             Text("Watched live by the local AI (needs a model + AI nudges on). Describe exactly what to look for.")
                 .font(.caption).foregroundStyle(.secondary)
 
-            ForEach($vm.customRows) { $row in
+            ForEach(vm.customRows) { row in
+                let rowBinding = $vm.customRows.safeElement(row)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
-                        TextField("signal_id", text: $row.signalId)
+                        TextField("signal_id", text: rowBinding.signalId)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.caption, design: .monospaced))
                             .frame(width: 180)
@@ -156,10 +157,10 @@ struct RubricBuilderView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    TextField("What should the coach look for?", text: $row.description, axis: .vertical)
+                    TextField("What should the coach look for?", text: rowBinding.description, axis: .vertical)
                         .textFieldStyle(.roundedBorder)
                         .lineLimit(1...3)
-                    TextField("Nudge shown mid-meeting (max 8 words)", text: $row.nudge)
+                    TextField("Nudge shown mid-meeting (max 8 words)", text: rowBinding.nudge)
                         .textFieldStyle(.roundedBorder)
                 }
                 .padding(10)
