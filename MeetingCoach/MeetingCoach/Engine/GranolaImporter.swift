@@ -1,14 +1,10 @@
 import Foundation
 
-/// One-click import of Granola meeting history into MeetingCoach sessions.
-///
-/// Primary path reads Granola's local cache directly (the app is not
-/// sandboxed): `~/Library/Application Support/Granola/cache-v3.json` is
-/// JSON whose `cache` key holds a second JSON document *as a string*;
-/// inside that, `state.documents` carries the notes and
-/// `state.transcripts` the (recently viewed) transcripts. Newer Granola
-/// versions encrypt this cache — that surfaces as `.unreadableCache` and
-/// the Settings UI falls back to importing files Granola exported.
+/// Import of Granola meeting history into MeetingCoach sessions, from the
+/// CSV export Granola produces once the user enables data export. The
+/// earlier direct read of Granola's local cache is gone on purpose: newer
+/// Granola versions encrypt that cache, so the one supported path is the
+/// format Granola itself commits to — export, then pick the file here.
 ///
 /// Imported sessions are ordinary `session_yyyy-MM-dd_HH-mm.md` files in
 /// the transcripts folder, stamped with the meeting's ORIGINAL date (the
@@ -29,157 +25,145 @@ enum GranolaImporter {
     }
 
     enum ImportError: LocalizedError {
-        case notInstalled
-        case unreadableCache
+        case unreadableFile
+        case notAGranolaCSV
 
         var errorDescription: String? {
             switch self {
-            case .notInstalled:
-                return "Granola doesn't appear to be installed on this Mac."
-            case .unreadableCache:
-                return "Granola's local data is encrypted or in a newer format — import files exported from Granola instead."
+            case .unreadableFile:
+                return "Couldn't read that file."
+            case .notAGranolaCSV:
+                return "That doesn't look like a Granola CSV export — it needs a header row with a date column plus a title or notes column."
             }
         }
     }
 
-    static var granolaDir: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Granola", isDirectory: true)
-    }
+    // MARK: - CSV import
 
-    static var cacheURL: URL {
-        granolaDir.appendingPathComponent("cache-v3.json")
-    }
+    static func importCSV(_ url: URL, into dir: URL = AppSupport.sessionsDir) throws -> Report {
+        guard var text = try? String(contentsOf: url, encoding: .utf8) else {
+            throw ImportError.unreadableFile
+        }
+        if text.hasPrefix("\u{FEFF}") { text.removeFirst() }  // UTF-8 BOM
 
-    // MARK: - Cache import
+        let rows = parseCSV(text)
+        guard rows.count > 1, let header = rows.first else { throw ImportError.notAGranolaCSV }
 
-    static func importFromCache(into dir: URL = AppSupport.sessionsDir) throws -> Report {
-        let fm = FileManager.default
-        guard fm.fileExists(atPath: granolaDir.path) else { throw ImportError.notInstalled }
-        guard let raw = try? Data(contentsOf: cacheURL) else { throw ImportError.unreadableCache }
-
-        // Double-encoded: top-level { "cache": "<json string>" }.
-        guard let top = (try? JSONSerialization.jsonObject(with: raw)) as? [String: Any],
-              let inner = top["cache"] as? String,
-              let innerData = inner.data(using: .utf8),
-              let cache = (try? JSONSerialization.jsonObject(with: innerData)) as? [String: Any],
-              let state = cache["state"] as? [String: Any]
-        else { throw ImportError.unreadableCache }
-
-        // Documents ship either keyed by id or as a plain array.
-        var documents: [[String: Any]] = []
-        if let dict = state["documents"] as? [String: [String: Any]] {
-            documents = Array(dict.values)
-        } else if let array = state["documents"] as? [[String: Any]] {
-            documents = array
-        } else {
-            throw ImportError.unreadableCache
+        // Column lookup is by name, not position — Granola owns the export
+        // format and may reorder or add columns. Exact match wins over
+        // substring so "notes" can't accidentally bind to "notes_url".
+        let cols = header.map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+        func col(_ names: [String]) -> Int? {
+            for name in names {
+                if let i = cols.firstIndex(of: name) { return i }
+            }
+            for name in names {
+                if let i = cols.firstIndex(where: { $0.contains(name) }) { return i }
+            }
+            return nil
+        }
+        let idCol = col(["id", "document_id"])
+        let dateCol = col(["date", "created_at", "created", "start", "time"])
+        let titleCol = col(["title", "name", "meeting"])
+        let notesCol = col(["notes", "summary", "content", "body"])
+        let attendeesCol = col(["attendees", "participants", "people"])
+        let endCol = col(["end"])
+        guard dateCol != nil, titleCol != nil || notesCol != nil else {
+            throw ImportError.notAGranolaCSV
         }
 
-        let transcripts = state["transcripts"] as? [String: Any] ?? [:]
-        let existing = existingImportMarkers(in: dir)
-        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-
-        var report = Report()
-        for doc in documents {
-            guard let id = doc["id"] as? String else { continue }
-            if existing.contains("granola:\(id)") {
-                report.skippedExisting += 1
-                continue
-            }
-
-            let notes = (doc["notes_markdown"] as? String)
-                ?? (doc["notes_plain"] as? String) ?? ""
-            let transcriptLines = transcriptLines(from: transcripts[id])
-            // Nothing to bring over — not worth a file (or a report line).
-            guard !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                || !transcriptLines.isEmpty else { continue }
-
-            let calendar = doc["google_calendar_event"] as? [String: Any]
-            guard let start = isoDate(nested(calendar, "start", "dateTime"))
-                ?? isoDate(doc["created_at"] as? String) else {
-                // A wrong date in a date-keyed archive is worse than absence.
-                report.skippedNoDate += 1
-                continue
-            }
-            let end = isoDate(nested(calendar, "end", "dateTime"))
-
-            let title = (doc["title"] as? String)?
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            write(marker: "granola:\(id)", title: title, date: start,
-                  duration: end.map { $0.timeIntervalSince(start) },
-                  notes: notes, transcriptLines: transcriptLines, into: dir)
-            report.imported += 1
-        }
-        return report
-    }
-
-    /// Best-effort transcript extraction — Granola only caches transcripts
-    /// for recently viewed meetings, and the segment shape is theirs to
-    /// change, so every field read is defensive and absence is fine.
-    private static func transcriptLines(from value: Any?) -> [String] {
-        guard let segments = value as? [[String: Any]], !segments.isEmpty else { return [] }
-        let firstStamp = segments.lazy
-            .compactMap { isoDate($0["start_timestamp"] as? String) }
-            .first
-        var lines: [String] = []
-        for segment in segments {
-            guard let text = (segment["text"] as? String)?
-                .trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { continue }
-            let speaker = (segment["source"] as? String) == "microphone" ? "You" : "Them"
-            var offset: TimeInterval = 0
-            if let firstStamp, let stamp = isoDate(segment["start_timestamp"] as? String) {
-                offset = max(0, stamp.timeIntervalSince(firstStamp))
-            }
-            lines.append("- [\(mmss(offset))] \(speaker): \(text)")
-        }
-        return lines
-    }
-
-    // MARK: - Exported-file import (fallback for encrypted caches)
-
-    static func importExportedFiles(_ urls: [URL], into dir: URL = AppSupport.sessionsDir) -> Report {
         let existing = existingImportMarkers(in: dir)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
         var report = Report()
-        for url in urls {
-            let marker = "granola-file:\(url.lastPathComponent)"
+        for row in rows.dropFirst() {
+            func field(_ index: Int?) -> String {
+                guard let index, index < row.count else { return "" }
+                return row[index].trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+
+            let title = field(titleCol)
+            var notes = field(notesCol)
+            let attendees = field(attendeesCol)
+            if !attendees.isEmpty {
+                notes = "Attendees: \(attendees)\n\n\(notes)"
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            // Nothing to bring over — not worth a file (or a report line).
+            guard !title.isEmpty || !notes.isEmpty else { continue }
+
+            guard let date = parseDate(field(dateCol)) else {
+                // A wrong date in a date-keyed archive is worse than absence.
+                report.skippedNoDate += 1
+                continue
+            }
+            let duration = parseDate(field(endCol)).map { $0.timeIntervalSince(date) }
+
+            // Same "granola:<id>" marker the retired cache importer wrote,
+            // so meetings imported before the CSV switch don't duplicate.
+            let id = field(idCol)
+            let marker = id.isEmpty
+                ? "granola-csv:\(title)@\(isoPlain.string(from: date))"
+                : "granola:\(id)"
             if existing.contains(marker) {
                 report.skippedExisting += 1
                 continue
             }
-            guard let text = try? String(contentsOf: url, encoding: .utf8),
-                  !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
 
-            let lines = text.components(separatedBy: .newlines)
-            let title = lines.first { $0.hasPrefix("# ") }
-                .map { String($0.dropFirst(2)).trimmingCharacters(in: .whitespaces) }
-                ?? url.deletingPathExtension().lastPathComponent
-
-            // Meeting date: first ISO-ish date in the head of the file,
-            // else the file's own creation date.
-            var date = lines.prefix(10).lazy.compactMap(Self.dateInLine).first
-            if date == nil {
-                date = (try? url.resourceValues(forKeys: [.creationDateKey]))?.creationDate
-            }
-            guard let date else {
-                report.skippedNoDate += 1
-                continue
-            }
-
-            write(marker: marker, title: title, date: date, duration: nil,
-                  notes: text, transcriptLines: [], into: dir)
+            write(marker: marker, title: title, date: date,
+                  duration: duration, notes: notes, into: dir)
             report.imported += 1
         }
         return report
+    }
+
+    /// RFC 4180 CSV: quoted fields may hold commas, newlines, and doubled
+    /// quotes. Granola notes are multi-line, so a line-based split won't do.
+    static func parseCSV(_ text: String) -> [[String]] {
+        var rows: [[String]] = []
+        var row: [String] = []
+        var field = ""
+        var inQuotes = false
+        var iterator = text.makeIterator()
+        var pending: Character?
+
+        func endField() { row.append(field); field = "" }
+        func endRow() {
+            endField()
+            // Skip blank lines (common as a trailing newline).
+            if !(row.count == 1 && row[0].isEmpty) { rows.append(row) }
+            row = []
+        }
+
+        while let c = pending ?? iterator.next() {
+            pending = nil
+            switch c {
+            case "\"" where inQuotes:
+                if let next = iterator.next() {
+                    if next == "\"" { field.append("\"") } else { inQuotes = false; pending = next }
+                } else {
+                    inQuotes = false
+                }
+            case "\"" where field.isEmpty:
+                inQuotes = true
+            case "," where !inQuotes:
+                endField()
+            case "\r" where !inQuotes:
+                break  // normalize CRLF/CR to the LF handling below
+            case "\n" where !inQuotes:
+                endRow()
+            default:
+                field.append(c)
+            }
+        }
+        if !field.isEmpty || !row.isEmpty { endRow() }
+        return rows
     }
 
     // MARK: - Session file writing
 
     private static func write(marker: String, title: String, date: Date,
-                              duration: TimeInterval?, notes: String,
-                              transcriptLines: [String], into dir: URL) {
+                              duration: TimeInterval?, notes: String, into dir: URL) {
         let stampFormatter = DateFormatter()
         stampFormatter.dateFormat = "yyyy-MM-dd_HH-mm"
 
@@ -205,7 +189,7 @@ enum GranolaImporter {
             let total = Int(duration)
             lines.append("**Duration:** \(String(format: "%02d:%02d", total / 60, total % 60))")
         }
-        lines.append("**Utterances:** \(transcriptLines.count)")
+        lines.append("**Utterances:** 0")
         lines.append("**Nudges:** 0")
         lines.append("**Engine:** Granola import")
         lines.append("**Imported-From:** \(marker)")
@@ -215,11 +199,6 @@ enum GranolaImporter {
         if !cleanedNotes.isEmpty {
             lines.append("## Imported Notes")
             lines.append(cleanedNotes)
-            lines.append("")
-        }
-        if !transcriptLines.isEmpty {
-            lines.append("## Transcript")
-            lines.append(contentsOf: transcriptLines)
             lines.append("")
         }
 
@@ -274,28 +253,23 @@ enum GranolaImporter {
         return markers
     }
 
-    private static func nested(_ dict: [String: Any]?, _ keys: String...) -> String? {
-        var current: Any? = dict
-        for key in keys {
-            current = (current as? [String: Any])?[key]
-        }
-        return current as? String
-    }
-
-    private static let isoWithFraction: ISO8601DateFormatter = {
+    nonisolated(unsafe) private static let isoWithFraction: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return f
     }()
-    private static let isoPlain = ISO8601DateFormatter()
+    nonisolated(unsafe) private static let isoPlain = ISO8601DateFormatter()
 
-    private static func isoDate(_ string: String?) -> Date? {
-        guard let string else { return nil }
-        return isoWithFraction.date(from: string) ?? isoPlain.date(from: string)
+    /// Dates in an export vary with the tool that wrote them — try ISO 8601
+    /// first, then the "yyyy-MM-dd[ HH:mm]" shapes spreadsheets produce.
+    private static func parseDate(_ string: String) -> Date? {
+        guard !string.isEmpty else { return nil }
+        return isoWithFraction.date(from: string)
+            ?? isoPlain.date(from: string)
+            ?? dateInLine(string)
     }
 
-    /// First "yyyy-MM-dd" (optionally with a time) found in a line of an
-    /// exported file's head.
+    /// First "yyyy-MM-dd" (optionally with a time) found in the text.
     private static func dateInLine(_ line: String) -> Date? {
         guard let match = line.range(of: #"\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2})?"#,
                                      options: .regularExpression) else { return nil }
@@ -309,10 +283,5 @@ enum GranolaImporter {
         // Date-only: land mid-day so the stamp never straddles midnight
         // (and 00-00 files from different days can't collide).
         return f.date(from: String(found.prefix(10)))?.addingTimeInterval(12 * 3600)
-    }
-
-    private static func mmss(_ t: TimeInterval) -> String {
-        let s = Int(t)
-        return String(format: "%02d:%02d", s / 60, s % 60)
     }
 }

@@ -34,7 +34,6 @@ struct GeneralSettingsView: View {
     @State private var isImporting = false
     @State private var importResult: String?
     @State private var importResultIsError = false
-    @State private var showFileImportFallback = false
 
     private var displayPath: String {
         sessionsPath.replacingOccurrences(of: NSHomeDirectory(), with: "~")
@@ -75,25 +74,18 @@ struct GeneralSettingsView: View {
 
             Section("Import from Granola") {
                 HStack {
-                    Button("Import Granola meetings") { importFromGranolaCache() }
+                    Button("Import Granola export (CSV)…") { importGranolaCSV() }
                         .disabled(isImporting)
                     if isImporting {
                         ProgressView().controlSize(.small)
                     }
-                }
-                // Encrypted/newer caches can't be read directly — offer the
-                // manual path (files exported from Granola) once the direct
-                // import has failed that way.
-                if showFileImportFallback {
-                    Button("Import exported files…") { importGranolaFiles() }
-                        .disabled(isImporting)
                 }
                 if let importResult {
                     Text(importResult)
                         .font(.caption)
                         .foregroundStyle(importResultIsError ? .red : .secondary)
                 }
-                Text("Converts your Granola notes (and transcripts when available) into MeetingCoach sessions — searchable, on this Mac, in your transcripts folder.")
+                Text("In Granola, enable data export and download your meetings as a CSV, then pick that file here. Your notes become MeetingCoach sessions — searchable, on this Mac, in your transcripts folder.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -224,7 +216,15 @@ struct GeneralSettingsView: View {
 
     // MARK: - Granola import
 
-    private func importFromGranolaCache() {
+    private func importGranolaCSV() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.commaSeparatedText]
+        panel.allowsOtherFileTypes = true
+        panel.prompt = "Import"
+        guard panel.runModal() == .OK, let url = panel.urls.first else { return }
         isImporting = true
         importResult = nil
         // Inner detached task keeps the file IO off the main thread without
@@ -232,40 +232,14 @@ struct GeneralSettingsView: View {
         Task {
             do {
                 let report = try await Task.detached(priority: .userInitiated) {
-                    try GranolaImporter.importFromCache()
+                    try GranolaImporter.importCSV(url)
                 }.value
                 importResult = report.summary
                 importResultIsError = false
             } catch {
                 importResult = error.localizedDescription
                 importResultIsError = true
-                // Only the encrypted/newer-format failure has a manual
-                // path worth offering.
-                if case GranolaImporter.ImportError.unreadableCache = error {
-                    showFileImportFallback = true
-                }
             }
-            isImporting = false
-        }
-    }
-
-    private func importGranolaFiles() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = true
-        panel.allowedContentTypes = [.plainText, .text]
-        panel.allowsOtherFileTypes = true
-        panel.prompt = "Import"
-        guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
-        let urls = panel.urls
-        isImporting = true
-        Task {
-            let report = await Task.detached(priority: .userInitiated) {
-                GranolaImporter.importExportedFiles(urls)
-            }.value
-            importResult = report.summary
-            importResultIsError = false
             isImporting = false
         }
     }

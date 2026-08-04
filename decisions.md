@@ -173,3 +173,24 @@ main pane is now a live checklist (permissions with grant buttons, both
 model downloads with real progress, "join a meeting", privacy line);
 the demo survives as a caption link. The first-launch WelcomeSheet keeps
 the demo as the aha moment — only the persistent empty state changed.
+
+## 2026-08-04 — Granola import is CSV-only
+Noah's call while live-testing the onboarding branch: one button, one
+format. The cache-scrape path (cache-v3.json) and the markdown-file
+fallback are gone — the user enables data export in Granola and picks the
+CSV here. Rationale: newer Granola encrypts the cache anyway (the primary
+path was already dead on current installs, surfacing as the red error in
+testing), and two buttons + a fallback that appears after a failure is
+onboarding noise. Columns are matched by name, not position (Granola owns
+the format); dedupe markers stay `granola:<id>` so pre-CSV imports don't
+duplicate; id-less rows fall back to `granola-csv:<title>@<iso-date>`.
+
+## 2026-08-04 — Coach rail can never be narrower than a nudge card
+The live-session right rail clipped ALL its content on both sides at
+narrow widths (Noah hit it on first branch test). Cause: NudgeCardView's
+badge row uses .fixedSize() so the card's minimum width (~315pt with the
+timestamp gutter) exceeded the rail's 200pt minWidth — SwiftUI centers
+the overflowing ScrollView content, clipping every card in the rail,
+review included. Fix: rail minWidth 200 → 280 (the card's real floor) and
+the scope hint ("· last 5 min") may truncate; the type badge keeps its
+never-fold guarantee.
