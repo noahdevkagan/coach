@@ -32,8 +32,11 @@ struct GeneralSettingsView: View {
 
     /// Transient "Saved" confirmation for vocabulary edits — rows persist on
     /// every keystroke, but silently, which read as "did it save?".
+    /// `vocabSaveCount` bumps per persisted edit; `.task(id:)` on it restarts
+    /// the fade-out timer (CI's Xcode 16.2 SDK rejects a hand-rolled Task
+    /// capturing the view from a nonisolated method under Swift 6).
     @State private var vocabSavedFlash = false
-    @State private var vocabSavedDismiss: Task<Void, Never>?
+    @State private var vocabSaveCount = 0
 
     // Granola import state
     @State private var isImporting = false
@@ -193,8 +196,15 @@ struct GeneralSettingsView: View {
             let serialized = Self.serializeVocab(vocabEntries)
             if serialized != vocabularyText {
                 vocabularyText = serialized
-                flashVocabSaved()
+                vocabSaveCount += 1
             }
+        }
+        .task(id: vocabSaveCount) {
+            guard vocabSaveCount > 0 else { return }
+            withAnimation { vocabSavedFlash = true }
+            try? await Task.sleep(for: .seconds(2.5))
+            guard !Task.isCancelled else { return }
+            withAnimation { vocabSavedFlash = false }
         }
     }
 
@@ -206,16 +216,6 @@ struct GeneralSettingsView: View {
         vocabEntries.contains {
             $0.term.trimmingCharacters(in: .whitespaces).isEmpty &&
             !$0.wrote.trimmingCharacters(in: .whitespaces).isEmpty
-        }
-    }
-
-    private func flashVocabSaved() {
-        vocabSavedDismiss?.cancel()
-        withAnimation { vocabSavedFlash = true }
-        vocabSavedDismiss = Task {
-            try? await Task.sleep(for: .seconds(2.5))
-            guard !Task.isCancelled else { return }
-            withAnimation { vocabSavedFlash = false }
         }
     }
 
