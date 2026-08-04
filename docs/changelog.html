@@ -65,6 +65,20 @@
   <p class="sub">What's new in MeetingCoach — every release, in plain language. The app updates itself automatically.</p>
 
   <section class="release">
+    <h2>0.12.0
+      <span class="date">August 4, 2026</span></h2>
+    <ul>
+      <li>Granola import actually works now — validated against a real export: your meetings come in with their true titles, notes, and full searchable transcripts (the first version choked on the file format and imported empty shells)</li>
+      <li>Naming a speaker sticks: tagging someone while they're still labeled "Them" saved nothing before (you had to wait for "Them 1") — now every tag saves their voice locally so future meetings can label them automatically</li>
+      <li>Much lower CPU during meetings: a bug ran two transcription engines at once every session (Apple's engine on the other side's audio even when the fast Parakeet model was loaded), and transcription re-processed audio far more often than needed — both fixed, along with meeting detection scanning your windows every 2 seconds mid-meeting</li>
+      <li>Sessions are now named after the real meeting when possible — the Meet tab or Zoom topic ("Weekly Sync") instead of a guessed "person · topic" — and search finds chats by name, not just by what was said</li>
+      <li>The floating overlay behaves: it stays where you drag it (forever), closing it keeps it closed for the rest of the meeting, and Settings → General has a switch to turn it off entirely — nudges still show in the main window</li>
+      <li>The meeting-detected pill stopped repeating itself ("&amp; open Meeting Coach" line removed), and a start that fails no longer silences the pill for the rest of that meeting</li>
+      <li>Renaming a chat back to its date now sticks instead of a topic name reappearing</li>
+    </ul>
+  </section>
+
+  <section class="release">
     <h2>0.11.1
       <span class="date">August 4, 2026</span></h2>
     <ul>

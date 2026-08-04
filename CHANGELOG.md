@@ -9,6 +9,10 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.12.0 — 2026-08-04
+
+- Granola import actually works now — validated against a real export: your meetings come in with their true titles, notes, and full searchable transcripts (the first version choked on the file format and imported empty shells)
+- Naming a speaker sticks: tagging someone while they're still labeled "Them" saved nothing before (you had to wait for "Them 1") — now every tag saves their voice locally so future meetings can label them automatically
 - Much lower CPU during meetings: a bug ran two transcription engines at once every session (Apple's engine on the other side's audio even when the fast Parakeet model was loaded), and transcription re-processed audio far more often than needed — both fixed, along with meeting detection scanning your windows every 2 seconds mid-meeting
 - Sessions are now named after the real meeting when possible — the Meet tab or Zoom topic ("Weekly Sync") instead of a guessed "person · topic" — and search finds chats by name, not just by what was said
 - The floating overlay behaves: it stays where you drag it (forever), closing it keeps it closed for the rest of the meeting, and Settings → General has a switch to turn it off entirely — nudges still show in the main window
