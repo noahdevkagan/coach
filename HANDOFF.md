@@ -5,7 +5,45 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-07-30)
+## Current state (2026-08-04)
+
+- Noah's onboarding fixes batch built on branch
+  `claude/meeting-coach-improvements-un1h39` (from origin/main), NOT yet
+  built or gate-run — this container has no Swift/Xcode. Before merging:
+  `cd MeetingCoach && xcodegen && xcodebuild ...` then
+  `./scripts/push-gate.sh` on a Mac. The batch (one commit per feature):
+  1. Credits.rtf: David Shapiro thank-you (About panel).
+  2. Onboarding checklist empty state (`OnboardingChecklistView`) replaces
+     the demo-centric card: mic + Screen Recording rows with grant buttons
+     (new `PermissionStatus`, 2 s poll — TCC has no notifications), both
+     model downloads with live progress, "join a meeting" row, privacy
+     line ("audio is never stored"), demo + Granola-import footer links.
+  3. Parakeet ~600 MB download: now observable (`ParakeetDownloadState`,
+     fed by FluidAudio 0.15.5's `progressHandler`) and starts at launch
+     from MenuBarLabel.onAppear (menu-bar-only launches included).
+     The two "~600 MB" fallback banners show live progress
+     (`ParakeetProgressLine`). `prefetchInBackground()` deleted.
+  4. Recommended LLM (qwen3.5:9b) auto-pulls once after Parakeet is ready
+     (`autoDownloadRecommendedIfNeeded`; flag `autoModelPullAttempted`
+     set only when a pull actually starts; disk + engine guards).
+  5. Referral sheet fires after the 2nd real meeting (new counter
+     `referralCompletedMeetingCount`, seeded from saved session files;
+     legacy Bool still gates once-ever). Copy updated. tests/session
+     swiftc list gained ReferralInvites + TranscriptSearch.
+  6. Sidebar Advanced: open by default, whole header row clickable,
+     collapse persists (`sidebarAdvancedExpanded`); sub-groups unchanged.
+  7. Granola import in Settings → General (`GranolaImporter`): one-click
+     cache import (cache-v3.json double-decode → state.documents +
+     transcripts), sessions written with ORIGINAL meeting dates + an
+     Imported-From dedupe marker; encrypted-cache (Granola v6+) error
+     path reveals a file-import fallback. Needs verification against a
+     real Granola install — segment field names are best-guess defensive.
+  Verify on a Mac: FluidAudio progressHandler compile + thread, checklist
+  permission flows (prompt vs pane), auto-pull happy path + cancel + dev
+  build without runtime, Granola cache schema. See decisions.md
+  (5 new 2026-08-04 entries) for the why behind each choice.
+
+## Previous state (2026-07-30)
 
 - Nick's field report (2 test calls vs Granola) addressed, merged to
   `main` (Noah approved 2026-07-30) as Unreleased:

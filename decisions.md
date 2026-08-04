@@ -124,3 +124,52 @@ Login Items is respected instead of fought. Registration is compiled out
 of Debug builds: dev and installed app share bundle ID + UserDefaults,
 so a dev build registering itself would point the login item at the
 Debug build path and hijack the installed app's registration.
+
+## 2026-08-04 — Model downloads start at launch, sequential, Parakeet first
+Noah: "do what's best for the person" — both models now download with zero
+clicks. Kick-off lives in the menu bar label's onAppear (the only
+always-alive view, so login/menu-bar-only launches fetch too). Sequential
+on purpose: Parakeet (~600 MB) is the core product — transcription IS the
+first-session value, the LLM only upgrades nudges which have a
+deterministic fallback — and parallel multi-GB pulls halve each other's
+bandwidth. If Parakeet fails, the LLM pull is skipped that launch (a link
+that can't do 600 MB can't do 6.6 GB); a successful Retry still chains it.
+
+## 2026-08-04 — Auto-LLM pull: attempted-flag set at pull start only
+The once-only `autoModelPullAttempted` flag is written the moment a pull
+genuinely starts, not when the attempt is evaluated. An engine that can't
+come up (dev build without the vendored runtime) logs and retries next
+launch — that's not a user decision. A user Cancel after a real start is
+one, and is never re-fought. Low-disk (<12 GB free) also defers without
+setting the flag.
+
+## 2026-08-04 — Referral prompt moved to the 2nd meeting
+First-meeting ask landed mid-first-impression (Noah). New
+`referralCompletedMeetingCount` increments on real non-empty sessions;
+the sheet fires at >= 2, still once ever. The legacy Bool key
+(`referralFirstSessionPromptShown`) stays as the shown-gate — it also
+grandfathers everyone who already saw the prompt under the old rule. The
+counter seeds itself from saved session files on first read so existing
+users' history counts.
+
+## 2026-08-04 — Granola import: meeting-date filenames + header dedupe marker
+Imported sessions are ordinary session_yyyy-MM-dd_HH-mm.md files stamped
+with the meeting's ORIGINAL date — the filename is the only date the
+dashboard/search parsers read, so imports sort into history correctly with
+zero parser changes. Filename collisions bump forward one minute (a suffix
+would make the file invisible to the parsers). Dedupe is an
+`**Imported-From:** granola:<id>` header line (ignored by every parser);
+re-import skips matching ids. Notes bodies are sanitized (checkboxes
+`- [ ]` → `- ☐`, `## ` headings demoted) so task lists can't parse as
+transcript lines and a "Nudges" heading can't trip the nudge counter.
+Docs with no resolvable date are skipped and counted — a wrong date in a
+date-keyed archive is worse than absence. Granola v6+ encrypts the cache:
+that surfaces as a clear error plus a file-import fallback for Granola
+exports.
+
+## 2026-08-04 — Demo demoted from empty-state centerpiece to footer link
+Noah: demo-as-centerpiece was "kind of confusing" as onboarding. The empty
+main pane is now a live checklist (permissions with grant buttons, both
+model downloads with real progress, "join a meeting", privacy line);
+the demo survives as a caption link. The first-launch WelcomeSheet keeps
+the demo as the aha moment — only the persistent empty state changed.
