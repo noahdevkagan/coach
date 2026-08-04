@@ -162,11 +162,13 @@ struct LiveTimelineView: View {
                 .frame(minWidth: 380)
 
             // Right: the coach rail. Quiet by design — a few high-bar
-            // nudges, not a feed to monitor. Narrow by default but freely
-            // resizable: the old 340pt cap made the split divider stop dead
-            // while the review card stayed cramped.
+            // nudges, not a feed to monitor. Freely resizable: the old
+            // 340pt cap made the split divider stop dead while the review
+            // card stayed cramped. The 280 floor is the nudge card's real
+            // minimum (timestamp gutter + fixed-size badge) — any narrower
+            // and the whole rail's content overflows and clips.
             nudgesPanel
-                .frame(minWidth: 200, idealWidth: 250, maxWidth: 560)
+                .frame(minWidth: 280, idealWidth: 300, maxWidth: 560)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(MCTheme.canvas)
@@ -918,12 +920,14 @@ struct NudgeCardView: View {
 
                     // Window the signal reasons over — "last 5 min" vs "this
                     // meeting" was genuinely ambiguous before.
+                    // Unlike the badge, the hint may truncate in a tight
+                    // card — a rigid hint widens the card's floor past
+                    // what a narrow rail can hold.
                     if let hint = scopeHint {
                         Text("· \(hint)")
                             .font(.caption2)
                             .foregroundStyle(.quaternary)
                             .lineLimit(1)
-                            .fixedSize()
                     }
 
                     Spacer(minLength: 8)
