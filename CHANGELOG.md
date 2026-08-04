@@ -9,6 +9,14 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.11.0 — 2026-08-03
+
+- New first-run checklist: the main pane walks you to your first coached meeting — two permissions with Grant buttons, both models downloading with real progress bars (they start on their own, no clicks), then "join a meeting"
+- Coming from Granola? Export your meetings as a CSV in Granola, pick the file in Settings → General, and your notes become searchable MeetingCoach sessions — on your Mac, like everything else
+- The give-MeetingCoach-to-a-friend prompt now waits for your second coached meeting instead of interrupting the glow of the first
+- Fixed: at narrow widths the coach panel could clip its cards on both edges, cutting text mid-word — the panel now refuses to shrink past readable
+- The sidebar's Advanced section starts open so Questions to Ask and Coaching Notes are visible, and the whole header row is clickable
+
 ## 0.10.1 — 2026-08-03
 
 - MeetingCoach now starts automatically when you log in (so it's ready after a restart) — turn it off any time in Settings → General → Startup
