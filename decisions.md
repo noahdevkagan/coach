@@ -234,3 +234,17 @@ transient green "Saved" label when an edit actually reaches storage, and
 an orange "Fill in 'Corrected to…' to save the row" hint when a row won't
 serialize. Matches the RubricBuilder footer's existing green-checkmark
 saved idiom.
+
+## 2026-08-04 — Verify on CI's toolchain before tagging (Xcode gap)
+The v0.11.1 release failed twice at the tag: CI pins Xcode 16.2
+(Swift 6 strict concurrency on the macOS 15.2 SDK) while local Macs run
+Xcode 17 (macOS 26 SDK, View fully @MainActor) — code can build clean
+locally and still fail the release gate. Lesson applied: `Binding`
+get/set closures formed in nonisolated helpers need Sendable captures on
+the old SDK (fix: @MainActor on the helper), and hand-rolled `Task {}` in
+nonisolated View methods breaks the same way (prefer `.task(id:)`).
+Process rule: after any Swift change that touches concurrency or new
+helpers, dispatch "Test Gate" on main (workflow_dispatch) and wait for
+green BEFORE pushing the tag — a failed release run means deleting and
+re-pushing the tag. The gate's failure output now shows real `error:`
+lines and uploads build.log as an artifact.
