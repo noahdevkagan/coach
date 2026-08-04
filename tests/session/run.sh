@@ -35,5 +35,7 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Models/TrainingExample.swift" \
   "$SRC/Models/FocusGoals.swift" \
   "$SRC/Models/AppSupport.swift" \
+  "$SRC/Models/ReferralInvites.swift" \
+  "$SRC/Models/TranscriptSearch.swift" \
   "$SRC"/Engine/Signals/*.swift
 "$OUT/sessioncheck"

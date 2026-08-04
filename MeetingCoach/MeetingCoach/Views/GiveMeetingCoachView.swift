@@ -4,7 +4,7 @@ import AppKit
 /// "Give MeetingCoach to a friend" — the viral loop. One click copies a
 /// ready-to-paste invite (AppSumo code + link); a local 3-invite count
 /// adds urgency without ever blocking generosity. Shown two ways: its own
-/// window from the menu bar, and a one-time sheet after the user's first
+/// window from the menu bar, and a one-time sheet after the user's second
 /// real coached meeting (`asSheet`).
 struct GiveMeetingCoachView: View {
     /// Sheet mode adds the "aha"-moment framing and a Maybe Later button.
@@ -17,7 +17,7 @@ struct GiveMeetingCoachView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(asSheet ? "That was your first coached meeting 🎉"
+                Text(asSheet ? "Two coached meetings down 🎉"
                              : "Give MeetingCoach to a friend for FREE")
                     .font(.title3.bold())
                 Text(asSheet

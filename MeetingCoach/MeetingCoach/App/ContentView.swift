@@ -82,11 +82,16 @@ struct ContentView: View {
         .onChange(of: liveSession.isLive) { _, isLive in
             if isLive { showOverlay() } else { hideOverlay() }
         }
-        // The viral-loop trigger moment: the user's FIRST real coached
-        // meeting just ended (the "aha" high point). Once ever; demo
-        // replays never set showPostSession so they can't trigger it.
+        // The viral-loop trigger moment: the user's SECOND real coached
+        // meeting just ended — they've seen the value twice, and the ask
+        // no longer lands mid-first-impression. Once ever; demo replays
+        // never set showPostSession so they can't trigger it. (The flag
+        // key still says "first session" — it also grandfathers everyone
+        // who already saw the prompt under the old first-meeting rule.)
         .onChange(of: liveSession.showPostSession) { _, shown in
-            guard shown, !ReferralInvites.firstSessionPromptShown else { return }
+            guard shown,
+                  !ReferralInvites.firstSessionPromptShown,
+                  ReferralInvites.completedMeetingCount >= 2 else { return }
             ReferralInvites.firstSessionPromptShown = true
             showGiveSheet = true
         }

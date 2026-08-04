@@ -335,6 +335,13 @@ final class LiveSessionViewModel {
 
         saveSession()
 
+        // Counts toward the give-to-a-friend prompt (fires after the 2nd
+        // real meeting). Same emptiness guard as the transcript itself —
+        // a mis-click session with no words isn't a meeting.
+        if !utterances.isEmpty {
+            ReferralInvites.completedMeetingCount += 1
+        }
+
         // Questions are per-meeting: coverage was just written into the
         // session file, so clear both sources — the live checklist context
         // and the standing paste under Advanced — for a fresh list next

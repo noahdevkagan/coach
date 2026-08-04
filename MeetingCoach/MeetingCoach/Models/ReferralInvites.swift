@@ -43,10 +43,28 @@ enum ReferralInvites {
         invitesLeft -= 1
     }
 
-    /// Whether the one-time "give it to a friend" moment after the user's
-    /// first real coached meeting has already been shown.
+    /// Whether the one-time "give it to a friend" moment has already been
+    /// shown. Key name says "first session" for history: the prompt used to
+    /// fire after the first real meeting and now waits for the second, but
+    /// anyone who already saw it under the old rule must never see it again.
     static var firstSessionPromptShown: Bool {
         get { UserDefaults.standard.bool(forKey: "referralFirstSessionPromptShown") }
         set { UserDefaults.standard.set(newValue, forKey: "referralFirstSessionPromptShown") }
+    }
+
+    /// Completed real (non-demo) coached meetings. Seeded on first read
+    /// from the saved session files so existing users' history counts —
+    /// someone with five sessions on disk is past the prompt threshold,
+    /// not "new" because the counter key didn't exist yet.
+    static var completedMeetingCount: Int {
+        get {
+            if let n = UserDefaults.standard.object(forKey: "referralCompletedMeetingCount") as? Int {
+                return n
+            }
+            let seeded = TranscriptSearch.sessionFiles().count
+            UserDefaults.standard.set(seeded, forKey: "referralCompletedMeetingCount")
+            return seeded
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "referralCompletedMeetingCount") }
     }
 }
