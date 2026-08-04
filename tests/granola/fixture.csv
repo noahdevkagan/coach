@@ -1,0 +1,9 @@
+document_id,user_email,document_title,workspace_name,document_created,summary,notes,transcript
+fixture-0001,test@example.com,Roadmap Sync,Test WS,2026-08-01T15:30:00.000Z,"### Recap
+
+-   Discussed the roadmap, budget
+-   Next steps: ship it",,"Speaker A: Morning, ready to start?
+Speaker B: Yep, let's go.
+Speaker A: First item is the budget.
+and the hiring plan too.
+Speaker B: Works for me."

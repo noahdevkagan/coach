@@ -99,6 +99,7 @@ bash tests/rubric/run.sh || { echo "RUBRIC GATE FAILED"; exit 1; }
 bash tests/detector/run.sh || { echo "DETECTOR GATE FAILED"; exit 1; }
 bash tests/session/run.sh || { echo "SESSION GATE FAILED"; exit 1; }
 bash tests/demo/run.sh || { echo "DEMO GATE FAILED"; exit 1; }
+bash tests/granola/run.sh || { echo "GRANOLA GATE FAILED"; exit 1; }
 
 echo "--- [4/4] ship scorecard (informational)"
 # Refresh the nudge-signal record from real saved sessions when this

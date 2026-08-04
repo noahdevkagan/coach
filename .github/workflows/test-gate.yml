@@ -74,6 +74,7 @@ jobs:
           bash tests/detector/run.sh
           bash tests/session/run.sh
           bash tests/demo/run.sh
+          bash tests/granola/run.sh
           bash tests/hygiene/run.sh
 
       # The compare-before-you-ship report: transcription accuracy + Them

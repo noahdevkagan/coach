@@ -62,13 +62,21 @@ enum GranolaImporter {
             }
             return nil
         }
+        // Verified against a real export (2026-08-04): document_id,
+        // user_email, document_title, workspace_name, document_created,
+        // summary, notes, transcript. `notes` is the user's typed notes and
+        // is usually EMPTY — Granola's auto-notes live in `summary`, and
+        // the full transcript in `transcript`. The first importer bound
+        // "notes" alone and produced title-only shells.
         let idCol = col(["id", "document_id"])
         let dateCol = col(["date", "created_at", "created", "start", "time"])
         let titleCol = col(["title", "name", "meeting"])
-        let notesCol = col(["notes", "summary", "content", "body"])
+        let notesCol = col(["notes", "content", "body"])
+        let summaryCol = col(["summary"])
+        let transcriptCol = col(["transcript"])
         let attendeesCol = col(["attendees", "participants", "people"])
         let endCol = col(["end"])
-        guard dateCol != nil, titleCol != nil || notesCol != nil else {
+        guard dateCol != nil, titleCol != nil || notesCol != nil || summaryCol != nil else {
             throw ImportError.notAGranolaCSV
         }
 
@@ -83,14 +91,19 @@ enum GranolaImporter {
             }
 
             let title = field(titleCol)
-            var notes = field(notesCol)
+            // User-typed notes first, Granola's generated summary after —
+            // both survive, either alone is fine.
+            var notes = [field(notesCol), field(summaryCol)]
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n\n")
             let attendees = field(attendeesCol)
             if !attendees.isEmpty {
                 notes = "Attendees: \(attendees)\n\n\(notes)"
                     .trimmingCharacters(in: .whitespacesAndNewlines)
             }
+            let transcript = transcriptLines(field(transcriptCol))
             // Nothing to bring over — not worth a file (or a report line).
-            guard !title.isEmpty || !notes.isEmpty else { continue }
+            guard !title.isEmpty || !notes.isEmpty || !transcript.isEmpty else { continue }
 
             guard let date = parseDate(field(dateCol)) else {
                 // A wrong date in a date-keyed archive is worse than absence.
@@ -111,7 +124,7 @@ enum GranolaImporter {
             }
 
             write(marker: marker, title: title, date: date,
-                  duration: duration, notes: notes, into: dir)
+                  duration: duration, notes: notes, transcript: transcript, into: dir)
             report.imported += 1
         }
         return report
@@ -148,8 +161,16 @@ enum GranolaImporter {
                 inQuotes = true
             case "," where !inQuotes:
                 endField()
+            case "\r\n" where !inQuotes:
+                // CRLF is ONE Character in Swift (grapheme cluster) — it
+                // matches neither "\r" nor "\n" below, so without this case
+                // a CRLF-terminated header glues the whole file into one
+                // row. Granola's real export mixes exactly one CRLF (after
+                // the header) with LF everywhere else; this was the
+                // "import does nothing" bug (2026-08-04).
+                endRow()
             case "\r" where !inQuotes:
-                break  // normalize CRLF/CR to the LF handling below
+                break  // bare CR: normalize to the LF handling below
             case "\n" where !inQuotes:
                 endRow()
             default:
@@ -162,8 +183,41 @@ enum GranolaImporter {
 
     // MARK: - Session file writing
 
+    /// Granola transcript cells are "Speaker A: text" lines with no
+    /// timestamps. Convert to the session line shape the app's parsers read
+    /// ("- [--:--] Speaker: text" — the placeholder stamp is honest about
+    /// having no times and parses fine); soft-wrapped continuations fold
+    /// into the turn above.
+    static func transcriptLines(_ cell: String) -> [String] {
+        var out: [String] = []
+        for raw in cell.components(separatedBy: .newlines) {
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            if line.isEmpty { continue }
+            if let colon = line.firstIndex(of: ":"), colon != line.startIndex {
+                let speaker = String(line[..<colon]).trimmingCharacters(in: .whitespaces)
+                let text = String(line[line.index(after: colon)...])
+                    .trimmingCharacters(in: .whitespaces)
+                // Speaker labels are short name-ish runs ("Speaker A",
+                // "Noah Kagan") — a colon deep into a sentence isn't one.
+                if !text.isEmpty, speaker.count <= 40,
+                   speaker.split(separator: " ").count <= 4,
+                   !speaker.contains(where: { ".,!?".contains($0) }) {
+                    out.append("- [--:--] \(speaker): \(text)")
+                    continue
+                }
+            }
+            if out.isEmpty {
+                out.append("- [--:--] Speaker: \(line)")
+            } else {
+                out[out.count - 1] += " " + line
+            }
+        }
+        return out
+    }
+
     private static func write(marker: String, title: String, date: Date,
-                              duration: TimeInterval?, notes: String, into dir: URL) {
+                              duration: TimeInterval?, notes: String,
+                              transcript: [String], into dir: URL) {
         let stampFormatter = DateFormatter()
         stampFormatter.dateFormat = "yyyy-MM-dd_HH-mm"
 
@@ -189,7 +243,7 @@ enum GranolaImporter {
             let total = Int(duration)
             lines.append("**Duration:** \(String(format: "%02d:%02d", total / 60, total % 60))")
         }
-        lines.append("**Utterances:** 0")
+        lines.append("**Utterances:** \(transcript.count)")
         lines.append("**Nudges:** 0")
         lines.append("**Engine:** Granola import")
         lines.append("**Imported-From:** \(marker)")
@@ -199,6 +253,12 @@ enum GranolaImporter {
         if !cleanedNotes.isEmpty {
             lines.append("## Imported Notes")
             lines.append(cleanedNotes)
+            lines.append("")
+        }
+
+        if !transcript.isEmpty {
+            lines.append("## Transcript")
+            lines.append(contentsOf: transcript)
             lines.append("")
         }
 

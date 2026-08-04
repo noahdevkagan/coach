@@ -50,3 +50,4 @@ tests/echo/.build/
 tests/hygiene/.build/
 .wrangler/
 tests/session/.build
+tests/granola/.build/
