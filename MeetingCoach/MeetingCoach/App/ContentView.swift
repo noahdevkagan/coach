@@ -1084,7 +1084,10 @@ struct SidebarView: View {
     @Binding var searchQuery: String
     @Binding var selectedSession: URL?
     var onToggleOverlay: () -> Void
-    @State private var showAdvanced = false
+    // Open by default (the section shrank in the zero-config pivot); a
+    // user's collapse sticks across launches. Sub-sections inside keep
+    // their own collapsed-by-default state.
+    @AppStorage("sidebarAdvancedExpanded") private var showAdvanced = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1136,9 +1139,18 @@ struct SidebarView: View {
                 }
                 .frame(maxHeight: 320)
             } label: {
-                Label("Advanced", systemImage: "slider.horizontal.3")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                // Whole row toggles, not just the chevron — the label is a
+                // full-width tap target.
+                HStack {
+                    Label("Advanced", systemImage: "slider.horizontal.3")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation { showAdvanced.toggle() }
+                }
             }
             .padding(.horizontal, 14).padding(.vertical, 8)
             .background(MCTheme.canvas)
