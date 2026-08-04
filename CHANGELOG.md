@@ -9,6 +9,11 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.11.1 — 2026-08-04
+
+- Fixed a crash when editing lists with a row deleted mid-edit — typing in a vocabulary term, pre-call participant, or custom coaching signal and removing a row could quit the app and lose what you typed
+- Vocabulary edits now confirm themselves: a green "Saved" appears when a term is stored, and a hint tells you when a row still needs its "Corrected to…" filled in to save
+
 ## 0.11.0 — 2026-08-03
 
 - New first-run checklist: the main pane walks you to your first coached meeting — two permissions with Grant buttons, both models downloading with real progress bars (they start on their own, no clicks), then "join a meeting"
