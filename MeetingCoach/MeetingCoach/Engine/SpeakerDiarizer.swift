@@ -247,12 +247,17 @@ final class SpeakerDiarizer: @unchecked Sendable {
     private func enroll(into d: LSEENDDiarizer) {
         guard !profiles.isEmpty else { return }
         let capacity = max(1, (d.numSpeakers ?? 4) - 1)
+        if profiles.count > capacity {
+            let dropped = profiles.dropFirst(capacity).map(\.name).joined(separator: ", ")
+            mclog("[Diarizer:\(labelPrefix)] Enrollment capacity \(capacity) — not enrolling: \(dropped)")
+        }
         for p in profiles.prefix(capacity) {
             do {
                 if let speaker = try d.enrollSpeaker(withAudio: p.samples,
                                                      sourceSampleRate: p.sampleRate,
                                                      named: p.name) {
                     labelBySlot[speaker.index] = p.name
+                    VoiceProfileStore.touch(name: p.name)
                     mclog("[Diarizer:\(labelPrefix)] Enrolled \(p.name) at slot \(speaker.index)")
                 } else {
                     mclog("[Diarizer:\(labelPrefix)] Enrollment produced no speaker for \(p.name)")
@@ -309,9 +314,11 @@ final class SpeakerDiarizer: @unchecked Sendable {
             let start = max(TimeInterval(seg.startTime), clip.consumedUntil)
             let end = TimeInterval(seg.endTime)
             guard end > start else { continue }
-            clip.consumedUntil = end
             let (samples, rate) = ringExtract(from: start, to: end)
             guard !samples.isEmpty, rate > 0 else { continue }
+            // Marked consumed only AFTER a successful extract — marking
+            // first permanently skipped audio the ring couldn't serve yet.
+            clip.consumedUntil = end
             if clip.rate <= 0 { clip.rate = rate }
             guard rate == clip.rate else { continue }
             clip.samples.append(contentsOf: samples)
@@ -354,7 +361,13 @@ final class SpeakerDiarizer: @unchecked Sendable {
     }
 
     /// "Them 2" → slot 1 when the slot was never published (early rename).
+    /// The BARE channel label ("Them" — what the transcript shows before
+    /// the diarizer's first publish) is slot 0: renaming it used to vanish
+    /// silently, so the user's first, most natural tag saved no profile
+    /// (seen live 2026-08-04 — "Them" → Caitlin was a no-op and she had to
+    /// be named again as "Them 1").
     private func slotFromLabel(_ label: String) -> Int? {
+        if label == labelPrefix { return 0 }
         guard label.hasPrefix(labelPrefix + " "),
               let n = Int(label.dropFirst(labelPrefix.count + 1)), n >= 1 else { return nil }
         return n - 1

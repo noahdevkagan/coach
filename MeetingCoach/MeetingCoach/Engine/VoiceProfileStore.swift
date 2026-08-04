@@ -82,6 +82,17 @@ enum VoiceProfileStore {
             }
     }
 
+    /// Mark a profile as used (successful enrollment at session start) so
+    /// `loadAll`'s recency ordering reflects who actually shows up to
+    /// meetings — not just who was named most recently. Matters because
+    /// enrollment capacity is limited (diarizer slots minus one).
+    static func touch(name: String) {
+        guard var profile = load(name: name) else { return }
+        profile.lastUsedAt = Date()
+        guard let data = try? JSONEncoder().encode(profile) else { return }
+        try? data.write(to: url(for: name), options: .atomic)
+    }
+
     static func delete(name: String) {
         try? FileManager.default.removeItem(at: url(for: name))
     }

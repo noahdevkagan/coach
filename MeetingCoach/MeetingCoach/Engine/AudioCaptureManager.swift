@@ -160,6 +160,11 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         // come back by name. Pre-call participant names float their
         // profiles to the front of the enrollment order.
         let profiles = VoiceProfileStore.loadAll(preferring: contextualHints)
+        // The whole return path (saved voice → auto-label next session) was
+        // undiagnosable from logs — enrollment lines only appear per
+        // profile, so an empty store and a failed load looked identical.
+        mclog("[Voices] Loaded \(profiles.count) profile(s)"
+              + (profiles.isEmpty ? "" : ": \(profiles.map(\.name).joined(separator: ", "))"))
 
         if hasSystemAudio {
             emitStatus("Listening (you + them)")
