@@ -63,7 +63,9 @@ struct ContentView: View {
             settings.ollamaManager = ollamaManager
             // Fetch the transcription model off the critical path so the
             // first real session starts on Parakeet instead of the fallback.
-            ParakeetEngine.prefetchInBackground()
+            // (Also kicked off from the menu bar label for windowless
+            // launches — startIfNeeded coalesces the two.)
+            ParakeetDownloadState.shared.startIfNeeded()
             if !hasSeenDemo { showWelcome = true }
             await settings.refreshModels()
         }
@@ -192,9 +194,12 @@ struct LiveTimelineView: View {
                             HStack(alignment: .top, spacing: 6) {
                                 Image(systemName: "arrow.down.circle")
                                     .foregroundStyle(.blue)
-                                Text("This session used the basic transcription engine — the transcript (and this review) missed words. The high-accuracy engine will be ready for your next session.")
-                                    .font(.caption2).foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("This session used the basic transcription engine — the transcript (and this review) missed words. The high-accuracy engine will be ready for your next session.")
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    ParakeetProgressLine()
+                                }
                             }
                             .padding(8)
                             .background(Color.blue.opacity(0.08))
@@ -317,12 +322,13 @@ struct LiveTimelineView: View {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "arrow.down.circle")
                         .foregroundStyle(.blue)
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text("Transcript accuracy is reduced this session")
                             .font(.caption.bold())
-                        Text("The high-accuracy engine wasn't ready when this session started (it downloads in the background, ~600 MB). Expect missing words today — your next session will be much better.")
+                        Text("The high-accuracy engine wasn't ready when this session started. Expect missing words today — your next session will be much better.")
                             .font(.caption2).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
+                        ParakeetProgressLine()
                     }
                     Spacer()
                 }

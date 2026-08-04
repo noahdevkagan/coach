@@ -128,7 +128,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             usingParakeet = await ParakeetEngine.shared.ensureLoaded()
         } else {
             usingParakeet = false
-            ParakeetEngine.prefetchInBackground()
+            Task { @MainActor in ParakeetDownloadState.shared.startIfNeeded() }
             emitStatus("Higher-accuracy transcription downloading — ready next session")
             mclog("[Capture] Parakeet not cached — starting on SFSpeech, downloading in background")
         }

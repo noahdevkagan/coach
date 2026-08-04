@@ -149,6 +149,14 @@ struct MenuBarLabel: View {
                 // Countdown expiry uses the same start path as the pill's
                 // "Start Coaching" button.
                 detection.onAutoStart = { startFromDetection() }
+                // Downloads start at launch, not first use — this label is
+                // the app's only always-alive view, so login/menu-bar-only
+                // launches fetch too. Sequential on purpose: Parakeet
+                // (~600 MB, the core product) first, then the recommended
+                // LLM — parallel multi-GB pulls would just halve each other.
+                ParakeetDownloadState.shared.startIfNeeded {
+                    Task { await settings.autoDownloadRecommendedIfNeeded() }
+                }
             }
             .onChange(of: detection.meetingDetected) { _, detected in
                 if detected { showPrompt() } else { hidePrompt() }

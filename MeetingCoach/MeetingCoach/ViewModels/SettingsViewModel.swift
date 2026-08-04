@@ -162,6 +162,40 @@ final class SettingsViewModel {
         return models.sorted { $0.name < $1.name }
     }
 
+    /// One-time zero-click pull of the recommended model, run after the
+    /// Parakeet download finishes (or immediately when it was cached).
+    /// The attempted-flag is set only when a pull genuinely starts: an
+    /// engine that can't come up (dev build without the vendored runtime,
+    /// broken install) may try again next launch — that is not a user
+    /// cancel. Once a pull starts, Cancel is respected forever.
+    static let autoModelPullAttemptedKey = "autoModelPullAttempted"
+
+    func autoDownloadRecommendedIfNeeded() async {
+        guard !UserDefaults.standard.bool(forKey: Self.autoModelPullAttemptedKey),
+              !useMock, downloadingModel == nil else { return }
+        await refreshModels()
+        guard availableModels.isEmpty else {
+            // Already set up (any model counts) — never auto-pull over it.
+            UserDefaults.standard.set(true, forKey: Self.autoModelPullAttemptedKey)
+            return
+        }
+        // Don't fill a nearly-full disk with a ~6.6 GB surprise.
+        if let free = try? URL(fileURLWithPath: NSHomeDirectory())
+            .resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+            .volumeAvailableCapacityForImportantUsage, free < 12_000_000_000 {
+            mclog("[Settings] Auto-pull skipped: low disk (\(free) bytes free)")
+            return
+        }
+        guard let manager = ollamaManager, await manager.ensureRunning() else {
+            mclog("[Settings] Auto-pull skipped: engine unavailable")
+            return
+        }
+        guard let recommended = modelCatalog.first else { return }
+        UserDefaults.standard.set(true, forKey: Self.autoModelPullAttemptedKey)
+        mclog("[Settings] Auto-pulling recommended model \(recommended.fullName)")
+        downloadModel(recommended)
+    }
+
     func downloadModel(_ catalogModel: CatalogModel) {
         let fullName = catalogModel.fullName
         downloadingModel = fullName

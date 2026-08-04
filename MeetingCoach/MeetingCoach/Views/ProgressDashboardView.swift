@@ -32,7 +32,7 @@ struct ProgressDashboardView: View {
                 }
 
                 if sessions.isEmpty {
-                    emptyState
+                    OnboardingChecklistView(liveSession: liveSession, settings: settings)
                 } else {
                     statTiles
                     suggestionSection
@@ -60,55 +60,6 @@ struct ProgressDashboardView: View {
     }
 
     // MARK: - Sections
-
-    private var emptyState: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("Every meeting, transcribed live")
-                .font(.title3.bold())
-                .frame(maxWidth: .infinity)
-                .multilineTextAlignment(.center)
-
-            onboardStep(1, "Join any meeting",
-                        "We detect Zoom & Meet and ask — or click Go Live any time.")
-            onboardStep(2, "Live transcript + a quiet coach",
-                        "Your words appear as you speak. The coach only chimes in when something's genuinely worth saying.")
-            onboardStep(3, "Recap, search, improve",
-                        "Every session ends with a summary and action items — and every word is searchable later.")
-
-            if let liveSession {
-                Button {
-                    liveSession.startDemo()
-                } label: {
-                    Label("Watch the 15-second demo", systemImage: "play.fill")
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-                .frame(maxWidth: .infinity)
-            }
-        }
-        .padding(28)
-        .frame(maxWidth: 440)
-        .cardStyle(cornerRadius: 12)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 32)
-    }
-
-    private func onboardStep(_ n: Int, _ title: String, _ blurb: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Text("\(n)")
-                .font(.callout.bold())
-                .foregroundStyle(.white)
-                .frame(width: 26, height: 26)
-                .background(Circle().fill(.green))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.callout.weight(.semibold))
-                Text(blurb)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
 
     private var statTiles: some View {
         let (current, best) = SessionTrends.streaks(sessions)
