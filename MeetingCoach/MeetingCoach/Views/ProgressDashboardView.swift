@@ -41,7 +41,7 @@ struct ProgressDashboardView: View {
             .frame(maxWidth: 728, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
-        .background(Color.white)
+        .background(Dorado.surface)
         .onAppear(perform: reload)
     }
 
@@ -324,7 +324,7 @@ private struct StatTile: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.white))
+        .background(RoundedRectangle(cornerRadius: 12).fill(Dorado.surface))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Dorado.border, lineWidth: 1))
     }
 }

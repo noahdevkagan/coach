@@ -45,7 +45,7 @@ struct SessionDetailView: View {
             tabBody
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.white)
+        .background(Dorado.surface)
         .task(id: url) {
             tab = .transcript   // resets per session (spec)
             load()

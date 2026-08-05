@@ -9,23 +9,36 @@ import AppKit
 // pre-redesign views. The rail/tab re-architecture was reverted.
 
 enum Dorado {
-    // Color
-    static let dorado300 = Color(hex: 0xFFBC00)   // Go live, accents
+    // Color — every token is a light/dark pair so the app follows the
+    // system appearance (Noah, 2026-08-05: "similar to computer on light
+    // or dark or auto"). The handoff only specified the light values; the
+    // dark side is the same hierarchy inverted onto near-black surfaces.
+    static let dorado300 = Color(hex: 0xFFBC00)   // Go live, accents (both modes)
     static let dorado100 = Color(hex: 0xFFEE4E)   // hover, active highlight
     static let dorado500 = Color(hex: 0xF58A00)   // pressed
-    static let doradoTint = Color(hex: 0xFFF3CC)  // soft highlight
-    static let bolt = Color(hex: 0x0044C0)        // "You", links
+    static let doradoTint = dynamic(0xFFF3CC, 0x4A3F1E)  // soft highlight
+    static let bolt = dynamic(0x0044C0, 0x5B9BFF)        // "You", links
     static let dollar = Color(hex: 0x00C838)      // success / loaded dot
-    static let midnight = Color(hex: 0x021414)    // headings
-    static let grey800 = Color(hex: 0x3C4552)     // body text
-    static let grey600 = Color(hex: 0x647184)     // secondary text
-    static let grey500 = Color(hex: 0x8B96A5)     // labels, icons, meta
-    static let grey400 = Color(hex: 0xA6AFBB)     // timestamps, dates
-    static let border = Color(hex: 0xDDE2E8)      // outline buttons, cards
-    static let divider = Color(hex: 0xEDEFF2)     // hairlines
-    static let surfaceSubtle = Color(hex: 0xF5F7F9) // fields, selection
-    static let warmSurface = Color(hex: 0xFCFBF8) // warm cards
-    static let warmBorder = Color(hex: 0xF1EDE4)
+    static let midnight = dynamic(0x021414, 0xF2F4F6)    // headings
+    static let grey800 = dynamic(0x3C4552, 0xC9D1D9)     // body text
+    static let grey600 = dynamic(0x647184, 0x9AA5B1)     // secondary text
+    static let grey500 = Color(hex: 0x8B96A5)     // labels, icons (both modes)
+    static let grey400 = dynamic(0xA6AFBB, 0x5C6670)     // timestamps, dates
+    static let border = dynamic(0xDDE2E8, 0x3A4048)      // outline buttons, cards
+    static let divider = dynamic(0xEDEFF2, 0x2A3036)     // hairlines
+    static let surfaceSubtle = dynamic(0xF5F7F9, 0x262B31) // fields, selection
+    static let warmSurface = dynamic(0xFCFBF8, 0x26241E) // warm cards
+    static let warmBorder = dynamic(0xF1EDE4, 0x3B372C)
+    /// Pane/window background — white in light, near-black in dark.
+    static let surface = dynamic(0xFFFFFF, 0x1E2126)
+
+    /// A color that resolves per the effective appearance at draw time.
+    static func dynamic(_ light: UInt32, _ dark: UInt32) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(hex: dark) : NSColor(hex: light)
+        })
+    }
 
     // Type — bundled faces (Resources/Fonts, ATSApplicationFontsPath).
     // Font.custom silently falls back to the system face if a TTF ever
@@ -64,6 +77,14 @@ extension Color {
     }
 }
 
+extension NSColor {
+    convenience init(hex: UInt32) {
+        self.init(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
+                  green: CGFloat((hex >> 8) & 0xFF) / 255,
+                  blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
+    }
+}
+
 /// The app's single primary action pill (Go live). Hover #FFEE4E, press
 /// #F58A00, no scale transform.
 struct DoradoPillButtonStyle: ButtonStyle {
@@ -73,7 +94,7 @@ struct DoradoPillButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Dorado.barlowBold(16))
-            .foregroundStyle(stop ? Color.white : Dorado.midnight)
+            .foregroundStyle(stop ? Dorado.surface : Dorado.midnight)
             .frame(maxWidth: .infinity)
             .padding(13)
             .background(background(pressed: configuration.isPressed))

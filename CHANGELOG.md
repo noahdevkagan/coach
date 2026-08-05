@@ -11,7 +11,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## 0.13.0 — 2026-08-05
 
-- A fresh coat of paint everywhere: new AppSumo-yellow Go live button, cleaner type, white surfaces, and a simpler title bar — same layout and flow you already know
+- A fresh coat of paint everywhere: new AppSumo-yellow Go live button, cleaner type, and a simpler title bar — same layout and flow you already know
+- Follows your Mac's appearance: light, dark, or auto — the new design now has a proper dark side
 - Meeting reviews became real meeting notes: a headline-first summary, takeaways with the actual numbers and names, and next steps as "who — what — by when". Old sessions can be rewritten too — open one and hit "Regenerate with AI" in the Summary tab
 - Fixed: if the AI model you'd selected was never finished downloading, every AI feature (reviews, name suggestions, smart nudges) silently did nothing — the app now uses whichever model is actually installed
 - Sessions open in tabs — Transcript, Summary, Coaching — with Copy and Export (Markdown, plain text, or just the summary)

@@ -67,7 +67,7 @@ struct OnboardingChecklistView: View {
         }
         .padding(28)
         .frame(maxWidth: 440)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.white))
+        .background(RoundedRectangle(cornerRadius: 12).fill(Dorado.surface))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Dorado.border, lineWidth: 1))
         .frame(maxWidth: .infinity)
         .padding(.vertical, 32)

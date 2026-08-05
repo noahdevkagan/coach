@@ -51,7 +51,7 @@ struct ContentView: View {
                 .help("Settings")
             }
             .frame(height: 46)
-            .background(Color.white)
+            .background(Dorado.surface)
 
             // Noah's call (2026-08-04): Dorado paint, 0.12.0 bones — the
             // pre-redesign sidebar and main-pane flow stay exactly as they
@@ -65,7 +65,7 @@ struct ContentView: View {
                                 onToggleOverlay: toggleOverlay)
                 }
                 .frame(minWidth: 280, idealWidth: 300, maxWidth: 340)
-                .background(Color.white)
+                .background(Dorado.surface)
 
                 // Main content — an opened session wins (closing returns
                 // you), then search (clearing the box returns you), then
@@ -98,7 +98,6 @@ struct ContentView: View {
         // bar (double-height header, Noah 2026-08-04). Ignoring it lets
         // the bar own the top edge with the lights overlaying its left.
         .ignoresSafeArea(.container, edges: .top)
-        .preferredColorScheme(.light)   // the Dorado palette is light-only
         .task {
             // No longer wait for Ollama before allowing app use.
             // Refresh models in background for when post-call review is needed.
