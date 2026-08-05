@@ -17,15 +17,20 @@ The durable "why" behind choices goes in `decisions.md`, not here.
   tests/granola gate suite) and speaker-tag fixes.
 - **Voice-profile return path verified live**: Caitlin tagged once,
   auto-labeled by name on 97 lines in the next session's transcript.
-- **Dorado main-window redesign built, UNRELEASED** (design handoff
-  "2a Merged"; on main, dev-app only). Rail + session pane + tabs +
-  bundled Barlow/Roboto fonts; after Noah's first review: home = the
-  restyled Your Progress dashboard, labeled Home button, checklist
-  restyled. Noah: "I want to work on this more — let's chat later."
+- **Dorado redesign settled as "paint, not furniture", UNRELEASED**:
+  after two review rounds Noah kept the colors/type/simplicity but
+  wanted 0.12.0's exact structure back — sidebar cards, Progress as
+  default pane, search in main pane, review-above-transcript. The 2a
+  rail/tabs re-architecture was reverted; Dorado.swift is now just
+  tokens/fonts/pill styles painted onto the pre-redesign views.
+  Additive keepers: Copy/Export/Home pills, meta line, inline rename,
+  search highlight+scroll, styled dashboard/checklist, custom title
+  bar, bundled fonts. Granola import re-verified end to end (Noah's
+  first try predated the 0.12.0 fix; Dr Baru meeting now imported).
 
 ## Outstanding
 
-- **Redesign iteration continues** — next known nits: coach-suggestion
+- **Redesign: awaiting Noah sign-off to tag** — known nits: coach-suggestion
   cards still old-style inside the dashboard; live-state pane is
   functional-not-designed; dark mode disabled (design is light-only).
   Do NOT tag a release until Noah signs off on the redesign.
