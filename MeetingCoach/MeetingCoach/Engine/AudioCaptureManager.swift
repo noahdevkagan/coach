@@ -79,6 +79,18 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     private let sysAudioQueue = DispatchQueue(label: "com.coach.systemAudio")
     private var hasSystemAudio = false
 
+    // Mic device-change recovery. When the default input device changes
+    // mid-session — a Continuity phone call handed to this Mac, AirPods
+    // connecting, a headset flipping profiles — AVAudioEngine posts a
+    // configuration change and STOPS. Without recovery the tap never fires
+    // again while the UI keeps saying "Listening". The notification is the
+    // primary signal; a watchdog backstops it (a running engine delivers
+    // buffers continuously, silence included, so a quiet tap = dead capture).
+    private let micRestartQueue = DispatchQueue(label: "com.coach.micRestart")
+    private var micWatchdog: DispatchSourceTimer?
+    private var micRecovering = false          // micRestartQueue-confined
+    private var lastMicBufferAt = Date()       // micStateLock-guarded
+
     /// True after start() when system audio couldn't be captured (Screen
     /// Recording declined/unavailable) — no structural You/Them separation.
     var isMicOnly: Bool { !hasSystemAudio }
@@ -167,13 +179,13 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
               + (profiles.isEmpty ? "" : ": \(profiles.map(\.name).joined(separator: ", "))"))
 
         if hasSystemAudio {
-            emitStatus("Listening (you + them)")
+            emitStatus(listeningStatus)
             mclog("[Capture] Dual pipelines active (mic=You, system=Them)")
             // Diarize the far side: "Them" lumps every remote participant
             // together — split it into Them 1/2/… (or enrolled names).
             sysDiarizer = makeDiarizer(labelPrefix: "Them", channel: .system, profiles: profiles)
         } else {
-            emitStatus("Listening (mic only — grant Screen Recording for Zoom)")
+            emitStatus(listeningStatus)
             // Single mixed stream: run on-device diarization so the
             // transcript can distinguish speakers.
             diarizer = makeDiarizer(labelPrefix: "Speaker", channel: .mic, profiles: profiles)
@@ -207,10 +219,20 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     func stop() {
         isRunning = false
 
-        // Stop mic
-        engine?.stop()
-        engine?.inputNode.removeTap(onBus: 0)
-        engine = nil
+        // Kill the recovery machinery first so a restart can't race teardown.
+        NotificationCenter.default.removeObserver(
+            self, name: .AVAudioEngineConfigurationChange, object: nil)
+        micWatchdog?.cancel()
+        micWatchdog = nil
+
+        // Stop mic — on the restart queue, so an in-flight recovery attempt
+        // finishes first and can't resurrect the engine after teardown.
+        micRestartQueue.sync {
+            micRecovering = false
+            engine?.stop()
+            engine?.inputNode.removeTap(onBus: 0)
+            engine = nil
+        }
 
         // Stop diarization (flushes the final partial chunk). References are
         // kept: renaming a speaker from the post-session view still routes
@@ -330,6 +352,15 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     // MARK: - Microphone
 
     private func startMicrophone() throws {
+        try startMicEngine()
+        micStateLock.lock()
+        lastMicBufferAt = Date()
+        micStateLock.unlock()
+        observeMicConfigChanges()
+        startMicWatchdog()
+    }
+
+    private func startMicEngine() throws {
         let audioEngine = AVAudioEngine()
         let inputNode = audioEngine.inputNode
 
@@ -369,6 +400,10 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         inputNode.installTap(onBus: 0, bufferSize: 4096, format: recordingFormat) { [weak self] buffer, _ in
             guard let self else { return }
 
+            self.micStateLock.lock()
+            self.lastMicBufferAt = Date()
+            self.micStateLock.unlock()
+
             var speechBuffer = buffer
             if let converter, let monoFormat,
                let mono = AVAudioPCMBuffer(pcmFormat: monoFormat, frameCapacity: buffer.frameLength) {
@@ -403,6 +438,98 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         try audioEngine.start()
         engine = audioEngine
         mclog("[Mic] Engine started")
+    }
+
+    // MARK: - Microphone recovery
+
+    /// The steady-state status line for the active capture mode.
+    private var listeningStatus: String {
+        hasSystemAudio ? "Listening (you + them)"
+                       : "Listening (mic only — grant Screen Recording for Zoom)"
+    }
+
+    /// The input device changed or reconfigured under the engine (Continuity
+    /// call handoff, AirPods, sample-rate switch). The engine has already
+    /// stopped by the time this fires — rebuild capture on the new device.
+    private func observeMicConfigChanges() {
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(micConfigDidChange(_:)),
+            name: .AVAudioEngineConfigurationChange, object: nil)
+    }
+
+    @objc private func micConfigDidChange(_ note: Notification) {
+        guard let posted = note.object as? AVAudioEngine, posted === engine else { return }
+        mclog("[Mic] Input configuration changed — rebuilding capture")
+        restartMicrophone(reason: "config change")
+    }
+
+    /// Backstop for changes that never post the notification: a running
+    /// engine delivers buffers continuously (silence included), so a tap
+    /// that has gone quiet means capture is dead.
+    private func startMicWatchdog() {
+        let timer = DispatchSource.makeTimerSource(queue: micRestartQueue)
+        timer.schedule(deadline: .now() + 5, repeating: 3)
+        timer.setEventHandler { [weak self] in
+            guard let self, self.isRunning, !self.micRecovering else { return }
+            self.micStateLock.lock()
+            let quiet = Date().timeIntervalSince(self.lastMicBufferAt)
+            self.micStateLock.unlock()
+            if quiet > 5 {
+                mclog("[Mic] No buffers for \(String(format: "%.1f", quiet))s — rebuilding capture")
+                self.micRecovering = true
+                self.attemptMicRestart(reason: "tap went silent", attempt: 0)
+            }
+        }
+        timer.resume()
+        micWatchdog = timer
+    }
+
+    private func restartMicrophone(reason: String) {
+        micRestartQueue.async { [self] in
+            guard !micRecovering else { return }
+            micRecovering = true
+            attemptMicRestart(reason: reason, attempt: 0)
+        }
+    }
+
+    /// micRestartQueue only. Tears down the dead engine and brings capture
+    /// back on whatever input device is current. The pipeline stays put —
+    /// it takes the new device's format per buffer (Parakeet resamples,
+    /// SFSpeech reads each buffer's format) — so no transcript state is
+    /// lost across the swap.
+    private func attemptMicRestart(reason: String, attempt: Int) {
+        guard isRunning else { micRecovering = false; return }
+        engine?.stop()
+        engine?.inputNode.removeTap(onBus: 0)
+        engine = nil
+        micStateLock.lock()
+        let gap = Date().timeIntervalSince(lastMicBufferAt)
+        micStateLock.unlock()
+        do {
+            try startMicEngine()
+            // The mic diarizer's clock is fed-audio-relative (see the tap
+            // comment) — backfill the dead stretch with silence so segments
+            // after the recovery stay aligned to session time.
+            if let dia = diarizer, gap > 0.5 {
+                dia.enqueue([Float](repeating: 0, count: Int(gap * 16_000)), sampleRate: 16_000)
+            }
+            micStateLock.lock()
+            lastMicBufferAt = Date()
+            micStateLock.unlock()
+            micRecovering = false
+            mclog("[Mic] Capture restarted (\(reason)) after \(attempt + 1) attempt(s)")
+            emitStatus(listeningStatus)
+        } catch {
+            // A device handoff can hold the mic for a few seconds mid-
+            // transition. Retry forever with capped backoff: capture comes
+            // back by itself whenever an input device does.
+            mclog("[Mic] Restart attempt \(attempt + 1) failed (\(reason)): \(error.localizedDescription)")
+            if attempt == 2 { emitStatus("Microphone lost — reconnecting…") }
+            let delay = min(5.0, Double(attempt) + 1)
+            micRestartQueue.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.attemptMicRestart(reason: reason, attempt: attempt + 1)
+            }
+        }
     }
 
     // MARK: - System audio (ScreenCaptureKit)

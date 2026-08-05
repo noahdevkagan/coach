@@ -339,3 +339,24 @@ feedbackText/feedbackSaved as @State instead of borrowing the dead
 SimulationViewModel. Also dropped: three zero-reference funcs
 (splitWords, VoiceProfileStore.allNames, Dorado.sectionLabel) and the
 empty coach//overlay/ placeholder dirs from the original PLAN phases.
+
+## 2026-08-06 — Mic capture survives input-device changes (notification + watchdog, restart forever)
+
+Noah handed a live phone call to his Mac mid-session ("From Your
+iPhone") and MeetingCoach kept saying "Listening" while transcribing
+nothing: AVAudioEngine stops permanently when the default input device
+changes (`AVAudioEngineConfigurationChange`), and nothing restarted it.
+Recovery is two-layered on purpose: the notification is the documented
+signal, but a 3s watchdog on buffer arrival backstops it — a running
+engine delivers buffers continuously (silence included), so a quiet tap
+is proof of death even if the notification never fires. Restart builds
+a fresh engine rather than reusing the stopped one (the input node's
+format/device binding is stale) and retries forever with capped backoff
+instead of giving up: a call handoff can hold the mic for several
+seconds, and "comes back whenever a device does" beats a dead session.
+The pipelines are deliberately NOT restarted — Parakeet resamples per
+buffer and SFSpeech reads each buffer's format, so transcript state
+survives the swap; the mic-only diarizer gets the dead gap backfilled
+with silence because its clock is fed-audio-relative. stop() tears the
+mic down inside the restart queue so an in-flight recovery can't
+resurrect the engine after the session ends.

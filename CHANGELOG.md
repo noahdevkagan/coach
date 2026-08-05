@@ -9,6 +9,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Fixed: switching audio devices mid-meeting (taking a phone call on your Mac, connecting AirPods, plugging in a headset) silently killed the microphone — the app kept saying "Listening" but stopped transcribing. It now detects the change and reconnects to your mic automatically
+
 ## 0.14.0 — 2026-08-05
 
 - No more picking an AI model that's too big for your Mac: the app now knows how much memory you have — the model list only shows ones that will run well, the recommended download matches your machine, and the biggest models stay reserved for Macs that can handle them
