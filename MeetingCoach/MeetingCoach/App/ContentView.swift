@@ -85,11 +85,6 @@ struct ContentView: View {
             }
         }
         .task {
-            // The redesign always shows a session in the main pane —
-            // default to the most recent one.
-            if selectedSessionURL == nil, !liveSession.isLive, !liveSession.hasSession {
-                selectedSessionURL = TranscriptSearch.sessionFiles().first
-            }
             // No longer wait for Ollama before allowing app use.
             // Refresh models in background for when post-call review is needed.
             settings.ollamaManager = ollamaManager
@@ -153,15 +148,11 @@ struct ContentView: View {
         }
     }
 
-    /// Zero sessions, nothing live: first-run onboarding (kept from 0.11.0
-    /// — a richer take on the spec's "single centered line").
+    /// Home: the Progress dashboard (Noah's call, 2026-08-04 — "progress as
+    /// the main thing"). With zero sessions it shows the onboarding
+    /// checklist instead, so first-run still gets the setup path.
     private var emptyMainPane: some View {
-        ScrollView {
-            OnboardingChecklistView(liveSession: liveSession, settings: settings)
-                .padding(28)
-                .frame(maxWidth: 620)
-                .frame(maxWidth: .infinity)
-        }
+        ProgressDashboardView(liveSession: liveSession, settings: settings)
     }
 
     private func toggleOverlay() {

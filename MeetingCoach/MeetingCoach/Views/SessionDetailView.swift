@@ -109,14 +109,14 @@ struct SessionDetailView: View {
                     .fixedSize()
 
                     Button { onClose() } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Dorado.grey500)
-                            .padding(8)
-                            .contentShape(Circle())
+                        HStack(spacing: 7) {
+                            Image(systemName: "house")
+                                .font(.system(size: 12)).foregroundStyle(Dorado.grey500)
+                            Text("Home")
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .help("Close")
+                    .buttonStyle(DoradoOutlineButtonStyle())
+                    .help("Back to your progress")
                 }
             }
 

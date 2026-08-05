@@ -21,11 +21,12 @@ struct OnboardingChecklistView: View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(spacing: 4) {
                 Text("Get set up for your first meeting")
-                    .font(.title3.bold())
+                    .font(Dorado.barlowXBold(22))
+                    .foregroundStyle(Dorado.midnight)
                     .frame(maxWidth: .infinity)
                 Text("Two permissions, two downloads — then it's automatic.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(Dorado.roboto(13))
+                    .foregroundStyle(Dorado.grey500)
                     .frame(maxWidth: .infinity)
             }
 
@@ -40,21 +41,21 @@ struct OnboardingChecklistView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Label {
                     Text("Audio is never stored. Transcripts, models, coaching — everything stays on this Mac.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .font(Dorado.roboto(12))
+                        .foregroundStyle(Dorado.grey600)
                         .fixedSize(horizontal: false, vertical: true)
                 } icon: {
                     Image(systemName: "lock.shield")
                         .font(.caption)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Dorado.dollar)
                 }
                 if let liveSession {
                     Button("Curious what a nudge looks like? Watch the 15-second demo") {
                         liveSession.startDemo()
                     }
                     .buttonStyle(.plain)
-                    .font(.caption)
-                    .foregroundStyle(.blue)
+                    .font(Dorado.roboto(13))
+                    .foregroundStyle(Dorado.bolt)
                 }
                 Button("Coming from Granola? Import your meetings") {
                     openSettings()
@@ -66,7 +67,8 @@ struct OnboardingChecklistView: View {
         }
         .padding(28)
         .frame(maxWidth: 440)
-        .cardStyle(cornerRadius: 12)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.white))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Dorado.border, lineWidth: 1))
         .frame(maxWidth: .infinity)
         .padding(.vertical, 32)
         .onAppear(perform: refreshPermissions)
@@ -184,12 +186,12 @@ struct OnboardingChecklistView: View {
             Group {
                 if done {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Dorado.dollar)
                 } else if active {
                     ProgressView().controlSize(.small)
                 } else {
                     Image(systemName: "circle")
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(Color(hex: 0xC7CED7))
                 }
             }
             .font(.system(size: 18))
@@ -197,19 +199,19 @@ struct OnboardingChecklistView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(title).font(.callout.weight(.semibold))
+                    Text(title).font(Dorado.barlowBold(15)).foregroundStyle(Dorado.midnight)
                     if let titleBadge {
                         Text(titleBadge)
                             .font(.caption2)
                             .padding(.horizontal, 6).padding(.vertical, 1)
-                            .background(Color.primary.opacity(0.06))
-                            .foregroundStyle(.secondary)
+                            .background(Dorado.surfaceSubtle)
+                            .foregroundStyle(Dorado.grey600)
                             .clipShape(Capsule())
                     }
                 }
                 Text(caption)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(Dorado.roboto(13))
+                    .foregroundStyle(Dorado.grey600)
                     .fixedSize(horizontal: false, vertical: true)
                 detail()
             }

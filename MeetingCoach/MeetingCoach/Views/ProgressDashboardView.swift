@@ -18,17 +18,19 @@ struct ProgressDashboardView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                HStack {
-                    Label("Your Progress", systemImage: "chart.line.uptrend.xyaxis")
-                        .font(.title3.bold())
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text("Your progress")
+                        .font(Dorado.barlowXBold(28))
+                        .foregroundStyle(Dorado.midnight)
                     Spacer()
                     Button {
                         reload()
                     } label: {
                         Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 13))
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Dorado.grey500)
                 }
 
                 if sessions.isEmpty {
@@ -44,11 +46,11 @@ struct ProgressDashboardView: View {
                     recentSessions
                 }
             }
-            .padding(20)
-            .frame(maxWidth: 620, alignment: .leading)
+            .padding(.init(top: 28, leading: 44, bottom: 28, trailing: 44))
+            .frame(maxWidth: 728, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
-        .background(MCTheme.canvas)
+        .background(Color.white)
         .onAppear(perform: reload)
     }
 
@@ -118,7 +120,7 @@ struct ProgressDashboardView: View {
             if !suggestions.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Coach suggestions", systemImage: "lightbulb")
-                        .font(.headline)
+                        .font(Dorado.barlowBold(15)).foregroundStyle(Dorado.midnight)
                     ForEach(suggestions) { suggestion in
                         VStack(alignment: .leading, spacing: 4) {
                             HStack(spacing: 6) {
@@ -159,9 +161,9 @@ struct ProgressDashboardView: View {
                             }
                             .padding(.top, 2)
                         }
-                        .padding(10)
-                        .background(Color.blue.opacity(0.05))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .padding(12)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Dorado.warmSurface))
+                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Dorado.warmBorder, lineWidth: 1))
                     }
                     Text("Small sensitivity adjustments happen automatically from your feedback; changes to what the coach watches always ask first.")
                         .font(.caption2).foregroundStyle(.tertiary)
@@ -195,7 +197,7 @@ struct ProgressDashboardView: View {
     private var focusSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Focus").font(.headline)
+                Text("Focus").font(Dorado.barlowBold(15)).foregroundStyle(Dorado.midnight)
                 Spacer()
                 Text("pick up to \(FocusGoals.maxActive)")
                     .font(.caption2).foregroundStyle(.tertiary)
@@ -228,7 +230,7 @@ struct ProgressDashboardView: View {
         return Group {
             if !patterns.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Top patterns").font(.headline)
+                    Text("Top patterns").font(Dorado.barlowBold(15)).foregroundStyle(Dorado.midnight)
                     ForEach(patterns, id: \.type) { pattern in
                         HStack(spacing: 8) {
                             trendIcon(for: pattern.type)
@@ -255,7 +257,7 @@ struct ProgressDashboardView: View {
         return Group {
             if points.count >= 3 {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Talk share by session").font(.headline)
+                    Text("Talk share by session").font(Dorado.barlowBold(15)).foregroundStyle(Dorado.midnight)
                     ShareTrendLine(points: points, showDots: true)
                         .frame(height: 60)
                 }
@@ -265,7 +267,7 @@ struct ProgressDashboardView: View {
 
     private var recentSessions: some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text("Recent sessions").font(.headline)
+            Text("Recent sessions").font(Dorado.barlowBold(15)).foregroundStyle(Dorado.midnight)
             ForEach(sessions.suffix(6).reversed()) { session in
                 HStack {
                     if let title = session.title {
@@ -315,20 +317,22 @@ private struct StatTile: View {
     var body: some View {
         VStack(spacing: 3) {
             Text(value)
-                .font(.system(.title2, design: .rounded).bold())
+                .font(Dorado.barlowXBold(22))
+                .foregroundStyle(Dorado.midnight)
             Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(Dorado.roboto(11))
+                .foregroundStyle(Dorado.grey600)
             if let sub {
                 Text(sub)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .font(Dorado.roboto(11))
+                    .foregroundStyle(Dorado.grey400)
                     .lineLimit(1)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .cardStyle()
+        .padding(.vertical, 14)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.white))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Dorado.border, lineWidth: 1))
     }
 }
 
