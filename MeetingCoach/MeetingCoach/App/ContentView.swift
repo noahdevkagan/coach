@@ -635,7 +635,7 @@ private struct TranscriptTurnRow: View, Equatable {
         // color down the speaker gutter.
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(turn.speaker)
-                .font(.caption.bold())
+                .font(Dorado.barlowBold(13))
                 .foregroundStyle(speakerColor(turn.speaker))
                 .frame(minWidth: 42, alignment: .leading)
                 .contentShape(Rectangle())
@@ -674,7 +674,9 @@ private struct TranscriptTurnRow: View, Equatable {
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(Array(paragraphs(turn.text).enumerated()), id: \.offset) { _, para in
                     Text(onFixTerm != nil ? Self.clickableWords(para) : AttributedString(para))
-                        .font(.callout)
+                        .font(Dorado.roboto(14))
+                        .foregroundStyle(Dorado.grey800)
+                        .lineSpacing(4)
                         .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -2421,8 +2423,9 @@ enum MCTheme {
             ? .controlBackgroundColor
             : .white
     })
-    /// Serif pane/section title — the one typographic flourish.
-    static let paneTitle = Font.system(.title3, design: .serif).weight(.semibold)
+    /// Pane/section title. Was the one serif flourish; the Dorado repaint
+    /// (2026-08-04) makes it Barlow like every other heading.
+    static let paneTitle = Dorado.barlowBold(18)
 }
 
 /// One card language for the whole app: adaptive surface, continuous

@@ -113,33 +113,35 @@ struct ProgressDashboardView: View {
                     Label("Coach suggestions", systemImage: "lightbulb")
                         .font(Dorado.barlowBold(15)).foregroundStyle(Dorado.midnight)
                     ForEach(suggestions) { suggestion in
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack(spacing: 6) {
-                                Text(suggestion.displayName).font(.callout.bold())
+                        VStack(alignment: .leading, spacing: 5) {
+                            HStack(spacing: 8) {
+                                Text(suggestion.displayName)
+                                    .font(Dorado.barlowBold(15))
+                                    .foregroundStyle(Dorado.midnight)
                                 Text(kindLabel(suggestion.kind))
-                                    .font(.caption2)
-                                    .padding(.horizontal, 6).padding(.vertical, 1)
-                                    .background(Color.blue.opacity(0.1))
-                                    .foregroundStyle(.blue)
+                                    .font(Dorado.roboto(11, .medium))
+                                    .padding(.horizontal, 7).padding(.vertical, 2)
+                                    .background(Dorado.doradoTint)
+                                    .foregroundStyle(Dorado.grey800)
                                     .clipShape(Capsule())
                                 Spacer()
                             }
-                            Text(suggestion.rationale).font(.caption)
+                            Text(suggestion.rationale)
+                                .font(Dorado.roboto(13)).foregroundStyle(Dorado.grey800)
                             Text(suggestion.evidence)
-                                .font(.caption2).foregroundStyle(.secondary)
+                                .font(Dorado.roboto(12)).foregroundStyle(Dorado.grey500)
                             // What the Apply button concretely does — the
                             // rationale says why, this says what changes.
                             Text(applyEffect(suggestion.kind))
-                                .font(.caption2).foregroundStyle(.blue)
-                            HStack(spacing: 8) {
+                                .font(Dorado.roboto(12)).foregroundStyle(Dorado.grey600)
+                            HStack(spacing: 10) {
                                 Button("Apply") {
                                     if let settings {
                                         RubricAdvisor.approve(suggestion, settings: settings)
                                         suggestions = RubricAdvisor.pending()
                                     }
                                 }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
+                                .buttonStyle(DoradoOutlineButtonStyle())
                                 .disabled(settings == nil)
 
                                 Button("Dismiss") {
@@ -147,10 +149,10 @@ struct ProgressDashboardView: View {
                                     suggestions = RubricAdvisor.pending()
                                 }
                                 .buttonStyle(.plain)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .font(Dorado.roboto(13))
+                                .foregroundStyle(Dorado.grey500)
                             }
-                            .padding(.top, 2)
+                            .padding(.top, 4)
                         }
                         .padding(12)
                         .background(RoundedRectangle(cornerRadius: 12).fill(Dorado.warmSurface))
