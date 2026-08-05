@@ -18,20 +18,11 @@ struct ProgressDashboardView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text("Your progress")
-                        .font(Dorado.barlowXBold(28))
-                        .foregroundStyle(Dorado.midnight)
-                    Spacer()
-                    Button {
-                        reload()
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 13))
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Dorado.grey500)
-                }
+                // No manual refresh: the pane reloads on every appearance,
+                // which is the only time its numbers can be stale.
+                Text("Your progress")
+                    .font(Dorado.barlowXBold(28))
+                    .foregroundStyle(Dorado.midnight)
 
                 if sessions.isEmpty {
                     OnboardingChecklistView(liveSession: liveSession, settings: settings)

@@ -44,6 +44,9 @@ struct ContentView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                // No focus ring: as the window's first focusable control it
+                // drew a blue box on launch.
+                .focusEffectDisabled()
                 .padding(.trailing, 16)
                 .help("Settings")
             }
