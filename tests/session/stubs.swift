@@ -63,6 +63,7 @@ struct Rubric {
 @MainActor
 final class SettingsViewModel {
     var selectedModel = "stub-model"
+    var effectiveModel: String { selectedModel }
     var semanticCoachEnabled = false
     var useMock = true
     var defaultMeetingMinutes = 0
