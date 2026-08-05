@@ -1246,6 +1246,9 @@ private struct SessionsSection: View {
     @State private var recent: [(url: URL, title: String)] = []
     @State private var renameTarget: URL?
     @State private var renameText = ""
+    /// Collapsed = the 4 most recent; "See all" reveals the full archive
+    /// in place (the sidebar already scrolls).
+    @State private var showAll = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1266,7 +1269,7 @@ private struct SessionsSection: View {
                 }
             }
 
-            ForEach(recent.prefix(4), id: \.url) { item in
+            ForEach(showAll ? recent : Array(recent.prefix(4)), id: \.url) { item in
                 Button {
                     // Opens in the main pane — the file is one more click
                     // away (context menu) for people who want the editor.
@@ -1297,6 +1300,27 @@ private struct SessionsSection: View {
                         NSWorkspace.shared.open(item.url)
                     }
                 }
+            }
+
+            if recent.count > 4 {
+                Button {
+                    withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.15)) {
+                        showAll.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Text(showAll ? "Show recent" : "See all \(recent.count)")
+                            .font(Dorado.roboto(12, .medium))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                            .rotationEffect(.degrees(showAll ? 180 : 0))
+                        Spacer()
+                    }
+                    .foregroundStyle(Dorado.grey500)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 2)
             }
 
             if recent.isEmpty && !liveSession.isLive {

@@ -26,13 +26,20 @@ enum TranscriptSearch {
             .sorted { $0.lastPathComponent > $1.lastPathComponent }
     }
 
-    /// "session_2026-07-20_14-32.md" → "2026-07-20 14:32"
+    /// "session_2026-07-20_14-32.md" → "Jul 20, 2:32 PM". The raw
+    /// "2026-07-20 14:32" fallback read like a filename in the sessions
+    /// list (Noah, 2026-08-04); every consumer is a display surface.
     static func title(for file: URL) -> String {
         let stem = file.deletingPathExtension().lastPathComponent
             .replacingOccurrences(of: "session_", with: "")
-        let parts = stem.split(separator: "_")
-        guard parts.count == 2 else { return stem }
-        return "\(parts[0]) \(parts[1].replacingOccurrences(of: "-", with: ":"))"
+        let parse = DateFormatter()
+        parse.dateFormat = "yyyy-MM-dd_HH-mm"
+        guard let date = parse.date(from: stem) else {
+            return stem.replacingOccurrences(of: "_", with: " ")
+        }
+        let out = DateFormatter()
+        out.dateFormat = "MMM d, h:mm a"
+        return out.string(from: date)
     }
 
     /// "session_2026-07-20_14-32.md" → "Jul 20" — the compact date shown
