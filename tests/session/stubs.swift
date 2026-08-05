@@ -72,6 +72,7 @@ final class SettingsViewModel {
     var availableModels: [String] = []
     func loadRubricOrDefault() throws -> Rubric { Rubric() }
     func refreshModels() async {}
+    func warmUpModelIfNeeded() async {}
 }
 
 @MainActor
