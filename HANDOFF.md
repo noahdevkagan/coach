@@ -5,49 +5,44 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-08-04)
+## Current state (2026-08-05)
 
-- **v0.11.1 + v0.12.0 SHIPPED** (DMG + appcast verified). 0.11.1: the
-  ForEach($array) row-binding crash (David's report) + vocab save
-  feedback. 0.12.0: Batch A from Noah's feedback — CPU fixes (the big
-  one: system-audio channel ran SFSpeech alongside Parakeet every
-  session), obedient overlay + settings toggle, session names from
-  meeting window titles, title search, detection pill fixes — plus the
-  Granola importer fixed against a real export (CRLF bug; new
-  tests/granola gate suite) and speaker-tag fixes.
-- **Voice-profile return path verified live**: Caitlin tagged once,
-  auto-labeled by name on 97 lines in the next session's transcript.
-- **Dorado redesign settled as "paint, not furniture", UNRELEASED**:
-  after two review rounds Noah kept the colors/type/simplicity but
-  wanted 0.12.0's exact structure back — sidebar cards, Progress as
-  default pane, search in main pane, review-above-transcript. The 2a
-  rail/tabs re-architecture was reverted; Dorado.swift is now just
-  tokens/fonts/pill styles painted onto the pre-redesign views.
-  Additive keepers: Copy/Export/Home pills, meta line, inline rename,
-  search highlight+scroll, styled dashboard/checklist, custom title
-  bar, bundled fonts. Granola import re-verified end to end (Noah's
-  first try predated the 0.12.0 fix; Dr Baru meeting now imported).
+- **v0.11.1, v0.12.0, v0.13.0 ALL SHIPPED in one marathon session**
+  (each verified: CI gate → DMG → appcast → site). 0.11.1: row-binding
+  crash. 0.12.0: CPU double-engine fix, overlay behavior, window-title
+  session names, Granola import (validated on a real export), speaker
+  tagging. 0.13.0: full Dorado design (Noah-approved shape: paint on
+  0.12.0 bones + session tabs + Progress home + auto light/dark),
+  meeting reviews as chief-of-staff notes, effectiveModel fallback
+  (selected-but-not-installed model had silently killed ALL LLM
+  features), Regenerate-with-AI for saved sessions.
+- **Voice-profile return path verified live** (Caitlin auto-labeled on
+  97 lines). Review prompt tuned against gemma4:e4b on Noah's real
+  73-min transcript; parser hardened for small-model formatting.
+- **Local push gate was silently unarmed all session** (core.hooksPath
+  unset on this clone) — re-armed; full gate green, ASR accuracy flat
+  vs pre-0.12.0 records (18.6% william combined, synthetic-hard 4.2%).
 
 ## Outstanding
 
-- **Redesign: awaiting Noah sign-off to tag** — known nits: coach-suggestion
-  cards still old-style inside the dashboard; live-state pane is
-  functional-not-designed; dark mode disabled (design is light-only).
-  Do NOT tag a release until Noah signs off on the redesign.
-- **Noah's dev-app copy lacks Screen Recording** — that's why today's
-  Caitlin session was mic-only and got a heuristic title ("Kyle ·
-  partner & partners"; rename by clicking the title). Grant it, then
-  verify window-title naming + the CPU drop on a real meeting
-  (`/tmp/mc_debug.log`: `[Voices] Loaded`, `[Detect] Meeting title`).
+- **Everything from today meets its first real meeting**: watch CPU
+  (was 27%+37%), Caitlin auto-label, window-title naming, name
+  suggestions (needs gemma via effectiveModel — now works), and review
+  quality. Grep `/tmp/mc_debug.log` for `[Voices] Loaded`, `Enrolled`,
+  `[Detect] Meeting title`, `[Names]`.
+- **Noah's dev-app copy still lacks Screen Recording** (mic-only
+  sessions, no window titles). His installed copy auto-updates to
+  0.13.0 — real meetings should run there.
+- Review could go further: feed pre-call context + past sessions with
+  the same person (Noah saw Caitlin's hand-written notes as the bar).
+- Settings window still stock macOS; live pane got only a light paint.
 - Batch B (calendar/EventKit: pre-meeting prompt, exact titles, join
-  button) designed-not-started; Noah deferred.
-- Watch David's 0.12.0 auto-update land (his crash fix ships in it).
+  button) designed, deferred by Noah.
 - Carried: coachfree code on AppSumo listing; Matt follow-up; green-win
-  placement call + MCP packaging decision; SEO distribution + GSC
-  sitemap.
+  placement + MCP packaging decisions; SEO distribution + GSC sitemap.
 
 ## Next session
 
-Continue the Dorado redesign iteration with Noah (he has feedback
-queued). First: get his dev copy Screen Recording permission granted,
-then walk the remaining redesign nits with him in the running app.
+Check how v0.13.0 auto-updates landed (Noah + David), then read
+/tmp/mc_debug.log after Noah's first real 0.13.0 meeting and report the
+verdict on CPU, speaker labels, session title, and review quality.

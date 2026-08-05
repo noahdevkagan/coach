@@ -270,3 +270,33 @@ Swift's Character is a grapheme cluster, so "\r\n" matches neither a
 file into one row and the importer rejected real exports as "not a
 Granola CSV". Any future character-wise text scanning needs an explicit
 "\r\n" case (see GranolaImporter.parseCSV). Locked by tests/granola.
+
+## 2026-08-05 — Meeting reviews are chief-of-staff notes, not recaps
+Noah compared the review card to Caitlin's hand-written Slack notes and
+called it useless. Root causes and the calls made: (1) selectedModel can
+point at a model that never finished downloading — every LLM feature
+silently degraded; LLM calls now go through settings.effectiveModel
+(selection if installed, else first installed). (2) The review prompt now
+demands headline-first TL;DR, takeaways with specifics, and
+"Owner — action — deadline" steps, explicitly BANS coach-mode outside the
+one focus line (gemma4:e4b otherwise lectures about talk time), and
+carries an inline example — the single thing that makes a 4B model hold
+the section shape. (3) MeetingReview.parse tolerates renamed headers and
+drops preambles rather than fighting the model. (4) Transcript budget
+8K → 24K chars — the old cap amputated the middle where decisions live.
+Ceiling note: reviews only know what was SAID; the next level is feeding
+pre-call context + prior sessions with the same person.
+
+## 2026-08-05 — Dark palette is invented, tokens are dynamic pairs
+The design handoff only drew light. Dark mode = same hierarchy on
+near-black (#1E2126 surface), accents unchanged except Bolt lightened
+(#5B9BFF) for contrast; every Dorado token is a light/dark NSColor pair
+resolved at draw time. The app follows the system (forced-light removed).
+
+## 2026-08-05 — Check core.hooksPath before trusting "gate green"
+The local push gate never ran this session: core.hooksPath was unset on
+this clone (likely lost in a re-clone/sync), so pushes skipped the gate
+silently and CI's release gate caught a broken test stub instead. The
+ASR suites don't run on CI at all — so a bad transcription change could
+have shipped. Rule: verify `git config core.hooksPath` returns
+scripts/githooks at the start of any session that will push.
