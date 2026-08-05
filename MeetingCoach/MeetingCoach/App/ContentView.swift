@@ -92,6 +92,11 @@ struct ContentView: View {
                 }
             }
         }
+        // The hidden title bar still reserves top safe-area; without this
+        // the traffic lights sat in an empty strip ABOVE the custom 46px
+        // bar (double-height header, Noah 2026-08-04). Ignoring it lets
+        // the bar own the top edge with the lights overlaying its left.
+        .ignoresSafeArea(.container, edges: .top)
         .preferredColorScheme(.light)   // the Dorado palette is light-only
         .task {
             // No longer wait for Ollama before allowing app use.

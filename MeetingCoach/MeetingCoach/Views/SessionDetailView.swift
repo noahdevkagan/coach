@@ -1,10 +1,10 @@
 import SwiftUI
 import AppKit
 
-/// Saved-session viewer in the main pane. Dorado paint on the 0.12.0
-/// flow (Noah, 2026-08-04): one scroll — review card first, transcript
-/// under it — no tabs. The header adds meta, click-to-rename, Copy and
-/// Export; the markdown file on disk stays the source of truth.
+/// Saved-session viewer in the main pane: meta line + renameable title +
+/// Copy/Export, and Transcript / Summary / Coaching tabs (Noah asked for
+/// the tabs back, 2026-08-04). The markdown file on disk stays the
+/// source of truth.
 struct SessionDetailView: View {
     let url: URL
     /// Active search query — matched terms highlight in the transcript and
@@ -12,11 +12,20 @@ struct SessionDetailView: View {
     var highlightQuery: String = ""
     let onClose: () -> Void
 
+    enum Tab: String, CaseIterable {
+        case transcript = "Transcript"
+        case summary = "Summary"
+        case coaching = "Coaching"
+    }
+
     @State private var title = ""
     @State private var metaLine = ""
     @State private var review: MeetingReview?
     @State private var lines: [(stamp: String, speaker: String, text: String)] = []
+    @State private var nudgeLines: [String] = []
     @State private var rawContent = ""
+    // Default tab. To default to Summary instead, change this one line.
+    @State private var tab: Tab = .transcript
     @State private var renaming = false
     @State private var renameText = ""
     @FocusState private var renameFocused: Bool
@@ -24,103 +33,131 @@ struct SessionDetailView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-            Dorado.divider.frame(height: 1)
-                .padding(.top, 18)
-            contentScroll
+            tabBody
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.white)
-        .task(id: url) { load() }
+        .task(id: url) {
+            tab = .transcript   // resets per session (spec)
+            load()
+        }
     }
 
-    // MARK: header — meta, title, actions
+    // MARK: header — meta, title, actions, tabs
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text(metaLine)
-                    .font(Dorado.roboto(13))
-                    .foregroundStyle(Dorado.grey500)
-                if renaming {
-                    TextField("Session title", text: $renameText)
-                        .textFieldStyle(.plain)
-                        .font(Dorado.barlowXBold(28))
-                        .foregroundStyle(Dorado.midnight)
-                        .focused($renameFocused)
-                        .onSubmit { commitRename() }
-                        .onExitCommand { renaming = false }
-                } else {
-                    Text(title)
-                        .font(Dorado.barlowXBold(28))
-                        .foregroundStyle(Dorado.midnight)
-                        .lineLimit(2)
-                        .onTapGesture {
-                            renameText = TranscriptSearch.headerTitle(at: url) ?? ""
-                            renaming = true
-                            renameFocused = true
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(metaLine)
+                        .font(Dorado.roboto(13))
+                        .foregroundStyle(Dorado.grey500)
+                    if renaming {
+                        TextField("Session title", text: $renameText)
+                            .textFieldStyle(.plain)
+                            .font(Dorado.barlowXBold(32))
+                            .foregroundStyle(Dorado.midnight)
+                            .focused($renameFocused)
+                            .onSubmit { commitRename() }
+                            .onExitCommand { renaming = false }
+                    } else {
+                        Text(title)
+                            .font(Dorado.barlowXBold(32))
+                            .foregroundStyle(Dorado.midnight)
+                            .lineLimit(2)
+                            .onTapGesture {
+                                renameText = TranscriptSearch.headerTitle(at: url) ?? ""
+                                renaming = true
+                                renameFocused = true
+                            }
+                            .help("Click to rename")
+                    }
+                }
+                Spacer(minLength: 0)
+                HStack(spacing: 8) {
+                    Button {
+                        copyTranscript()
+                    } label: {
+                        HStack(spacing: 7) {
+                            Image(systemName: "doc.on.doc")
+                                .font(.system(size: 12)).foregroundStyle(Dorado.grey500)
+                            Text("Copy")
                         }
-                        .help("Click to rename")
+                    }
+                    .buttonStyle(DoradoOutlineButtonStyle())
+                    .help("Copy the plain-text transcript")
+
+                    Menu {
+                        Button("Markdown (.md)") { export(as: .markdown) }
+                        Button("Plain text (.txt)") { export(as: .plainText) }
+                        Button("Summary (.txt)") { export(as: .summary) }
+                            .disabled(review == nil)
+                        Divider()
+                        Button("Open file in editor") { NSWorkspace.shared.open(url) }
+                    } label: {
+                        HStack(spacing: 7) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 12)).foregroundStyle(Dorado.grey500)
+                            Text("Export")
+                        }
+                    }
+                    .menuStyle(.button)
+                    .buttonStyle(DoradoOutlineButtonStyle())
+                    .menuIndicator(.hidden)
+                    .fixedSize()
+
+                    Button { onClose() } label: {
+                        HStack(spacing: 7) {
+                            Image(systemName: "house")
+                                .font(.system(size: 12)).foregroundStyle(Dorado.grey500)
+                            Text("Home")
+                        }
+                    }
+                    .buttonStyle(DoradoOutlineButtonStyle())
+                    .help("Back to your progress")
                 }
             }
-            Spacer(minLength: 0)
-            HStack(spacing: 8) {
-                Button {
-                    copyTranscript()
-                } label: {
-                    HStack(spacing: 7) {
-                        Image(systemName: "doc.on.doc")
-                            .font(.system(size: 12)).foregroundStyle(Dorado.grey500)
-                        Text("Copy")
-                    }
-                }
-                .buttonStyle(DoradoOutlineButtonStyle())
-                .help("Copy the plain-text transcript")
 
-                Menu {
-                    Button("Markdown (.md)") { export(as: .markdown) }
-                    Button("Plain text (.txt)") { export(as: .plainText) }
-                    Button("Summary (.txt)") { export(as: .summary) }
-                        .disabled(review == nil)
-                    Divider()
-                    Button("Open file in editor") { NSWorkspace.shared.open(url) }
-                } label: {
-                    HStack(spacing: 7) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 12)).foregroundStyle(Dorado.grey500)
-                        Text("Export")
-                    }
-                }
-                .menuStyle(.button)
-                .buttonStyle(DoradoOutlineButtonStyle())
-                .menuIndicator(.hidden)
-                .fixedSize()
-
-                Button { onClose() } label: {
-                    HStack(spacing: 7) {
-                        Image(systemName: "house")
-                            .font(.system(size: 12)).foregroundStyle(Dorado.grey500)
-                        Text("Home")
-                    }
-                }
-                .buttonStyle(DoradoOutlineButtonStyle())
-                .help("Back to your progress")
-            }
+            tabBar
         }
-        .padding(.init(top: 24, leading: 36, bottom: 0, trailing: 36))
+        .padding(.init(top: 28, leading: 44, bottom: 0, trailing: 44))
     }
 
-    // MARK: body — review card, then transcript (the 0.12.0 order)
+    private var tabBar: some View {
+        HStack(spacing: 24) {
+            ForEach(Tab.allCases, id: \.self) { t in
+                Button { tab = t } label: {
+                    Text(t.rawValue)
+                        .font(Dorado.barlowBold(15))
+                        .foregroundStyle(tab == t ? Dorado.midnight : Dorado.grey500)
+                        .padding(.bottom, 10)
+                        .overlay(alignment: .bottom) {
+                            (tab == t ? Dorado.midnight : Color.clear).frame(height: 2)
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer()
+        }
+        .overlay(alignment: .bottom) { Dorado.divider.frame(height: 1) }
+    }
 
-    private var contentScroll: some View {
+    // MARK: tab bodies
+
+    @ViewBuilder
+    private var tabBody: some View {
+        switch tab {
+        case .transcript: transcriptTab
+        case .summary: summaryTab
+        case .coaching: coachingTab
+        }
+    }
+
+    private var transcriptTab: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 18) {
-                    if let review {
-                        MeetingReviewView(review: review) { id in
-                            toggleActionItem(id)
-                        }
-                    }
-
                     ForEach(Array(lines.enumerated()), id: \.offset) { i, line in
                         HStack(alignment: .top, spacing: 16) {
                             Text(line.stamp)
@@ -148,10 +185,60 @@ struct SessionDetailView: View {
                     }
                     Color.clear.frame(height: 40)
                 }
-                .padding(.init(top: 20, leading: 36, bottom: 0, trailing: 36))
+                .padding(.init(top: 20, leading: 44, bottom: 0, trailing: 44))
             }
+            .mask(
+                // Bottom scroll fade over the last ~40px (spec).
+                VStack(spacing: 0) {
+                    Color.black
+                    LinearGradient(colors: [.black, .black.opacity(0)],
+                                   startPoint: .top, endPoint: .bottom)
+                        .frame(height: 40)
+                }
+            )
             .onAppear { scrollToFirstHit(proxy) }
             .onChange(of: highlightQuery) { _, _ in scrollToFirstHit(proxy) }
+        }
+    }
+
+    private var summaryTab: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 8) {
+                if let review {
+                    MeetingReviewView(review: review) { id in
+                        toggleActionItem(id)
+                    }
+                } else {
+                    Text("No summary yet — reviews generate at the end of a coached session.")
+                        .font(Dorado.roboto(13)).foregroundStyle(Dorado.grey400)
+                }
+            }
+            .padding(.init(top: 20, leading: 44, bottom: 20, trailing: 44))
+        }
+    }
+
+    private var coachingTab: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 14) {
+                ForEach(Array(nudgeLines.enumerated()), id: \.offset) { _, line in
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Circle()
+                            .fill(Dorado.dorado300)
+                            .frame(width: 8, height: 8)
+                            .padding(.top, 5)
+                        Text(line)
+                            .font(Dorado.roboto(15))
+                            .foregroundStyle(Dorado.grey800)
+                            .lineSpacing(5)
+                            .textSelection(.enabled)
+                    }
+                }
+                if nudgeLines.isEmpty {
+                    Text("No coaching nudges fired in this session.")
+                        .font(Dorado.roboto(13)).foregroundStyle(Dorado.grey400)
+                }
+            }
+            .padding(.init(top: 20, leading: 44, bottom: 20, trailing: 44))
         }
     }
 
@@ -219,7 +306,7 @@ struct SessionDetailView: View {
     private func load() {
         guard let content = try? String(contentsOf: url, encoding: .utf8) else {
             title = "Couldn't read session"
-            metaLine = ""; review = nil; lines = []; rawContent = ""
+            metaLine = ""; review = nil; lines = []; nudgeLines = []; rawContent = ""
             return
         }
         rawContent = content
@@ -229,6 +316,7 @@ struct SessionDetailView: View {
         var talkShare = ""
         var participants = 0
         var newLines: [(String, String, String)] = []
+        var newNudges: [String] = []
         var reviewLines: [String] = []
         var section = ""
         for rawLine in content.components(separatedBy: "\n") {
@@ -240,7 +328,13 @@ struct SessionDetailView: View {
                 reviewLines.append(rawLine)
                 continue
             }
-            if section.hasPrefix("## Nudges") { continue }
+            if section.hasPrefix("## Nudges") {
+                let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
+                if trimmed.hasPrefix("- ") {
+                    newNudges.append(String(trimmed.dropFirst(2)))
+                }
+                continue
+            }
             if let parsed = TranscriptSearch.parseTranscriptLine(rawLine) {
                 newLines.append(parsed)
                 continue
@@ -256,6 +350,7 @@ struct SessionDetailView: View {
             }
         }
         lines = newLines
+        nudgeLines = newNudges
 
         // "Today, 9:00 AM · 32 min · 4 people · 41% your talk share"
         var meta: [String] = []
@@ -285,6 +380,7 @@ struct SessionDetailView: View {
         let reviewText = reviewLines.joined(separator: "\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         review = reviewText.isEmpty ? nil : MeetingReview.parse(llmText: reviewText, talkShare: share)
+
     }
 
     /// Checkbox toggles persist straight into the file's "## Review"
