@@ -50,40 +50,46 @@ struct ContentView: View {
             .frame(height: 46)
             .background(Color.white)
 
-            HStack(spacing: 0) {
-                DoradoRail(simulation: simulation, settings: settings,
-                           liveSession: liveSession, ollamaManager: ollamaManager,
-                           searchQuery: $searchQuery,
-                           selectedSession: $selectedSessionURL,
-                           onToggleOverlay: toggleOverlay)
-
-                // Main pane: a live/finishing session always wins (its data
-                // is only in memory), then the selected saved session, then
-                // simulation playback, then the first-run state.
-                Group {
-                    if liveSession.isLive || liveSession.hasSession {
-                        LiveTimelineView(liveSession: liveSession)
-                    } else if let sessionURL = selectedSessionURL {
-                        SessionDetailView(url: sessionURL, highlightQuery: activeSearch) {
-                            selectedSessionURL = nil
-                        }
-                    } else if simulation.transcriptFileName != nil {
-                        SimulationTimelineView(simulation: simulation)
-                    } else {
-                        emptyMainPane
-                    }
+            // Noah's call (2026-08-04): Dorado paint, 0.12.0 bones — the
+            // pre-redesign sidebar and main-pane flow stay exactly as they
+            // were; only colors/type/buttons carry the design language.
+            HSplitView {
+                VStack(spacing: 0) {
+                    SidebarView(simulation: simulation, settings: settings,
+                                liveSession: liveSession, ollamaManager: ollamaManager,
+                                searchQuery: $searchQuery,
+                                selectedSession: $selectedSessionURL,
+                                onToggleOverlay: toggleOverlay)
                 }
-                .frame(minWidth: 500, maxWidth: .infinity)
+                .frame(minWidth: 280, idealWidth: 300, maxWidth: 340)
                 .background(Color.white)
+
+                // Main content — an opened session wins (closing returns
+                // you), then search (clearing the box returns you), then
+                // live session, loaded transcript, or progress
+                if let sessionURL = selectedSessionURL {
+                    SessionDetailView(url: sessionURL, highlightQuery: activeSearch) {
+                        selectedSessionURL = nil
+                    }
+                    .frame(minWidth: 400)
+                } else if !activeSearch.isEmpty {
+                    SearchResultsView(query: activeSearch) { url in
+                        selectedSessionURL = url
+                    }
+                    .frame(minWidth: 400)
+                } else if liveSession.isLive || liveSession.hasSession {
+                    LiveTimelineView(liveSession: liveSession)
+                        .frame(minWidth: 400)
+                } else if simulation.transcriptFileName != nil {
+                    SimulationTimelineView(simulation: simulation)
+                        .frame(minWidth: 400)
+                } else {
+                    ProgressDashboardView(liveSession: liveSession, settings: settings)
+                        .frame(minWidth: 400)
+                }
             }
         }
-        .preferredColorScheme(.light)   // the Dorado design is light-only
-        .onChange(of: liveSession.isLive) { _, live in
-            // Ending a session lands you on its saved file.
-            if !live, let saved = liveSession.savedPath {
-                selectedSessionURL = URL(fileURLWithPath: saved)
-            }
-        }
+        .preferredColorScheme(.light)   // the Dorado palette is light-only
         .task {
             // No longer wait for Ollama before allowing app use.
             // Refresh models in background for when post-call review is needed.
@@ -146,13 +152,6 @@ struct ContentView: View {
             // the menu bar with no window) — onChange never fires for that.
             if liveSession.isLive { showOverlay() }
         }
-    }
-
-    /// Home: the Progress dashboard (Noah's call, 2026-08-04 — "progress as
-    /// the main thing"). With zero sessions it shows the onboarding
-    /// checklist instead, so first-run still gets the setup path.
-    private var emptyMainPane: some View {
-        ProgressDashboardView(liveSession: liveSession, settings: settings)
     }
 
     private func toggleOverlay() {
@@ -2001,12 +2000,13 @@ struct LiveSection: View {
                         ollamaManager: ollamaManager
                     )
                 } label: {
-                    Label("Go Live", systemImage: "antenna.radiowaves.left.and.right")
-                        .frame(maxWidth: .infinity)
+                    HStack(spacing: 10) {
+                        Image(systemName: "antenna.radiowaves.left.and.right")
+                            .font(.system(size: 14, weight: .bold))
+                        Text("Go live")
+                    }
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .tint(.green)
+                .buttonStyle(DoradoPillButtonStyle())
                 .help("Listens to your meeting audio and coaches you in real time. Instant nudges (talk time, interruptions, unanswered questions) are always on.")
                 .sheet(isPresented: $liveSession.showPreCallForm) {
                     PreCallFormView(context: $liveSession.preCallContext) {
@@ -2373,11 +2373,14 @@ struct WelcomeSheet: View {
 /// canvas with pure-white cards floating on it (dark mode stays on system
 /// surfaces). Section titles are serif — calm editorial, not chrome.
 enum MCTheme {
-    /// Warm paper behind every pane (light: cream, dark: system underpage).
+    /// Pane background. Dorado repaint (2026-08-04): white-first — the
+    /// cream paper era ended with the design handoff. (The app currently
+    /// forces light appearance; the dark branch stays for a future
+    /// dark-mode pass.)
     static let canvas = Color(nsColor: NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             ? .underPageBackgroundColor
-            : NSColor(red: 0.976, green: 0.969, blue: 0.953, alpha: 1)
+            : .white
     })
     /// Card surface (light: white, dark: system control background).
     static let surface = Color(nsColor: NSColor(name: nil) { appearance in
