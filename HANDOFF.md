@@ -19,6 +19,14 @@ The durable "why" behind choices goes in `decisions.md`, not here.
   needs `xcodegen && xcodebuild` + a live device-switch test
   (start session → toggle input device in Sound settings → transcript
   resumes; grep /tmp/mc_debug.log for `[Mic] Capture restarted`).
+  **v0.15.0 release prepped but NOT tagged**: CHANGELOG section +
+  regenerated changelog.html are on the branch; the remote session's
+  creds can't push tags or dispatch workflows (403). Ship it via
+  Actions → Release → Run workflow (branch
+  `claude/computer-microphone-detection-geppbc`, version `0.15.0`) —
+  the gate build-verifies first — or locally `git tag v0.15.0
+  origin/claude/computer-microphone-detection-geppbc && git push
+  origin v0.15.0`. Afterwards fast-forward main onto the branch.
 
 - **v0.14.0 SHIPPED (RAM-aware model safety + bloat sweep)** — CI gate → DMG → appcast → site all verified. (Noah's 4-item ship
   list; see decisions.md 2026-08-05 for the why). (1) `ModelMemory` fit
