@@ -62,8 +62,10 @@ final class SettingsViewModel {
         self.defaultMeetingMinutes = UserDefaults.standard.object(forKey: "defaultMeetingMinutes") as? Int ?? 0
         let storedLaunchAtLogin = UserDefaults.standard.object(forKey: "launchAtLogin") as? Bool
         self.launchAtLogin = storedLaunchAtLogin ?? true
+        // Fresh installs default to the RAM-aware recommendation — the old
+        // one-size qwen3.5:9b default swapped 8–16 GB Macs into a freeze.
         self.selectedModel = UserDefaults.standard.string(forKey: "selectedModel")
-            ?? "qwen3.5:9b"
+            ?? recommendedCatalogModel.fullName
         self.rubricPath = UserDefaults.standard.string(forKey: "rubricPath") ?? ""
         if self.rubricPath.isEmpty {
             AppSupport.ensureLayout()
@@ -124,10 +126,30 @@ final class SettingsViewModel {
     /// selection qwen3.5:9b, store gemma4:e4b, and every LLM feature
     /// (review, name suggestions, semantic coach) silently failed with
     /// "model not found" and degraded to heuristics.
+    /// Second guard (2026-08-05): an installed-but-too-big selection would
+    /// freeze the whole Mac at load time — prefer the largest installed
+    /// model that actually fits this Mac's RAM; modelFitNote tells the user.
     var effectiveModel: String {
         guard !availableModels.isEmpty else { return selectedModel }
-        if availableModels.contains(where: { $0.name == selectedModel }) { return selectedModel }
-        return availableModels.first?.name ?? selectedModel
+        let fitting = availableModels.filter { ModelMemory.fits($0) }
+        if let selected = availableModels.first(where: { $0.name == selectedModel }) {
+            if ModelMemory.fits(selected) { return selectedModel }
+            return fitting.max(by: { $0.size < $1.size })?.name ?? selectedModel
+        }
+        return fitting.max(by: { $0.size < $1.size })?.name
+            ?? availableModels.first?.name ?? selectedModel
+    }
+
+    /// User-facing one-liner when the selected model can't run comfortably
+    /// on this Mac. nil when everything is fine.
+    var modelFitNote: String? {
+        guard let selected = availableModels.first(where: { $0.name == selectedModel }),
+              !ModelMemory.fits(selected) else { return nil }
+        let ram = ModelMemory.physicalRAMGB
+        if effectiveModel != selectedModel {
+            return "\(selectedModel) needs more memory than this Mac (\(ram) GB) can spare — using \(effectiveModel) instead."
+        }
+        return "\(selectedModel) needs more memory than this Mac (\(ram) GB) can spare. AI features may fail — download a smaller model."
     }
 
     func refreshModels() async {
@@ -209,7 +231,7 @@ final class SettingsViewModel {
             mclog("[Settings] Auto-pull skipped: engine unavailable")
             return
         }
-        guard let recommended = modelCatalog.first else { return }
+        let recommended = recommendedCatalogModel
         UserDefaults.standard.set(true, forKey: Self.autoModelPullAttemptedKey)
         mclog("[Settings] Auto-pulling recommended model \(recommended.fullName)")
         downloadModel(recommended)
@@ -217,6 +239,12 @@ final class SettingsViewModel {
 
     func downloadModel(_ catalogModel: CatalogModel) {
         let fullName = catalogModel.fullName
+        // The catalog UI already hides models that can't fit; this is the
+        // backstop for every other path to a pull.
+        guard catalogModel.fitsThisMac else {
+            downloadError = "error: \(fullName) needs \(catalogModel.minRAMGB) GB of memory — this Mac has \(ModelMemory.physicalRAMGB) GB."
+            return
+        }
         downloadingModel = fullName
         downloadProgress = 0
         downloadStatus = "Starting..."
@@ -246,6 +274,9 @@ final class SettingsViewModel {
                     self.selectedModel = fullName
                     self.save()
                     await self.refreshModels()
+                    // Freshly pulled = about to be used; load it now so the
+                    // first meeting doesn't pay model-load time.
+                    await self.warmUpModelIfNeeded()
                     return
                 }
                 if progress.status.hasPrefix("error") {
@@ -259,6 +290,41 @@ final class SettingsViewModel {
                 self.downloadingModel = nil
                 await self.refreshModels()
             }
+        }
+    }
+
+    /// Surfaced in the Model section when the launch-time load failed —
+    /// most importantly Ollama's own "model requires more system memory
+    /// (X GiB) than is available (Y GiB)", which used to appear only in
+    /// the log while the meeting-time load froze the Mac.
+    var modelWarmupError: String?
+
+    /// Load the effective model into the engine now (app launch, session
+    /// start, download finish) instead of at the first mid-meeting LLM
+    /// call — model-load at minute one of a call was the worst possible
+    /// timing: peak memory pressure plus a stalled first heartbeat.
+    /// Memory-preflights first: a model that doesn't fit is never loaded
+    /// (loading it IS the freeze), it's reported via modelFitNote.
+    func warmUpModelIfNeeded() async {
+        guard !useMock, downloadingModel == nil else { return }
+        await refreshModels()
+        guard !availableModels.isEmpty else { return }
+        let name = effectiveModel
+        guard let model = availableModels.first(where: { $0.name == name }),
+              ModelMemory.fits(model) else {
+            mclog("[Settings] Warm-up skipped: \(name) doesn't fit in \(ModelMemory.physicalRAMGB) GB RAM")
+            return
+        }
+        guard let manager = ollamaManager, await manager.ensureRunning() else {
+            mclog("[Settings] Warm-up skipped: engine unavailable")
+            return
+        }
+        if let error = await OllamaClient(model: name).preload() {
+            modelWarmupError = "Couldn't load \(name): \(error)"
+            mclog("[Settings] Warm-up of \(name) failed: \(error)")
+        } else {
+            modelWarmupError = nil
+            mclog("[Settings] Warmed up \(name)")
         }
     }
 

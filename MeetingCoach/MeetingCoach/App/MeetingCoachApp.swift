@@ -167,6 +167,15 @@ struct MenuBarLabel: View {
                 ParakeetDownloadState.shared.startIfNeeded {
                     Task { await settings.autoDownloadRecommendedIfNeeded() }
                 }
+                // ContentView also assigns this, but on a login/menu-bar-only
+                // launch the main window never opens — without it the engine
+                // handle is nil and launch flows silently no-op.
+                settings.ollamaManager = ollamaManager
+                // The LLM loads at launch, not when a meeting starts —
+                // paying multi-GB model-load at minute one of a call (peak
+                // memory pressure) froze small-RAM Macs. No-op when no model
+                // is installed, one is downloading, or the pick doesn't fit.
+                Task { await settings.warmUpModelIfNeeded() }
             }
             .onChange(of: detection.meetingDetected) { _, detected in
                 if detected { showPrompt() } else { hidePrompt() }

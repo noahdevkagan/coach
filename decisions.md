@@ -300,3 +300,42 @@ silently and CI's release gate caught a broken test stub instead. The
 ASR suites don't run on CI at all — so a bad transcription change could
 have shipped. Rule: verify `git config core.hooksPath` returns
 scripts/githooks at the start of any session that will push.
+
+## 2026-08-05 — RAM-aware models: one fit formula, hide (don't disable), warm at launch
+
+A model "fits" when weights + ~1.5 GB (KV/runner) stay within ~70% of
+unified memory (`ModelMemory` in OllamaClient.swift); every catalog
+`minRAMGB` was derived from that same formula, and non-catalog installed
+models use it directly on their on-disk size. Chosen because the failure
+mode of "almost fits" is not an error but a whole-machine swap freeze —
+so the line is drawn with meeting headroom (Zoom + browser + Parakeet),
+not at bare load-ability. Catalog models that don't fit are *hidden*
+(Noah's call) rather than shown-disabled, with a one-line footnote so
+the shorter list is explainable. Default is RAM-tiered: qwen3.5:9b only
+on 32 GB+, qwen3.5:4b otherwise. effectiveModel now also skips
+installed-but-oversized selections (largest fitting model wins) with an
+orange banner instead of a silent swap-storm. The model preloads at app
+launch via /api/generate keep_alive=2h (re-warmed at session start and
+after downloads): mmap'd weights are file-backed and reclaimable, so
+residency is cheap, and load time moves off minute-one of a call — the
+worst possible moment. Warm-up doubles as the memory preflight: Ollama's
+own OOM message is surfaced in Settings instead of discovered mid-call.
+
+## 2026-08-05 — Deleted the code behind the hidden entry points (rubric builder, transcript-drop)
+
+Commit f336099 (2026-07-24, "transcript upload and Coaching Style entry
+points hidden") removed the UI doors but left ~1,100 lines shipping
+unreachable: CoachingStyleSection → RubricBuilderView +
+RubricBuilderViewModel, and TranscriptSection → SimulationTimelineView +
+SimulationViewModel + CoachingCall (loadTranscript had its only call
+site inside the dead section; no onDrop existed anywhere). Deleted all
+of it rather than leaving "maybe later" code: three releases shipped
+without the doors and nobody missed them, and git history is the
+archive — `git log -S CoachingStyleSection` finds everything if a
+rubric-builder v2 ever returns. The rubric *system* (YAML, active.yaml,
+round-trip, migration) is untouched; only the builder UI died.
+FeedbackSection (Coaching Notes) kept its feature but now owns
+feedbackText/feedbackSaved as @State instead of borrowing the dead
+SimulationViewModel. Also dropped: three zero-reference funcs
+(splitWords, VoiceProfileStore.allNames, Dorado.sectionLabel) and the
+empty coach//overlay/ placeholder dirs from the original PLAN phases.

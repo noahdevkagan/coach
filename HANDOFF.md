@@ -7,6 +7,31 @@ The durable "why" behind choices goes in `decisions.md`, not here.
 
 ## Current state (2026-08-05)
 
+- **RAM-aware model safety BUILT, uncommitted** (Noah's 4-item ship
+  list; see decisions.md 2026-08-05 for the why). (1) `ModelMemory` fit
+  rule + `minRAMGB` per catalog entry; catalog sheet hides non-fitting
+  models with a footnote; installed-but-oversized models get a "too big
+  for this Mac" badge. (2) RAM-tiered default via
+  `recommendedCatalogModel` (≥32 GB → qwen3.5:9b, else qwen3.5:4b) —
+  replaced every `modelCatalog.first`. (3) `effectiveModel` skips
+  oversized installs; orange `modelFitNote`/`modelWarmupError` banner
+  in ModelSection; `downloadModel` refuses oversized pulls. (4)
+  `OllamaClient.preload()` (keep_alive 2h) runs at app launch from
+  MenuBarLabel (which now also assigns `settings.ollamaManager` — was
+  ContentView-only, nil on menu-bar-only launches), at startLive, and
+  after downloads. Build green; warm-up verified live on this 24 GB
+  Mac ("[Settings] Warmed up gemma4:e4b", model resident in /api/ps,
+  correct 9b→e4b fallback). Not committed, not pushed, no tag.
+- **Bloat sweep DONE, uncommitted** (same working tree): deleted the
+  ~1,100 unreachable lines left by f336099's hidden entry points —
+  rubric-builder UI chain + transcript-drop/simulation chain + 3 dead
+  funcs + coach//overlay/ .gitkeep dirs (decisions.md 2026-08-05 has
+  the full list). FeedbackSection now owns its feedback state. Net
+  −1,018 lines. Build green, app launch smoke-tested. Audit found NO
+  unused resources, no repo junk; bundle is lean (release app 133 MB =
+  116 MB vendored ollama + 14 MB app). Known-but-deferred: MCTheme vs
+  Dorado dual design system, StatTile/StatBox near-dupe, tracked
+  project.pbxproj contradicts AGENTS "no .xcodeproj in git".
 - **v0.11.1, v0.12.0, v0.13.0 ALL SHIPPED in one marathon session**
   (each verified: CI gate → DMG → appcast → site). 0.11.1: row-binding
   crash. 0.12.0: CPU double-engine fix, overlay behavior, window-title

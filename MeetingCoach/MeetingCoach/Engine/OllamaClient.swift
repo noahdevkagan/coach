@@ -38,6 +38,33 @@ struct PullProgress: Sendable {
     }
 }
 
+/// RAM-fit rules for local models, in one place. A model is "comfortable"
+/// when its weights plus ~1.5 GB (KV cache + runner) stay within ~70% of
+/// unified memory — beyond that macOS swaps mid-meeting, which the user
+/// experiences as a whole-machine freeze, not an error message. Every
+/// `minRAMGB` in the catalog below was derived from this same formula.
+enum ModelMemory {
+    static var physicalRAMGB: Int {
+        Int(ProcessInfo.processInfo.physicalMemory / 1_073_741_824)
+    }
+
+    static func fits(weightBytes: Int64, ramGB: Int = physicalRAMGB) -> Bool {
+        let budget = Int64(ramGB) * 1_073_741_824 * 7 / 10
+        return weightBytes + 1_500_000_000 <= budget
+    }
+
+    /// Fit check for an installed model: catalog entries carry a reviewed
+    /// `minRAMGB` (MoE models break the pure size heuristic); anything the
+    /// user pulled outside the catalog falls back to the size formula.
+    static func fits(_ model: OllamaModel) -> Bool {
+        if let entry = modelCatalog.first(where: { $0.fullName == model.name }) {
+            return entry.fitsThisMac
+        }
+        guard model.size > 0 else { return true }
+        return fits(weightBytes: model.size)
+    }
+}
+
 /// A model available in the Ollama catalog for download.
 struct CatalogModel: Identifiable, Sendable {
     let name: String
@@ -45,9 +72,22 @@ struct CatalogModel: Identifiable, Sendable {
     let description: String
     let parameterSize: String
     let diskSize: String
+    /// Minimum unified memory (GB) to run without swapping mid-meeting.
+    let minRAMGB: Int
 
     var id: String { "\(name):\(tag)" }
     var fullName: String { "\(name):\(tag)" }
+
+    var fitsThisMac: Bool { minRAMGB <= ModelMemory.physicalRAMGB }
+}
+
+/// The RAM-aware onboarding/auto-pull default. Only 32 GB+ Macs get the
+/// flagship 9b: a real meeting means Zoom + a browser + live transcription
+/// running alongside the model, so headroom beats benchmark points (the
+/// old one-size default froze smaller Macs at exactly the wrong moment).
+var recommendedCatalogModel: CatalogModel {
+    let name = ModelMemory.physicalRAMGB >= 32 ? "qwen3.5:9b" : "qwen3.5:4b"
+    return modelCatalog.first { $0.fullName == name } ?? modelCatalog[0]
 }
 
 /// Curated catalog of models good for meeting coaching. The first entry is
@@ -57,46 +97,46 @@ struct CatalogModel: Identifiable, Sendable {
 /// Thinking-mode models (DeepSeek R1 etc.) are deliberately absent — they
 /// burn heartbeat latency on reasoning tokens before the JSON starts.
 let modelCatalog: [CatalogModel] = [
-    // -- Recommended --
+    // -- Recommended (see recommendedCatalogModel for the RAM-aware pick) --
     CatalogModel(name: "qwen3.5", tag: "9b",
-                 description: "Qwen 3.5 — best judgment + rock-solid JSON, MLX-fast on Apple Silicon. Recommended.",
-                 parameterSize: "9B", diskSize: "~6.6 GB"),
+                 description: "Qwen 3.5 — best judgment + rock-solid JSON, MLX-fast on Apple Silicon. The pick for 32 GB+ Macs.",
+                 parameterSize: "9B", diskSize: "~6.6 GB", minRAMGB: 16),
     CatalogModel(name: "gemma4", tag: "e4b",
                  description: "Google Gemma 4 Edge — efficient MoE, 128K context, tool calling",
-                 parameterSize: "4B eff", diskSize: "~9.6 GB"),
+                 parameterSize: "4B eff", diskSize: "~9.6 GB", minRAMGB: 16),
     // -- Compact / fast --
     CatalogModel(name: "qwen3.5", tag: "4b",
-                 description: "Lighter Qwen 3.5 — the pick for 8GB Macs",
-                 parameterSize: "4B", diskSize: "~3.4 GB"),
+                 description: "Lighter Qwen 3.5 — fast, light on memory, the pick for 8–16 GB Macs",
+                 parameterSize: "4B", diskSize: "~3.4 GB", minRAMGB: 8),
     CatalogModel(name: "gemma4", tag: "e2b",
-                 description: "Google Gemma 4 Edge — smallest, great for quick scans",
-                 parameterSize: "2B eff", diskSize: "~7.2 GB"),
+                 description: "Google Gemma 4 Edge — smallest Gemma, great for quick scans",
+                 parameterSize: "2B eff", diskSize: "~7.2 GB", minRAMGB: 16),
     // -- Larger / higher quality --
     CatalogModel(name: "qwen3.5", tag: "27b",
-                 description: "Qwen 3.5 27B — top judgment for nuanced signals, needs 32GB RAM",
-                 parameterSize: "27B", diskSize: "~17 GB"),
+                 description: "Qwen 3.5 27B — top judgment for nuanced signals",
+                 parameterSize: "27B", diskSize: "~17 GB", minRAMGB: 32),
     CatalogModel(name: "gemma4", tag: "12b",
                  description: "Google Gemma 4 12B — stronger reasoning, still fast on Apple Silicon",
-                 parameterSize: "12B", diskSize: "~8.1 GB"),
+                 parameterSize: "12B", diskSize: "~8.1 GB", minRAMGB: 16),
     CatalogModel(name: "gemma4", tag: "26b",
-                 description: "Google Gemma 4 26B MoE — best quality, needs 16GB+ RAM",
-                 parameterSize: "26B MoE", diskSize: "~16 GB"),
+                 description: "Google Gemma 4 26B MoE — best Gemma quality",
+                 parameterSize: "26B MoE", diskSize: "~16 GB", minRAMGB: 32),
     CatalogModel(name: "phi4", tag: "latest",
                  description: "Microsoft Phi-4, strong reasoning for its size",
-                 parameterSize: "14B", diskSize: "~9.1 GB"),
+                 parameterSize: "14B", diskSize: "~9.1 GB", minRAMGB: 16),
     // -- Alternatives --
     CatalogModel(name: "qwen2.5", tag: "7b-instruct",
                  description: "Previous default — reliable JSON, fine to keep if already installed",
-                 parameterSize: "7B", diskSize: "~4.7 GB"),
+                 parameterSize: "7B", diskSize: "~4.7 GB", minRAMGB: 16),
     CatalogModel(name: "granite4", tag: "3b",
                  description: "IBM Granite 4 — tiny, strong instruction-following, Apache licensed",
-                 parameterSize: "3B", diskSize: "~2.1 GB"),
+                 parameterSize: "3B", diskSize: "~2.1 GB", minRAMGB: 8),
     CatalogModel(name: "mistral", tag: "7b-instruct-v0.3",
                  description: "Mistral 7B, fast and reliable",
-                 parameterSize: "7B", diskSize: "~4.1 GB"),
+                 parameterSize: "7B", diskSize: "~4.1 GB", minRAMGB: 8),
     CatalogModel(name: "glm4", tag: "9b",
                  description: "THUDM GLM-4 — strong bilingual, good structured output",
-                 parameterSize: "9B", diskSize: "~5.5 GB"),
+                 parameterSize: "9B", diskSize: "~5.5 GB", minRAMGB: 16),
 ]
 
 enum OllamaError: Error, LocalizedError {
@@ -178,6 +218,35 @@ actor OllamaClient {
         }
         mclog("[Ollama] Got \(content.count) chars from model")
         return content
+    }
+
+    /// POST /api/generate with no prompt — Ollama's documented way to load
+    /// a model into memory without generating anything. keep_alive keeps it
+    /// resident so the first real call (mid-meeting, at peak memory
+    /// pressure) doesn't pay multi-GB load time. Weights are mmap'd, so an
+    /// idle resident model is file-backed memory macOS can reclaim.
+    /// Returns nil on success, or a user-showable error — Ollama's OOM
+    /// message ("model requires more system memory … than is available")
+    /// is exactly the clear error we want instead of a freeze.
+    func preload(keepAlive: String = "2h") async -> String? {
+        let url = baseURL.appendingPathComponent("api/generate")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 180 // cold load of a many-GB model
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "model": model, "keep_alive": keepAlive,
+        ])
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let error = json["error"] as? String {
+                return error
+            }
+            return nil
+        } catch {
+            return error.localizedDescription
+        }
     }
 
     /// GET /api/tags — list locally available models

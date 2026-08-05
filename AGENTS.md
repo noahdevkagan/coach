@@ -43,7 +43,7 @@ Every `git push` runs `scripts/push-gate.sh` (~4 min; docs/markdown-only pushes 
 |---|---|
 | `MeetingCoach/MeetingCoach/App/` | App entry, main window UI, menu bar (`MeetingCoachApp.swift`, `ContentView.swift`) |
 | `MeetingCoach/MeetingCoach/Engine/` | Audio capture, transcription, signals, coach, Ollama lifecycle, meeting auto-detect |
-| `MeetingCoach/MeetingCoach/ViewModels/` | Live session, settings, rubric builder |
+| `MeetingCoach/MeetingCoach/ViewModels/` | Live session, settings |
 | `MeetingCoach/MeetingCoach/Views/` | Overlay panel, detection pill, dashboards, forms |
 | `MeetingCoach/MeetingCoach/Resources/` | Rubric default, demo script, sounds; `ollama/` runtime is **gitignored** (see Gotchas) |
 | `MeetingCoach/project.yml` | XcodeGen spec — edit this, not the .xcodeproj |

@@ -6,7 +6,6 @@ struct ContentView: View {
     // Owned by the App so the menu bar scene drives the same session.
     @Bindable var liveSession: LiveSessionViewModel
     @Bindable var settings: SettingsViewModel
-    @State private var simulation = SimulationViewModel()
     @State private var overlayPanel: CoachingOverlayPanel?
     /// The user closed the overlay this session — nudges stop re-asserting
     /// it until the next session starts.
@@ -58,7 +57,7 @@ struct ContentView: View {
             // were; only colors/type/buttons carry the design language.
             HSplitView {
                 VStack(spacing: 0) {
-                    SidebarView(simulation: simulation, settings: settings,
+                    SidebarView(settings: settings,
                                 liveSession: liveSession, ollamaManager: ollamaManager,
                                 searchQuery: $searchQuery,
                                 selectedSession: $selectedSessionURL,
@@ -69,7 +68,7 @@ struct ContentView: View {
 
                 // Main content — an opened session wins (closing returns
                 // you), then search (clearing the box returns you), then
-                // live session, loaded transcript, or progress
+                // live session or progress
                 if let sessionURL = selectedSessionURL {
                     SessionDetailView(url: sessionURL, highlightQuery: activeSearch,
                                       settings: settings, ollamaManager: ollamaManager) {
@@ -83,9 +82,6 @@ struct ContentView: View {
                     .frame(minWidth: 400)
                 } else if liveSession.isLive || liveSession.hasSession {
                     LiveTimelineView(liveSession: liveSession)
-                        .frame(minWidth: 400)
-                } else if simulation.transcriptFileName != nil {
-                    SimulationTimelineView(simulation: simulation)
                         .frame(minWidth: 400)
                 } else {
                     ProgressDashboardView(liveSession: liveSession, settings: settings)
@@ -1136,7 +1132,6 @@ struct CopyButton: View {
 }
 
 struct SidebarView: View {
-    @Bindable var simulation: SimulationViewModel
     @Bindable var settings: SettingsViewModel
     @Bindable var liveSession: LiveSessionViewModel
     @Bindable var ollamaManager: OllamaManager
@@ -1186,7 +1181,7 @@ struct SidebarView: View {
                     VStack(alignment: .leading, spacing: 14) {
                         PlannedQuestionsSection()
                         Divider()
-                        FeedbackSection(simulation: simulation, liveSession: liveSession,
+                        FeedbackSection(liveSession: liveSession,
                                         settings: settings, ollamaManager: ollamaManager)
                         Divider()
                         ModelSection(settings: settings)
@@ -1418,33 +1413,6 @@ struct OllamaStatusBar: View {
     }
 }
 
-// MARK: - Coaching Style Section
-
-/// Sidebar entry for the rubric: which coaching style is active, and the
-/// door into the builder.
-struct CoachingStyleSection: View {
-    @Bindable var settings: SettingsViewModel
-    @Bindable var ollamaManager: OllamaManager
-    @State private var showBuilder = false
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Label("Coaching Style", systemImage: "slider.horizontal.3")
-                .font(.subheadline.weight(.semibold))
-            Spacer()
-            Button("Customize…") {
-                showBuilder = true
-            }
-            .font(.caption)
-            .buttonStyle(.plain)
-            .foregroundStyle(.blue)
-        }
-        .sheet(isPresented: $showBuilder) {
-            RubricBuilderView(settings: settings, ollamaManager: ollamaManager)
-        }
-    }
-}
-
 // MARK: - Questions to Ask (standing checklist)
 
 /// Advanced row: questions for the next call, pasteable one per line. They
@@ -1513,109 +1481,6 @@ struct HelpDot: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 230, alignment: .leading)
                 .padding(12)
-        }
-    }
-}
-
-// MARK: - Transcript Section
-
-struct TranscriptSection: View {
-    @Bindable var simulation: SimulationViewModel
-    var isDragOverEntireView: Bool = false
-    @State private var isExpanded = false
-
-    var body: some View {
-        DisclosureGroup(isExpanded: $isExpanded) {
-            sectionContent
-                .padding(.top, 8)
-        } label: {
-            HStack(spacing: 6) {
-                Label("Transcript", systemImage: "doc.text")
-                    .font(.subheadline.weight(.semibold))
-                HelpDot(text: "Drop in a transcript from another tool (Zoom, Meet, Otter) to replay it through the coach and train it on your real meetings. It never leaves your Mac.")
-                if simulation.transcriptFileName != nil {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.green)
-                }
-            }
-        }
-        // Dragging a file over the sidebar reveals the drop zone
-        .onChange(of: isDragOverEntireView) { _, over in
-            if over { isExpanded = true }
-        }
-    }
-
-    private var sectionContent: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let name = simulation.transcriptFileName {
-                // Loaded state
-                HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                    VStack(alignment: .leading) {
-                        Text(name).font(.caption).lineLimit(1)
-                        Text("\(simulation.utterances.count) utterances, \(simulation.meetingDuration)")
-                            .font(.caption2).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Button {
-                        openFile()
-                    } label: {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-                    .help("Load a different transcript")
-                }
-            } else {
-                // Empty state — drop zone (drop handled by parent SidebarView)
-                VStack(spacing: 8) {
-                    Image(systemName: isDragOverEntireView ? "arrow.down.doc.fill" : "arrow.down.doc")
-                        .font(.system(size: 28))
-                        .foregroundStyle(isDragOverEntireView ? .blue : .secondary)
-                    Text(isDragOverEntireView ? "Drop to load" : "Drop a transcript here")
-                        .font(.callout.bold())
-                        .foregroundStyle(isDragOverEntireView ? .primary : .secondary)
-                    Text(".txt or .md from Zoom")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
-                        .foregroundStyle(isDragOverEntireView ? .blue : Color.secondary.opacity(0.3))
-                )
-                .background(isDragOverEntireView ? Color.blue.opacity(0.05) : .clear)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                Button("or choose a file...") {
-                    openFile()
-                }
-                .font(.caption)
-                .buttonStyle(.plain)
-                .foregroundStyle(.blue)
-            }
-
-            if let error = simulation.error {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-            }
-        }
-    }
-
-    private func openFile() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.plainText, .text,
-            .init(filenameExtension: "md")!,
-            .init(filenameExtension: "txt")!]
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        if panel.runModal() == .OK, let url = panel.url {
-            simulation.loadTranscript(from: url)
         }
     }
 }
@@ -1696,10 +1561,13 @@ struct ModelSection: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
 
-                    if let recommended = modelCatalog.first {
+                    // RAM-aware recommendation — a 16 GB Mac is offered the
+                    // light Qwen, not the 6.6 GB flagship.
+                    let recommended = recommendedCatalogModel
+                    Group {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 4) {
-                                Text("Recommended")
+                                Text("Recommended for this Mac")
                                     .font(.caption2.bold())
                                     .foregroundStyle(.blue)
                                 Spacer()
@@ -1742,6 +1610,15 @@ struct ModelSection: View {
                     Toggle("Use sample coach (no download)", isOn: $settings.useMock)
                         .font(.caption)
                 }
+            }
+
+            // The clear error that replaces the old freeze: selection too
+            // big for this Mac's RAM, or the launch-time model load failed.
+            if let memoryNote = settings.modelFitNote ?? settings.modelWarmupError {
+                Label(memoryNote, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             // Download progress
@@ -1787,6 +1664,11 @@ struct ModelCatalogView: View {
     @Bindable var settings: SettingsViewModel
     @Environment(\.dismiss) private var dismiss
 
+    // Models that can't run in this Mac's RAM aren't offered at all —
+    // downloading one ends in a mid-meeting freeze, not a quality upgrade.
+    private var visibleCatalog: [CatalogModel] { modelCatalog.filter(\.fitsThisMac) }
+    private var hiddenCount: Int { modelCatalog.count - visibleCatalog.count }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -1822,8 +1704,16 @@ struct ModelCatalogView: View {
                     Text("Available to Download").font(.caption.bold()).foregroundStyle(.secondary)
                         .padding(.horizontal)
 
-                    ForEach(modelCatalog) { model in
+                    ForEach(visibleCatalog) { model in
                         CatalogModelRow(model: model, settings: settings)
+                    }
+
+                    if hiddenCount > 0 {
+                        Text("\(hiddenCount) larger model\(hiddenCount == 1 ? "" : "s") hidden — they need more memory than this Mac's \(ModelMemory.physicalRAMGB) GB.")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .padding(.horizontal)
+                            .padding(.top, 4)
                     }
                 }
                 .padding(.bottom)
@@ -1867,6 +1757,17 @@ struct InstalledModelRow: View {
                             .padding(.vertical, 1)
                             .background(.green.opacity(0.15))
                             .foregroundStyle(.green)
+                            .clipShape(Capsule())
+                    }
+                    // Installed before the RAM checks existed (or on another
+                    // Mac) — flag it instead of letting "Use" cause a freeze.
+                    if !ModelMemory.fits(model) {
+                        Text("too big for this Mac")
+                            .font(.caption2)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(.orange.opacity(0.15))
+                            .foregroundStyle(.orange)
                             .clipShape(Capsule())
                     }
                 }
@@ -2124,30 +2025,22 @@ struct LiveSection: View {
 // MARK: - Feedback Section
 
 struct FeedbackSection: View {
-    @Bindable var simulation: SimulationViewModel
     @Bindable var liveSession: LiveSessionViewModel
     var settings: SettingsViewModel
     var ollamaManager: OllamaManager
+    @State private var feedbackText = ""
+    @State private var feedbackSaved = false
     /// Loaded once on appear (and bumped on save) — TrainingStore.load()
     /// hits disk + JSON-decodes, far too heavy for a view body that
-    /// re-renders per utterance during simulation playback.
+    /// re-renders per utterance during a live session.
     @State private var trainingCount = 0
 
     private var activeUtterances: [Utterance] {
-        if liveSession.hasSession {
-            return liveSession.utterances
-        }
-        return simulation.utterances
+        liveSession.hasSession ? liveSession.utterances : []
     }
 
     private var sourceLabel: String {
-        if liveSession.hasSession {
-            return "live session"
-        }
-        if let name = simulation.transcriptFileName {
-            return name
-        }
-        return "transcript"
+        liveSession.hasSession ? "live session" : "transcript"
     }
 
     @State private var isExpanded = false
@@ -2183,7 +2076,7 @@ struct FeedbackSection: View {
                     .font(.caption2).foregroundStyle(.tertiary)
             }
 
-            TextEditor(text: $simulation.feedbackText)
+            TextEditor(text: $feedbackText)
                 .font(.system(.caption, design: .monospaced))
                 .frame(minHeight: 80, maxHeight: 160)
                 .scrollContentBackground(.hidden)
@@ -2201,9 +2094,9 @@ struct FeedbackSection: View {
                     Label("Save as Training", systemImage: "tray.and.arrow.down")
                 }
                 .buttonStyle(.bordered)
-                .disabled(simulation.feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
-                if simulation.feedbackSaved {
+                if feedbackSaved {
                     Label(savedSignalNames.isEmpty
                             ? "Saved"
                             : "Saved — tunes \(savedSignalNames)",
@@ -2232,7 +2125,7 @@ struct FeedbackSection: View {
     private func saveTraining() {
         // Notes stand on their own — a transcript excerpt is attached when
         // one is around, but "watch my talk time" needs no meeting paired.
-        let text = simulation.feedbackText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = feedbackText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
 
         let excerpt = activeUtterances.prefix(80)
@@ -2250,7 +2143,7 @@ struct FeedbackSection: View {
 
         TrainingStore.append(example)
         trainingCount += 1
-        simulation.feedbackSaved = true
+        feedbackSaved = true
         savedSignalNames = Array(
             signals.compactMap { TrainingStore.canonicalType(for: $0.signalId)?.displayName }
                 .reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
@@ -2501,17 +2394,4 @@ private func paragraphs(_ text: String, maxWords: Int = 70) -> [String] {
     }
     if !chunk.isEmpty { paras.append(chunk.joined(separator: " ")) }
     return paras.isEmpty ? [text] : paras
-}
-
-private func splitWords(_ text: String, perChunk: Int = 8) -> [String] {
-    let words = text.split(separator: " ")
-    guard words.count >= perChunk else { return [text] }
-    var chunks: [String] = []
-    var i = 0
-    while i < words.count {
-        let end = min(i + perChunk, words.count)
-        chunks.append(words[i..<end].joined(separator: " "))
-        i = end
-    }
-    return chunks
 }

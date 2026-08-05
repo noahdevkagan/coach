@@ -50,14 +50,6 @@ enum Dorado {
     }
     static func mono(_ size: CGFloat) -> Font { .custom("Roboto Mono", size: size) }
 
-    /// 11px all-caps label with 0.1em tracking — the only sub-12px style.
-    static func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(roboto(11, .bold))
-            .kerning(1.1)
-            .foregroundStyle(grey500)
-    }
-
     /// Parse the canonical date out of "session_yyyy-MM-dd_HH-mm.md".
     static func sessionDate(_ url: URL) -> Date? {
         let name = url.deletingPathExtension().lastPathComponent

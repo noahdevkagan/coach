@@ -132,14 +132,13 @@ struct OnboardingChecklistView: View {
                      active: downloading,
                      title: "AI coach model",
                      titleBadge: "optional",
-                     caption: "Smarter nudges + meeting reviews. 100% local (~6.6 GB).") {
+                     caption: "Smarter nudges + meeting reviews. 100% local (\(recommendedCatalogModel.diskSize)).") {
             if let settings, !hasModel {
                 if downloading {
                     Button("Cancel") { settings.cancelDownload() }
                         .font(.caption)
-                } else if UserDefaults.standard.bool(forKey: SettingsViewModel.autoModelPullAttemptedKey),
-                          let recommended = modelCatalog.first {
-                    Button("Download") { settings.downloadModel(recommended) }
+                } else if UserDefaults.standard.bool(forKey: SettingsViewModel.autoModelPullAttemptedKey) {
+                    Button("Download") { settings.downloadModel(recommendedCatalogModel) }
                         .font(.caption)
                 }
             }

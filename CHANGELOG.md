@@ -9,6 +9,13 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.14.0 — 2026-08-05
+
+- No more picking an AI model that's too big for your Mac: the app now knows how much memory you have — the model list only shows ones that will run well, the recommended download matches your machine, and the biggest models stay reserved for Macs that can handle them
+- If a too-big model does end up selected (say, from before this update), you get a clear orange note in Settings and the app quietly uses your best-fitting installed model instead — no more whole-Mac freeze mid-meeting
+- The AI model now loads when the app starts, not in the first minute of your call — meetings begin with coaching ready instead of your Mac straining right when the call gets going
+- Under the hood: removed a chunk of leftover code from retired features, so the app is a little leaner
+
 ## 0.13.0 — 2026-08-05
 
 - A fresh coat of paint everywhere: new AppSumo-yellow Go live button, cleaner type, and a simpler title bar — same layout and flow you already know

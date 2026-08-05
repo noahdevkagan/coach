@@ -214,6 +214,9 @@ final class LiveSessionViewModel {
             if ollamaManager.status == .stopped {
                 ollamaManager.start()
             }
+            // Normally resident since app launch; this re-warm covers an
+            // engine that restarted or a model evicted since (no-op then).
+            Task { await settings.warmUpModelIfNeeded() }
             startSemanticHeartbeat(ollamaManager: ollamaManager)
         } else {
             semanticCoach = nil

@@ -97,10 +97,6 @@ enum VoiceProfileStore {
         try? FileManager.default.removeItem(at: url(for: name))
     }
 
-    static func allNames() -> [String] {
-        loadAll().map(\.name)
-    }
-
     private static func url(for name: String) -> URL {
         // Sanitize: names come from user input / LLM suggestions.
         let safe = name.lowercased()
