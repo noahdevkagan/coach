@@ -248,3 +248,25 @@ helpers, dispatch "Test Gate" on main (workflow_dispatch) and wait for
 green BEFORE pushing the tag — a failed release run means deleting and
 re-pushing the tag. The gate's failure output now shows real `error:`
 lines and uploads build.log as an artifact.
+
+## 2026-08-04 — Dorado redesign: deviations from the design handoff
+Built option 2a pixel-close, with five deliberate deviations: SF Symbols
+instead of Font Awesome (README allowed the codebase's icon set); the
+0.11.0 onboarding checklist stays as the zero-sessions state (a shipped
+feature beats the spec's "single centered line"); light-only appearance
+forced (the design has no dark variant — revisit if users complain);
+live/post-session rail controls reuse the proven LiveSection because the
+handoff explicitly left the live state undesigned ("ask before
+inventing"); and — per Noah's review — home is the restyled Your
+Progress dashboard, not an auto-opened session (the handoff killed the
+stats pane, Noah wants it as "the main thing"). Fonts are bundled TTFs
+registered via ATSApplicationFontsPath with a folder-type resource
+reference — flat resource files silently never register.
+
+## 2026-08-04 — CSV parsing in Swift: CRLF is ONE Character
+Granola's export terminates its header with CRLF and body rows with LF.
+Swift's Character is a grapheme cluster, so "\r\n" matches neither a
+"\r" nor a "\n" switch case — the hand-rolled CSV parser glued the whole
+file into one row and the importer rejected real exports as "not a
+Granola CSV". Any future character-wise text scanning needs an explicit
+"\r\n" case (see GranolaImporter.parseCSV). Locked by tests/granola.

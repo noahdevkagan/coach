@@ -5,103 +5,44 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-08-04, late) — Dorado redesign built, awaiting Noah's eyes
+## Current state (2026-08-04)
 
-- **v0.12.0 SHIPPED** (Batch A CPU/overlay/naming/detection fixes, Granola
-  import fix + test suite, speaker-tagging fixes). Sparkle live.
-- **Main-window redesign (design handoff "2a Merged") implemented**:
-  new `Views/Dorado.swift` (tokens/rail) + rewritten SessionDetailView
-  (meta header, inline rename, Copy/Export, coaching strip from
-  SessionTrends, Transcript/Summary/Coaching tabs, search-highlight +
-  scroll-to-hit), custom 46px title bar (.hiddenTitleBar), bundled
-  Barlow/Roboto/Roboto Mono via ATSApplicationFontsPath.
-  Deviations from the handoff, all deliberate: SF Symbols not Font
-  Awesome (README allowed), onboarding checklist kept as the empty
-  state, light-only appearance forced, live/post-session rail controls
-  reuse the proven LiveSection (handoff left live state undesigned),
-  ProgressDashboardView is now UNREACHABLE (design killed the stats
-  pane) — Noah should decide whether progress stats return somewhere.
-  Not yet released; on main only.
-
-## Earlier (2026-08-04) — Batch A plan (done)
-
-v0.11.1 shipped earlier today (row-binding crash fix + vocab save
-feedback; see decisions.md for the CI toolchain lesson). Now executing
-"Batch A" from Noah's four-part feedback (CPU, overlay, session names,
-detection). Calendar/EventKit integration (pre-meeting prompt, exact
-event titles, join button) is explicitly deferred — Noah chose fixes
-only. Plan, in commit order:
-
-1. **CPU/engine ordering bug** (`AudioCaptureManager.start()`): system
-   audio pipeline is built BEFORE `usingParakeet` is set, so the "Them"
-   channel always runs SFSpeech even with Parakeet loaded (two engines
-   every meeting; also the 0.10.0 far-side turn-shape params silently
-   never applied). Fix: select engine before `startSystemAudio()`.
-2. **Parakeet tick waste** (`ParakeetTranscriber.swift`): skips —
-   don't re-transcribe when no new samples arrived; reuse last
-   hypothesis at commit when unchanged. (Full streaming API move is
-   out of scope.)
-3. **Detection poll while live** (`MeetingDetectionService`): 2s HAL +
-   CGWindowList + runningApps scans continue during sessions; slow the
-   poll to ~6s while live (end-detection tolerance is fine).
-4. **Overlay** (`CoachingOverlayPanel` + `ContentView`): persist
-   dragged frame (UserDefaults), stop `repositionToActiveScreen`
-   re-snapping when a saved/dragged position exists, closing sticks for
-   the rest of the session (nudges stop re-asserting), new master
-   Settings toggle "Show coaching overlay" (nudges still land in the
-   main-window rail).
-5. **Session names from meeting window titles**: detection already
-   reads window titles (`meetingWindowSnapshot`) — capture a cleaned
-   title (strip "Meet – ", browser suffixes; ignore generic "Zoom
-   Meeting"/meet codes) at session start, save as `**Title:**` with
-   precedence window-title > pre-call-derived > word-frequency
-   heuristic. Also fix: clearing a rename gets clobbered by
-   `reloadRecent()` re-writing the heuristic title.
-6. **Search matches titles** (`TranscriptSearch.search` +
-   sidebar list): title hits surface sessions even when the words were
-   never spoken; sidebar list filters by query.
-7. **Pill wording** (`MeetingPromptPanel.swift:106/116`): drop the
-   repetitive "& open Meeting Coach" second line.
-8. **Failed-start re-prompt** (`MeetingDetectionService` state
-   machine): a start that dies <15s parks the detector in `.prompted`
-   until the mic is released — meaning no pill for the rest of that
-   meeting. Re-arm instead.
-
-## Previous state (2026-08-03)
-
-- **v0.11.0 SHIPPED** (tag → CI → DMG + appcast verified live): onboarding
-  checklist with zero-click model downloads + real progress, Granola CSV
-  import, referral prompt waits for 2nd coached meeting, coach-rail
-  clipping fix, Advanced sidebar open by default.
-- The onboarding branch (`claude/meeting-coach-improvements-un1h39`, now
-  merged) was live-tested as a simulated new user on Noah's Mac; three
-  bugs found and fixed in the process: strict-concurrency build break,
-  coach-rail clipping at narrow widths, and the two-button Granola import
-  Noah cut to CSV-only. See decisions.md 2026-08-04 entries.
-- Full push gate green on this Mac (189s) — including the session-suite
-  vocabulary-fix cases that had never executed on a Mac (old Outstanding
-  item, cleared). Scorecard flat vs previous records (william 18.6%
-  combined, 1.7 nudges/10min, synthetic-hard 4.2%).
-- Noah's real model stores were restored after testing (FluidAudio/Models
-  and MeetingCoach/ollama/manifests back from .pretest backups; scratch
-  ollama engine and throwaway downloads deleted).
+- **v0.11.1 + v0.12.0 SHIPPED** (DMG + appcast verified). 0.11.1: the
+  ForEach($array) row-binding crash (David's report) + vocab save
+  feedback. 0.12.0: Batch A from Noah's feedback — CPU fixes (the big
+  one: system-audio channel ran SFSpeech alongside Parakeet every
+  session), obedient overlay + settings toggle, session names from
+  meeting window titles, title search, detection pill fixes — plus the
+  Granola importer fixed against a real export (CRLF bug; new
+  tests/granola gate suite) and speaker-tag fixes.
+- **Voice-profile return path verified live**: Caitlin tagged once,
+  auto-labeled by name on 97 lines in the next session's transcript.
+- **Dorado main-window redesign built, UNRELEASED** (design handoff
+  "2a Merged"; on main, dev-app only). Rail + session pane + tabs +
+  bundled Barlow/Roboto fonts; after Noah's first review: home = the
+  restyled Your Progress dashboard, labeled Home button, checklist
+  restyled. Noah: "I want to work on this more — let's chat later."
 
 ## Outstanding
 
-- **Granola CSV import has never seen a real Granola export** — column
-  names in `GranolaImporter.importCSV` are fuzzy-matched guesses. Get a
-  real export file and run it through before promoting the feature.
-- Onboarding checklist: permission Grant buttons and "join a meeting"
-  detection weren't exercised (TCC can't be faked per-launch) — watch a
-  true fresh install, and watch the first v0.11.0 auto-updates land.
-- Carried forward: verify `coachfree` code live on the AppSumo listing;
-  Matt follow-up (his session file `Engine:` line, next call on
-  Parakeet); speaker identity still unexercised on a real group call;
-  Noah owes green-win placement call + MCP release-packaging decision;
-  SEO — Noah fires distribution (newsletter/YouTube/PH), monthly AEO
-  check, submit sitemap.xml in GSC.
+- **Redesign iteration continues** — next known nits: coach-suggestion
+  cards still old-style inside the dashboard; live-state pane is
+  functional-not-designed; dark mode disabled (design is light-only).
+  Do NOT tag a release until Noah signs off on the redesign.
+- **Noah's dev-app copy lacks Screen Recording** — that's why today's
+  Caitlin session was mic-only and got a heuristic title ("Kyle ·
+  partner & partners"; rename by clicking the title). Grant it, then
+  verify window-title naming + the CPU drop on a real meeting
+  (`/tmp/mc_debug.log`: `[Voices] Loaded`, `[Detect] Meeting title`).
+- Batch B (calendar/EventKit: pre-meeting prompt, exact titles, join
+  button) designed-not-started; Noah deferred.
+- Watch David's 0.12.0 auto-update land (his crash fix ships in it).
+- Carried: coachfree code on AppSumo listing; Matt follow-up; green-win
+  placement call + MCP packaging decision; SEO distribution + GSC
+  sitemap.
 
 ## Next session
 
-Ask Noah for a real Granola CSV export and validate the importer's column
-mapping against it; then check how the first v0.11.0 auto-updates went.
+Continue the Dorado redesign iteration with Noah (he has feedback
+queued). First: get his dev copy Screen Recording permission granted,
+then walk the remaining redesign nits with him in the running app.
