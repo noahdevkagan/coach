@@ -71,7 +71,8 @@ struct ContentView: View {
                 // you), then search (clearing the box returns you), then
                 // live session, loaded transcript, or progress
                 if let sessionURL = selectedSessionURL {
-                    SessionDetailView(url: sessionURL, highlightQuery: activeSearch) {
+                    SessionDetailView(url: sessionURL, highlightQuery: activeSearch,
+                                      settings: settings, ollamaManager: ollamaManager) {
                         selectedSessionURL = nil
                     }
                     .frame(minWidth: 400)

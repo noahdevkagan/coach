@@ -87,7 +87,9 @@ struct MeetingReview: Equatable {
             h = h.trimmingCharacters(in: CharacterSet(charactersIn: ": *_"))
             guard !h.isEmpty, h.count <= 40 else { return nil }
             if h.hasPrefix("summary") { return .summary }
-            if h.contains("takeaway") || h.contains("key point") || h.contains("highlight") { return .takeaways }
+            if h.contains("takeaway") || h.contains("key point") || h.contains("highlight")
+                || h.contains("discussion point") || h.contains("key discussion")
+                || h.contains("quick update") { return .takeaways }
             if h.contains("next step") || h.contains("action item")
                 || h.contains("decision ledger") || h.contains("recommendation") { return .nextSteps }
             if h.hasPrefix("win") || h.contains("went well") { return .wins }
@@ -108,6 +110,8 @@ struct MeetingReview: Equatable {
                 ("key takeaways", .takeaways),
                 ("takeaways", .takeaways),
                 ("key points", .takeaways),
+                ("key discussion points", .takeaways),
+                ("discussion points", .takeaways),
                 ("suggested next steps", .nextSteps),
                 ("next steps", .nextSteps),
                 ("action items", .nextSteps),
@@ -148,7 +152,21 @@ struct MeetingReview: Equatable {
             return cleaned.isEmpty ? nil : cleaned
         }
 
-        for rawLine in llmText.components(separatedBy: .newlines) {
+        // Drop any preamble before the first recognized header — small
+        // models love a meta paragraph ("Note on coaching signals: …")
+        // before SUMMARY, which used to pollute the summary text. If no
+        // header exists anywhere, keep everything (fallback path below).
+        let allLines = llmText.components(separatedBy: .newlines)
+        var startIndex = 0
+        for (i, raw) in allLines.enumerated() {
+            let t = raw.trimmingCharacters(in: .whitespaces)
+            if inlineHeader(t) != nil || sectionFor(header: t) != nil {
+                startIndex = i
+                break
+            }
+        }
+
+        for rawLine in allLines[startIndex...] {
             var line = rawLine.trimmingCharacters(in: .whitespaces)
             if line.isEmpty { continue }
             if let (s, rest) = inlineHeader(line) {

@@ -9,27 +9,45 @@ enum PromptBuilder {
         // this into a structured card (MeetingReview.parse). Small local
         // models are unreliable at JSON; labeled sections survive better,
         // and the parser degrades to plain text when even these are ignored.
+        // Tuned against gemma4:e4b on a real 73-min transcript
+        // (2026-08-04): the coach framing pulled small models into
+        // delivery-advice lectures, so the coach role is explicitly
+        // banned; the inline example is what actually makes a 4B model
+        // hold the section shape. MeetingReview.parse still tolerates the
+        // decoration and renamed headers they sprinkle in anyway.
         let system = """
-        You are reviewing a meeting that just ended. Write a concise review of THIS conversation — what was actually discussed, decided, and promised. Ground every point in the transcript; reference specific topics and moments.
+        You write crisp post-meeting notes — the notes the user will send to the other participants. Someone who missed the meeting must learn from them exactly what matters, what was decided, and who owes what by when. You are NOT a communication coach: no advice about speaking style, structure, pausing, or delivery anywhere except the final one-sentence NEXT MEETING FOCUS.
 
-        Respond using EXACTLY these labeled sections, in this order:
+        Your ENTIRE reply must be exactly these four labeled sections, nothing before or after. Begin your reply with the literal line "SUMMARY:".
 
         SUMMARY:
-        2-3 plain sentences on what the conversation was about — the topics covered, positions taken, and where things landed. Content only; do not mention coaching signals here.
+        A TL;DR leading with the headline — the single most important thing decided, learned, or at stake. Then at most two more sentences on where things landed. Never mention meeting length, utterance counts, or talk percentages.
 
         KEY TAKEAWAYS:
-        - one per line, each starting with "- ": the most important things said, learned, or decided (new information, concerns raised, agreements reached). About the conversation, not the user's speaking habits.
+        3-6 lines, each starting with "- ": decisions, positions, and status updates WITH their specifics (numbers, dates, names actually said).
 
         NEXT STEPS:
-        - one concrete action per line, each starting with "- ": commitments and follow-ups people actually stated, with owner and date when mentioned (flag missing owners/dates)
+        1-6 lines, each starting with "- ", formatted "Owner — action — deadline". Only commitments actually stated or clearly implied. Write "(owner unclear)" or "(no deadline set)" when the transcript never said. Mark anything called urgent with "[critical]".
 
         NEXT MEETING FOCUS:
-        One sentence: the single most valuable thing to do differently next time. This is the ONLY section that may draw on the coaching signals.
+        One sentence on the most valuable thing to do differently next time — the ONLY place coaching signals may appear.
 
-        Rules: no markdown headers, no bold, no backticks, no tables. Never
-        invent facts that are not in the transcript. Refer to coaching signals
-        by plain names (say "talk time", never camelCase ids). Keep the whole
-        review under 300 words. Be direct and specific.
+        Example of the exact shape (invented content — never copy it):
+        SUMMARY:
+        Launches are pacing, but the headline is margin — targets are being hit at roughly zero profit, so margin is now the #1 priority.
+        KEY TAKEAWAYS:
+        - Lead tier is the strongest predictor of performance; Tier 1 beats Tier 2 by ~2.4-3x, so Launchpad becomes the default.
+        - Retro QA of live tools stands at 7 pass / 6 fail; passing tools are cleared to ship.
+        NEXT STEPS:
+        - Caitlin — rev-share margin model + operating-principles one-pager — by Friday [critical]
+        - Kim and Abe — finish retro QA on live Radar tools — (no deadline set)
+        NEXT MEETING FOCUS:
+        Watch talk time — hand the floor back with a question one sentence earlier.
+
+        Never invent facts that are not in the transcript. Keep the whole
+        reply under 350 words. Plain text only: no markdown headers, bold,
+        backticks, emoji, or numbered lists. Refer to coaching signals by
+        plain names (say "talk time", never camelCase ids).
         """
 
         var userLines = [
@@ -53,10 +71,13 @@ enum PromptBuilder {
         // of the first N chars only.
         if !transcript.isEmpty {
             var t = transcript
-            if t.count > 8000 {
-                t = t.prefix(2500) + "\n[… middle of the meeting trimmed …]\n" + t.suffix(5500)
+            // Catalog models all take 32K+ context; a 73-minute meeting is
+            // ~10-14K chars of turns, so most meetings now fit whole. The
+            // old 8K cap amputated exactly the middle where decisions live.
+            if t.count > 24_000 {
+                t = t.prefix(8_000) + "\n[… middle of the meeting trimmed …]\n" + t.suffix(16_000)
             }
-            userLines.append("\nTranscript (You = the person being coached):\n\(t)")
+            userLines.append("\nTranscript (You = the user, the person these notes are for):\n\(t)")
         }
 
         // Coaching signals as compact totals only. The full timestamped
@@ -78,7 +99,7 @@ enum PromptBuilder {
             userLines.append("\nNo coaching signals fired during this meeting.")
         }
 
-        userLines.append("\nProvide the review now.")
+        userLines.append("\nWrite the four sections now, starting with SUMMARY:.")
         return (system, userLines.joined(separator: "\n"))
     }
 }

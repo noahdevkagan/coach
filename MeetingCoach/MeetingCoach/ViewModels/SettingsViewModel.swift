@@ -118,6 +118,18 @@ final class SettingsViewModel {
         UserDefaults.standard.set(rubricPath, forKey: "rubricPath")
     }
 
+    /// The model LLM calls should actually use: the selection when it's
+    /// installed, otherwise the first installed model. The selection can
+    /// point at a model whose download never finished — seen 2026-08-04:
+    /// selection qwen3.5:9b, store gemma4:e4b, and every LLM feature
+    /// (review, name suggestions, semantic coach) silently failed with
+    /// "model not found" and degraded to heuristics.
+    var effectiveModel: String {
+        guard !availableModels.isEmpty else { return selectedModel }
+        if availableModels.contains(where: { $0.name == selectedModel }) { return selectedModel }
+        return availableModels.first?.name ?? selectedModel
+    }
+
     func refreshModels() async {
         let client = OllamaClient(model: selectedModel)
         do {

@@ -17,10 +17,11 @@ enum DeterministicReview {
         // Summary. Talk share comes from the caller's TalkStats — the same
         // number the meter, session header, and recap show; a second
         // formula here would let one session display two different ratios.
-        var summary = "\(durationMinutes) min \(context.effectiveMeetingType.displayName.lowercased()) meeting, \(utterances.count) utterances."
+        var summary = "\(durationMinutes) min \(context.effectiveMeetingType.displayName.lowercased()) meeting."
         if let share = talkShare {
-            summary += " You spoke \(Int(share * 100))% of the time over the whole meeting."
+            summary += " You spoke \(Int(share * 100))% of the time."
         }
+        summary += " Install a local AI model (Advanced → Model) and this review becomes real meeting notes — decisions, owners, deadlines."
 
         let corrective = countsByType(nudges.filter { !$0.type.isPositive })
         let wins = countsByType(nudges.filter { $0.type.isPositive })
@@ -66,9 +67,13 @@ enum DeterministicReview {
             let matchable = TextAnalysis.normalize(u.text)
             let range = NSRange(matchable.startIndex..., in: matchable)
             guard commitmentPattern.firstMatch(in: matchable, range: range) != nil else { continue }
+            // Whole thoughts only: 3-word fragments like "done by Friday."
+            // quoted out of context read as noise, not action items (Noah,
+            // 2026-08-04). Better four real moments than five shreds.
+            guard u.text.split(separator: " ").count >= 8 else { continue }
             let quote = u.text.count > 120 ? String(u.text.prefix(117)) + "..." : u.text
             result.append(ActionItem(text: "“\(quote)” — \(u.speaker), \(u.formattedTime)"))
-            if result.count == 5 { break }
+            if result.count == 4 { break }
         }
         return result
     }

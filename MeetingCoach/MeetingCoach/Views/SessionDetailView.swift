@@ -10,6 +10,11 @@ struct SessionDetailView: View {
     /// Active search query — matched terms highlight in the transcript and
     /// the view scrolls to the first hit.
     var highlightQuery: String = ""
+    /// Present = the Summary tab can (re)generate an AI review for this
+    /// saved session — the escape hatch for sessions reviewed before a
+    /// model was installed.
+    var settings: SettingsViewModel?
+    var ollamaManager: OllamaManager?
     let onClose: () -> Void
 
     enum Tab: String, CaseIterable {
@@ -29,6 +34,10 @@ struct SessionDetailView: View {
     @State private var renaming = false
     @State private var renameText = ""
     @FocusState private var renameFocused: Bool
+    @State private var regenTick = 0
+    @State private var regenerating = false
+    @State private var durationMinutes = 0
+    @State private var talkShareValue: Double?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -203,18 +212,87 @@ struct SessionDetailView: View {
 
     private var summaryTab: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 8) {
+            LazyVStack(alignment: .leading, spacing: 12) {
                 if let review {
                     MeetingReviewView(review: review) { id in
                         toggleActionItem(id)
                     }
-                } else {
-                    Text("No summary yet — reviews generate at the end of a coached session.")
+                } else if !regenerating {
+                    Text("No summary yet.")
                         .font(Dorado.roboto(13)).foregroundStyle(Dorado.grey400)
+                }
+
+                if settings != nil, !lines.isEmpty {
+                    HStack(spacing: 8) {
+                        if regenerating {
+                            ProgressView().controlSize(.small)
+                            Text("Writing meeting notes with the local model…")
+                                .font(Dorado.roboto(13)).foregroundStyle(Dorado.grey600)
+                        } else {
+                            Button {
+                                regenTick += 1
+                            } label: {
+                                HStack(spacing: 7) {
+                                    Image(systemName: "sparkles")
+                                        .font(.system(size: 12)).foregroundStyle(Dorado.grey500)
+                                    Text(review == nil ? "Generate AI review" : "Regenerate with AI")
+                                }
+                            }
+                            .buttonStyle(DoradoOutlineButtonStyle())
+                            .help("Rewrites this session's notes with the installed local model — nothing leaves this Mac")
+                        }
+                    }
                 }
             }
             .padding(.init(top: 20, leading: 44, bottom: 20, trailing: 44))
         }
+        // .task(id:) instead of a hand-rolled Task: its closure is
+        // @MainActor @Sendable on every SDK (the Xcode 16.2 strict-
+        // concurrency lesson from v0.11.1).
+        .task(id: regenTick) {
+            guard regenTick > 0 else { return }
+            await regenerateReview()
+        }
+    }
+
+    /// Re-run the LLM review over this saved session's transcript and
+    /// persist it into the file's "## Review" section.
+    private func regenerateReview() async {
+        guard let settings, let ollamaManager, !lines.isEmpty else { return }
+        regenerating = true
+        defer { regenerating = false }
+        if ollamaManager.status == .stopped { ollamaManager.start() }
+        if ollamaManager.status != .running {
+            for _ in 1...30 {
+                try? await Task.sleep(for: .milliseconds(500))
+                if ollamaManager.status == .running { break }
+                if case .error = ollamaManager.status { break }
+            }
+        }
+        guard ollamaManager.status == .running else { return }
+        await settings.refreshModels()
+        guard !settings.availableModels.isEmpty else { return }
+
+        let transcript = lines.map { "\($0.speaker): \($0.text)" }.joined(separator: "\n")
+        let (system, user) = PromptBuilder.buildPostCallReviewPrompt(
+            nudges: [], transcript: transcript,
+            context: PreCallContext(), durationMinutes: max(1, durationMinutes))
+        guard let text = try? await OllamaClient(model: settings.effectiveModel)
+            .complete(system: system, user: user) else { return }
+        let parsed = MeetingReview.parse(llmText: text, talkShare: talkShareValue)
+        review = parsed
+        persistReview(parsed)
+    }
+
+    private func persistReview(_ r: MeetingReview) {
+        guard var content = try? String(contentsOf: url, encoding: .utf8) else { return }
+        if let range = content.range(of: "\n## Review") {
+            content = String(content[..<range.lowerBound])
+        }
+        content = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        content += "\n\n## Review\n\n\(r.recapMarkdown)\n"
+        try? content.write(to: url, atomically: true, encoding: .utf8)
+        rawContent = content
     }
 
     private var coachingTab: some View {
@@ -364,6 +442,7 @@ struct SessionDetailView: View {
         }
         if !duration.isEmpty {
             let mins = Int(SessionSummary.minutes(from: duration).rounded())
+            durationMinutes = mins
             meta.append(mins > 0 ? "\(mins) min" : duration)
         }
         let speakerCount = Set(newLines.map(\.1)).count
@@ -377,6 +456,7 @@ struct SessionDetailView: View {
         var share: Double?
         let digits = talkShare.prefix(while: \.isNumber)
         if let pct = Int(digits) { share = Double(pct) / 100 }
+        talkShareValue = share
         let reviewText = reviewLines.joined(separator: "\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         review = reviewText.isEmpty ? nil : MeetingReview.parse(llmText: reviewText, talkShare: share)

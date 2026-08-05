@@ -204,13 +204,13 @@ final class LiveSessionViewModel {
             $0.useMock || !$0.hasCheckedModels || !$0.availableModels.isEmpty
         } ?? false
         if let settings, let ollamaManager, settings.semanticCoachEnabled, modelAvailable {
-            semanticCoach = SemanticCoach(model: settings.selectedModel,
+            semanticCoach = SemanticCoach(model: settings.effectiveModel,
                                           tuning: tuning,
                                           customSignals: rubric.customSemanticSignals,
                                           noteExamples: noteExamples)
             // Same engine, separate cadence: propose real names for diarized
             // speakers from transcript evidence ("thanks Sarah").
-            nameInference = SpeakerNameInference(model: settings.selectedModel)
+            nameInference = SpeakerNameInference(model: settings.effectiveModel)
             if ollamaManager.status == .stopped {
                 ollamaManager.start()
             }
@@ -804,7 +804,6 @@ final class LiveSessionViewModel {
             durationMinutes: durationMin
         )
 
-        let model = settings.selectedModel
         if ollamaManager.status == .stopped {
             ollamaManager.start()
         }
@@ -827,7 +826,7 @@ final class LiveSessionViewModel {
                 await settings.refreshModels()
                 if !settings.availableModels.isEmpty {
                     do {
-                        summary = try await OllamaClient(model: model).complete(system: system, user: user)
+                        summary = try await OllamaClient(model: settings.effectiveModel).complete(system: system, user: user)
                     } catch {
                         // The LLM path failed (engine died, timeout) — the
                         // instant review is still better than an error string.

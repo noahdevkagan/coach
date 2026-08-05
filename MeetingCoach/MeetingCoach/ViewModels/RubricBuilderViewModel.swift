@@ -282,7 +282,7 @@ final class RubricBuilderViewModel {
         if ollamaManager.status == .stopped {
             ollamaManager.start()
         }
-        let model = settings.selectedModel
+        let model = settings.effectiveModel
 
         Task {
             defer { isGenerating = false }
