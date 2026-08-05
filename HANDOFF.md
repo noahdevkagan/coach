@@ -7,7 +7,7 @@ The durable "why" behind choices goes in `decisions.md`, not here.
 
 ## Current state (2026-08-05)
 
-- **RAM-aware model safety BUILT, uncommitted** (Noah's 4-item ship
+- **v0.14.0 SHIPPED (RAM-aware model safety + bloat sweep)** — CI gate → DMG → appcast → site all verified. (Noah's 4-item ship
   list; see decisions.md 2026-08-05 for the why). (1) `ModelMemory` fit
   rule + `minRAMGB` per catalog entry; catalog sheet hides non-fitting
   models with a footnote; installed-but-oversized models get a "too big
@@ -21,8 +21,8 @@ The durable "why" behind choices goes in `decisions.md`, not here.
   ContentView-only, nil on menu-bar-only launches), at startLive, and
   after downloads. Build green; warm-up verified live on this 24 GB
   Mac ("[Settings] Warmed up gemma4:e4b", model resident in /api/ps,
-  correct 9b→e4b fallback). Not committed, not pushed, no tag.
-- **Bloat sweep DONE, uncommitted** (same working tree): deleted the
+  correct 9b→e4b fallback).
+- Bloat sweep (same release): deleted the
   ~1,100 unreachable lines left by f336099's hidden entry points —
   rubric-builder UI chain + transcript-drop/simulation chain + 3 dead
   funcs + coach//overlay/ .gitkeep dirs (decisions.md 2026-08-05 has
