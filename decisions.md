@@ -494,3 +494,25 @@ choices:
 Also confirmed in the same probe: corespeechd CPU belongs to
 com.apple.CoreSpeech holding the mic system-wide (Siri/Live Captions),
 not to MeetingCoach.
+
+## 2026-08-06 — Session titles from the review LLM; machine titles are the only ones it may replace
+
+The word-frequency titler can only see which words recur, not what was
+decided — it titled today's team meeting after the person being FIRED
+("Steinberg · flow & email"). The post-call review already reads the
+whole meeting, so it now leads with a TITLE: section (format verified
+against qwen3.5:9b on a real transcript before shipping) and the app
+adopts it. The precedence trick: there is no provenance recorded for
+titles, but machine titles are REPRODUCIBLE — if the current header
+title equals what TranscriptSearch.suggestedTitle would produce for the
+same content, the sidebar heuristic wrote it and upgrading loses
+nothing; anything else (user rename, window/caller title, pre-call
+person·subject, the bare-Title cleared sentinel) was chosen by a human
+or a real meeting name and always wins. This also resolves the race
+where the sidebar writes its heuristic title seconds after save, long
+before the LLM review finishes.
+
+Operational, learned twice now (v0.15.0, v0.17.0): pushing a tag does
+NOT trigger the Release workflow on this repo — the tag arrives but no
+run is created. Ship via Actions → Release → Run workflow (version
+input attaches to the existing tag). Root cause still unknown.

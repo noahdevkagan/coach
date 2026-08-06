@@ -7,120 +7,58 @@ The durable "why" behind choices goes in `decisions.md`, not here.
 
 ## Current state (2026-08-06)
 
-- **CPU/memory reduction batch DONE, gate green** (Noah: app 16.4% CPU
-  + llama-server 7.19 GB resident during a call). Memory: model warms
-  on meeting-detect instead of at launch, unloads after the post-call
-  review and on quit (incl. adopted system engine); engine env
-  NUM_PARALLEL=1, MAX_LOADED_MODELS=1, FLASH_ATTENTION=1, KV q8_0;
-  num_ctx 4096 in-call / 8192 review; preload options now match
-  generation (no double load); keep_alive explicit on generation;
-  effectiveModel fallback prefers the RAM tier, not the largest
-  install. CPU: heartbeat gates on <3 new utterances + backs off
-  60→90→120s on empty passes; Parakeet partial-refresh throttled on
-  long windows (commit cadence untouched); vDSP RMS; mclog NSLog
-  debug-only. decisions.md 2026-08-06 has the full why.
-  Deferred (evidence gathered, not done): streaming Parakeet decoder,
-  applyDiarization incremental rebuild, SCK audio-only capture,
-  event-driven idle detection, signal-eval coalescing.
-- **Apple-call batch DONE, gate green** (customer + Noah repro: iPhone
-  relayed call → no pill, no transcript, "Meeting ended?" banner).
-  FaceTime/Phone/avconferenced/callservicesd now pass the com.apple
-  mic-holder filter and count as meeting apps; FaceTime call windows
-  are meeting evidence and title the session with the caller's name;
-  unrecognized Apple mic holders get logged once per run (field
-  diagnostics — watch for the real relayed-call daemon id in logs).
-  Silence card now distinguishes "meeting ended?" from "can't hear
-  this meeting" (≤3 utterances → capture-gap copy with iPhone/headset
-  guidance). Bleed gate only drops when the system channel was
-  recently loud (was deleting faint real speech). Mid-session SCK
-  death flips micOnly (arbiter veto + echo filter correctness).
-  KNOWN LIMIT: a call whose audio stays on the iPhone is uncapturable
-  — the honest banner is the fix; detection of relayed-call mic
-  holders is best-guess until field logs name the daemon.
-
-
-- **Mic device-change recovery (branch
-  `claude/computer-microphone-detection-geppbc`, NOT yet built on a
-  Mac)** — Noah's screenshot: call handed to the Mac ("From Your
-  iPhone"), app said "Listening" 41s in, transcript empty. Cause:
-  AVAudioEngine stops permanently on input-device change; no handler
-  existed. Fix in `AudioCaptureManager`: config-change notification +
-  3s buffer watchdog → rebuild mic engine (retry forever, capped
-  backoff), pipelines untouched, diarizer gap backfilled, teardown
-  serialized on the restart queue. Written in a Linux session —
-  needs `xcodegen && xcodebuild` + a live device-switch test
-  (start session → toggle input device in Sound settings → transcript
-  resumes; grep /tmp/mc_debug.log for `[Mic] Capture restarted`).
-  **v0.15.0 release prepped but NOT tagged**: CHANGELOG section +
-  regenerated changelog.html are on the branch; the remote session's
-  creds can't push tags or dispatch workflows (403). Ship it via
-  Actions → Release → Run workflow (branch
-  `claude/computer-microphone-detection-geppbc`, version `0.15.0`) —
-  the gate build-verifies first — or locally `git tag v0.15.0
-  origin/claude/computer-microphone-detection-geppbc && git push
-  origin v0.15.0`. Afterwards fast-forward main onto the branch.
-
-- **v0.14.0 SHIPPED (RAM-aware model safety + bloat sweep)** — CI gate → DMG → appcast → site all verified. (Noah's 4-item ship
-  list; see decisions.md 2026-08-05 for the why). (1) `ModelMemory` fit
-  rule + `minRAMGB` per catalog entry; catalog sheet hides non-fitting
-  models with a footnote; installed-but-oversized models get a "too big
-  for this Mac" badge. (2) RAM-tiered default via
-  `recommendedCatalogModel` (≥32 GB → qwen3.5:9b, else qwen3.5:4b) —
-  replaced every `modelCatalog.first`. (3) `effectiveModel` skips
-  oversized installs; orange `modelFitNote`/`modelWarmupError` banner
-  in ModelSection; `downloadModel` refuses oversized pulls. (4)
-  `OllamaClient.preload()` (keep_alive 2h) runs at app launch from
-  MenuBarLabel (which now also assigns `settings.ollamaManager` — was
-  ContentView-only, nil on menu-bar-only launches), at startLive, and
-  after downloads. Build green; warm-up verified live on this 24 GB
-  Mac ("[Settings] Warmed up gemma4:e4b", model resident in /api/ps,
-  correct 9b→e4b fallback).
-- Bloat sweep (same release): deleted the
-  ~1,100 unreachable lines left by f336099's hidden entry points —
-  rubric-builder UI chain + transcript-drop/simulation chain + 3 dead
-  funcs + coach//overlay/ .gitkeep dirs (decisions.md 2026-08-05 has
-  the full list). FeedbackSection now owns its feedback state. Net
-  −1,018 lines. Build green, app launch smoke-tested. Audit found NO
-  unused resources, no repo junk; bundle is lean (release app 133 MB =
-  116 MB vendored ollama + 14 MB app). Known-but-deferred: MCTheme vs
-  Dorado dual design system, StatTile/StatBox near-dupe, tracked
-  project.pbxproj contradicts AGENTS "no .xcodeproj in git".
-- **v0.11.1, v0.12.0, v0.13.0 ALL SHIPPED in one marathon session**
-  (each verified: CI gate → DMG → appcast → site). 0.11.1: row-binding
-  crash. 0.12.0: CPU double-engine fix, overlay behavior, window-title
-  session names, Granola import (validated on a real export), speaker
-  tagging. 0.13.0: full Dorado design (Noah-approved shape: paint on
-  0.12.0 bones + session tabs + Progress home + auto light/dark),
-  meeting reviews as chief-of-staff notes, effectiveModel fallback
-  (selected-but-not-installed model had silently killed ALL LLM
-  features), Regenerate-with-AI for saved sessions.
-- **Voice-profile return path verified live** (Caitlin auto-labeled on
-  97 lines). Review prompt tuned against gemma4:e4b on Noah's real
-  73-min transcript; parser hardened for small-model formatting.
-- **Local push gate was silently unarmed all session** (core.hooksPath
-  unset on this clone) — re-armed; full gate green, ASR accuracy flat
-  vs pre-0.12.0 records (18.6% william combined, synthetic-hard 4.2%).
+- **v0.17.0 SHIPPED** (CI gate → DMG → appcast 0.17.0 → site deployed).
+  Contents, all gate-green (decisions.md 2026-08-06 ×3 has the why):
+  - Memory: model warms on meeting-detect (not launch), unloads after
+    the recap and on quit (incl. adopted engines); NUM_PARALLEL=1,
+    FLASH_ATTENTION=1, KV q8_0; num_ctx 4096 in-call / 8192 review;
+    effectiveModel fallback prefers the RAM tier, not the largest.
+  - CPU: heartbeat skips unchanged conversation + backs off on empty
+    passes; Parakeet partial-refresh throttled on long windows; vDSP
+    RMS; mclog NSLog debug-only.
+  - Apple calls: FaceTime/Phone/avconferenced/callservicesd pass the
+    mic-holder filter, FaceTime call windows arm end-watch and title
+    sessions with the caller's name; silence card distinguishes
+    "Meeting ended?" from "Can't hear this meeting"; bleed gate needs a
+    recently-loud system channel; SCK death flips micOnly.
+  - Session titles: the review LLM leads with TITLE: and
+    adoptGeneratedTitle upgrades only machine-written titles (a header
+    equal to suggestedTitle's output); renames/window/pre-call win.
+- Known limit: a call whose audio stays on the iPhone is uncapturable —
+  the honest banner IS the behavior. Call daemon IDs are best-guess;
+  the log prints `Apple process holding mic (ignored): <id>` once per
+  run to name the real one from the field.
+- **Tag pushes do NOT trigger the Release workflow** (v0.15.0 and
+  v0.17.0 both) — ship via Actions → Release → Run workflow. Cause
+  unknown; worth a look someday.
+- `tests/calls-manual.md`: 5-scenario real-hardware call matrix, now
+  required by AGENTS.md before capture-adjacent releases. Never run yet.
 
 ## Outstanding
 
-- **Everything from today meets its first real meeting**: watch CPU
-  (was 27%+37%), Caitlin auto-label, window-title naming, name
-  suggestions (needs gemma via effectiveModel — now works), and review
-  quality. Grep `/tmp/mc_debug.log` for `[Voices] Loaded`, `Enrolled`,
-  `[Detect] Meeting title`, `[Names]`.
-- **Noah's dev-app copy still lacks Screen Recording** (mic-only
-  sessions, no window titles). His installed copy auto-updates to
-  0.13.0 — real meetings should run there.
-- Review could go further: feed pre-call context + past sessions with
-  the same person (Noah saw Caitlin's hand-written notes as the bar).
-- Settings window still stock macOS; live pane got only a light paint.
-- Batch B (calendar/EventKit: pre-meeting prompt, exact titles, join
-  button) designed, deferred by Noah.
-- Carried: coachfree code on AppSumo listing; Matt follow-up; green-win
-  placement + MCP packaging decisions; SEO distribution + GSC sitemap.
+- **Run the call matrix once on 0.17.0** — esp. scenario 2 (iPhone call
+  answered ON the Mac → pill?) and 3 (answered on iPhone → honest
+  banner). Grep the log for `Apple process holding mic (ignored)` and
+  add any real daemon id to appleCallBundleIDs.
+- **Verify 0.17.0 in the wild**: llama-server leaves Activity Monitor's
+  memory list minutes after a recap; CPU during the next call; LLM
+  title quality on the next real meeting.
+- Deferred CPU/memory work (evidence in decisions.md): streaming
+  Parakeet decoder (biggest remaining win), incremental
+  applyDiarization/turn rebuild, SCK audio-only capture, event-driven
+  idle detection, signal-eval coalescing.
+- Carried: speaker identity on a real group call (still unexercised);
+  Matt follow-up (his next call on Parakeet?); coachfree AppSumo code
+  verify; SEO distribution (newsletter/YouTube/PH window, AlternativeTo,
+  GSC sitemap); Noah's green-win placement + MCP packaging decisions;
+  Settings window polish; calendar/EventKit batch B (Noah-deferred).
+- Untracked `.agents/` and `.codex/` dirs in the clone (other tools) —
+  left alone on purpose.
 
 ## Next session
 
-Check how v0.13.0 auto-updates landed (Noah + David), then read
-/tmp/mc_debug.log after Noah's first real 0.13.0 meeting and report the
-verdict on CPU, speaker labels, session title, and review quality.
+Check how v0.17.0 landed: after Noah's first real meeting on it, read
+/tmp/mc_debug.log — did a FaceTime/phone call show the pill (any
+`Apple process holding mic (ignored)` line names a daemon to add), did
+llama-server release its memory after the recap, and is the LLM session
+title good? Then work the call matrix and the carried list above.
