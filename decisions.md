@@ -360,3 +360,27 @@ survives the swap; the mic-only diarizer gets the dead gap backfilled
 with silence because its clock is fed-audio-relative. stop() tears the
 mic down inside the restart queue so an in-flight recovery can't
 resurrect the engine after the session ends.
+
+## 2026-08-05 — Continuity call handoff: pin the built-in mic, ignore self-inflicted config changes
+
+The 0.15.0 device-change recovery rebuilt capture on "the new device" —
+but a phone call handed to the Mac makes the iPhone's Continuity mic
+(transport 'ccwd'/'ccwl') the system DEFAULT input, and that device
+delivers silent buffers to every app but the call. Rebuilding onto it
+is indistinguishable from working (buffers flow, watchdog happy,
+"Listening" shown) while transcribing nothing — Noah's 2026-08-05
+report. Fix: when the default input is a Continuity capture device,
+pin the AUHAL to the Mac's built-in mic (kAudioOutputUnitProperty_
+CurrentDevice), pre-start plus a post-start read-back re-assert
+(start() can silently undo a pre-start pin). Hard-won detail: pinning
+away from the default makes AVAudioEngine post a config change for
+ITSELF — rebuilding on that notification spiraled into a rebuild storm
+(~10/s). The notification handler now ignores config changes while the
+engine is still running on the chosen device; genuinely dead capture is
+still caught (isRunning false, or the 5s buffer watchdog). We do NOT
+change the system default input back — a user may have deliberately
+chosen the iPhone mic for another app (Continuity Camera), and the
+call itself may be using it. Also: mclog now reopens its file handle
+when /tmp/mc_debug.log vanishes — a deleted log left long-running apps
+writing to the unlinked inode, which is why today's live bug report
+had no log evidence.

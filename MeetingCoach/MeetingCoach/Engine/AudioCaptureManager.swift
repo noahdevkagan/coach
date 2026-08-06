@@ -1,4 +1,5 @@
 import AVFoundation
+import AudioToolbox
 import ScreenCaptureKit
 import Speech
 
@@ -364,6 +365,20 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         let audioEngine = AVAudioEngine()
         let inputNode = audioEngine.inputNode
 
+        // A Continuity phone-call handoff makes the iPhone's mic the system
+        // DEFAULT input — and that device delivers silence to every app but
+        // the call. Capturing it is how a session said "Listening" for 15s
+        // over an empty transcript (Noah, 2026-08-05). Pin the Mac's own
+        // mic instead: coaching listens to the room, and the built-in mic
+        // hears both Noah and a speakerphone call.
+        var pinnedInput: AudioDeviceID?
+        if let defaultDevice = Self.defaultInputDeviceID(),
+           Self.isContinuityCapture(defaultDevice),
+           let builtIn = Self.builtInInputDeviceID() {
+            pinnedInput = builtIn
+            Self.setInputDevice(builtIn, on: inputNode, label: "pre-start")
+        }
+
         // NEVER enable voice processing (Apple's echo cancellation): it ducks
         // all other system audio — even at the minimum ducking level users
         // could barely hear their Zoom call — and it hijacks the mic into
@@ -438,6 +453,48 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         try audioEngine.start()
         engine = audioEngine
         mclog("[Mic] Engine started")
+
+        // start() re-resolves the AUHAL's device and can silently undo a
+        // pre-start pin (observed 2026-08-05: pin returned noErr, engine
+        // came up on the iPhone mic anyway). Read back what the unit is
+        // actually capturing and re-assert on the live engine if needed.
+        if let pinned = pinnedInput,
+           Self.currentInputDevice(of: inputNode) != pinned {
+            Self.setInputDevice(pinned, on: inputNode, label: "post-start")
+            let now = Self.currentInputDevice(of: inputNode)
+            if now != pinned {
+                // Last resort: a full stop/start cycle with the device set
+                // while the engine is down.
+                audioEngine.stop()
+                Self.setInputDevice(pinned, on: inputNode, label: "restart")
+                try audioEngine.start()
+            }
+            mclog("[Mic] Capture device after re-pin: \(Self.currentInputDevice(of: inputNode) ?? 0) (wanted \(pinned))")
+        }
+    }
+
+    private static func setInputDevice(_ device: AudioDeviceID,
+                                       on node: AVAudioInputNode, label: String) {
+        guard let unit = node.audioUnit else {
+            mclog("[Mic] Can't pin input (\(label)): no audio unit")
+            return
+        }
+        var dev = device
+        let err = AudioUnitSetProperty(
+            unit, kAudioOutputUnitProperty_CurrentDevice,
+            kAudioUnitScope_Global, 0, &dev,
+            UInt32(MemoryLayout<AudioDeviceID>.size))
+        mclog("[Mic] Pinned built-in mic (\(label), device \(device), err \(err))")
+    }
+
+    private static func currentInputDevice(of node: AVAudioInputNode) -> AudioDeviceID? {
+        guard let unit = node.audioUnit else { return nil }
+        var dev = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        let err = AudioUnitGetProperty(
+            unit, kAudioOutputUnitProperty_CurrentDevice,
+            kAudioUnitScope_Global, 0, &dev, &size)
+        return err == noErr ? dev : nil
     }
 
     // MARK: - Microphone recovery
@@ -446,6 +503,75 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     private var listeningStatus: String {
         hasSystemAudio ? "Listening (you + them)"
                        : "Listening (mic only — grant Screen Recording for Zoom)"
+    }
+
+    // MARK: - Input device selection (CoreAudio)
+
+    private static func defaultInputDeviceID() -> AudioDeviceID? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var device = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        let err = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &device)
+        return err == noErr && device != 0 ? device : nil
+    }
+
+    private static func transportType(_ device: AudioDeviceID) -> UInt32 {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyTransportType,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var type: UInt32 = 0
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        AudioObjectGetPropertyData(device, &address, 0, nil, &size, &type)
+        return type
+    }
+
+    private static func isContinuityCapture(_ device: AudioDeviceID) -> Bool {
+        let transport = transportType(device)
+        return transport == kAudioDeviceTransportTypeContinuityCaptureWired
+            || transport == kAudioDeviceTransportTypeContinuityCaptureWireless
+    }
+
+    /// The Mac's own microphone: first built-in-transport device that has
+    /// input channels. nil on a Mac mini with no mic — the pin is skipped
+    /// and capture stays on the default device, same as before this fix.
+    private static func builtInInputDeviceID() -> AudioDeviceID? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size) == noErr
+        else { return nil }
+        var devices = [AudioDeviceID](repeating: 0,
+                                      count: Int(size) / MemoryLayout<AudioDeviceID>.size)
+        guard AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &devices) == noErr
+        else { return nil }
+
+        for device in devices where transportType(device) == kAudioDeviceTransportTypeBuiltIn {
+            var inputAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyStreamConfiguration,
+                mScope: kAudioObjectPropertyScopeInput,
+                mElement: kAudioObjectPropertyElementMain)
+            var configSize: UInt32 = 0
+            guard AudioObjectGetPropertyDataSize(device, &inputAddress, 0, nil, &configSize) == noErr,
+                  configSize > 0 else { continue }
+            let listPointer = UnsafeMutableRawPointer.allocate(
+                byteCount: Int(configSize), alignment: MemoryLayout<AudioBufferList>.alignment)
+            defer { listPointer.deallocate() }
+            guard AudioObjectGetPropertyData(device, &inputAddress, 0, nil, &configSize,
+                                             listPointer) == noErr else { continue }
+            let buffers = UnsafeMutableAudioBufferListPointer(
+                listPointer.assumingMemoryBound(to: AudioBufferList.self))
+            if buffers.reduce(0, { $0 + Int($1.mNumberChannels) }) > 0 { return device }
+        }
+        return nil
     }
 
     /// The input device changed or reconfigured under the engine (Continuity
@@ -459,6 +585,17 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
     @objc private func micConfigDidChange(_ note: Notification) {
         guard let posted = note.object as? AVAudioEngine, posted === engine else { return }
+        // Pinning the capture device away from the system default makes the
+        // engine post a config change for ITSELF — rebuilding on that
+        // spiraled into a rebuild storm (every rebuild pins, every pin
+        // notifies). If the engine is still delivering on the device we
+        // chose, the notification is our own echo: ignore it. A genuinely
+        // dead engine is caught here (isRunning false) or by the buffer
+        // watchdog either way.
+        if posted.isRunning {
+            mclog("[Mic] Config change but engine still running (device \(Self.currentInputDevice(of: posted.inputNode) ?? 0)) — ignoring")
+            return
+        }
         mclog("[Mic] Input configuration changed — rebuilding capture")
         restartMicrophone(reason: "config change")
     }
