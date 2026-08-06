@@ -1450,12 +1450,18 @@ struct PlannedQuestionsSection: View {
                 Label("Questions to Ask", systemImage: "checklist")
                     .font(.subheadline.weight(.semibold))
                 HelpDot(text: "Questions to cover on your next call — discovery questions, deal qualifiers, whatever matters. The coach tracks them live, then clears the list when the call ends.")
+                Spacer(minLength: 0)
                 if count > 0 {
-                    Spacer()
                     Text("\(count)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+            }
+            // Whole row toggles, matching the Advanced header — the
+            // chevron alone was a miss-prone target (Noah 2026-08-05).
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation { isExpanded.toggle() }
             }
         }
     }
@@ -1536,6 +1542,10 @@ struct ModelSection: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation { isExpanded.toggle() }
                     }
                 }
             } else if settings.downloadingModel != nil {
@@ -2061,6 +2071,11 @@ struct FeedbackSection: View {
                 Label("Coaching Notes", systemImage: "text.badge.checkmark")
                     .font(.subheadline.weight(.semibold))
                 HelpDot(text: "Tell the coach what to work on — your own notes, or feedback pasted from another AI tool. Signals you call out get more sensitive; this is how your nudges become yours. Everything stays private on your Mac.")
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation { isExpanded.toggle() }
             }
         }
     }
