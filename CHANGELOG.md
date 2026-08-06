@@ -9,6 +9,15 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.17.0 — 2026-08-06
+
+- FaceTime and iPhone calls taken on your Mac are now real meetings: they trigger the "Meeting detected" prompt just like Zoom, and call sessions are titled with the caller's name
+- When a call's audio never reaches your Mac (you answered on the iPhone, or it's playing in a headset), the app now says "Can't hear this meeting" with how to fix it — instead of showing "Listening" over an empty transcript and then blaming a quiet room
+- Sessions get real names: the AI review that reads your whole meeting now titles it — "Caitlin · margins & win-back" instead of a word collage. Your own renames always win
+- The AI model frees its memory (several GB) whenever you're not in a meeting — it loads the moment a meeting is detected and unloads after your recap is ready
+- Lower processor use during calls: coaching skips AI passes when the conversation hasn't moved, and transcription stops re-reading long monologues every second
+- Fixed: quiet speech close to the mic could be silently discarded as speaker echo
+
 ## 0.16.0 — 2026-08-06
 
 - Phone calls on your Mac no longer silence coaching: handing a call to the Mac makes the iPhone's microphone the system input, which delivers nothing to other apps — the app kept saying "Listening" over an empty transcript. It now detects that and listens through the Mac's own microphone instead, whether the call started before or during your session
