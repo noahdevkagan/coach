@@ -63,6 +63,8 @@ Every `git push` runs `scripts/push-gate.sh` (~4 min; docs/markdown-only pushes 
 
 ## Release
 
+If the release touches capture, detection, or end-of-meeting logic, run the manual call matrix first (`tests/calls-manual.md`, ~10 min on real hardware) — CI cannot exercise FaceTime/iPhone-relay scenarios and their failures are silent.
+
 Before tagging: add a `## X.Y.Z` section to `CHANGELOG.md` and run `python3 scripts/build-changelog.py` (regenerates the site changelog page; the push gate rejects a release tag without its section, and any push with a stale `docs/changelog.html`). After the release, deploy the site: `npx wrangler pages deploy docs --project-name meetcoach`.
 
 Push a tag: `git tag vX.Y.Z && git push origin vX.Y.Z`. CI first runs the full test gate (`.github/workflows/test-gate.yml` — build + all suites; a failing gate blocks the release), then signs, notarizes, attaches the DMG to a GitHub Release, and updates the Sparkle appcast (users auto-update). Unreleased work batches on `main`; see what's pending with `git log $(git describe --tags --abbrev=0)..main --oneline`. Do not tag without the maintainer asking.
