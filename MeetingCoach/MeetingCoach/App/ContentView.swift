@@ -1895,12 +1895,21 @@ struct LiveSection: View {
 
                 if liveSession.showSilenceWarning {
                     HStack(spacing: 6) {
-                        Image(systemName: "speaker.slash.fill")
+                        Image(systemName: liveSession.silenceLooksLikeCaptureGap
+                              ? "ear.trianglebadge.exclamationmark" : "speaker.slash.fill")
                             .foregroundStyle(.orange)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Meeting ended?")
+                            // Same trigger, two diagnoses: a transcript that
+                            // flowed and stopped means the room went quiet; one
+                            // that never started means WE can't hear (call audio
+                            // on the iPhone or a headset) — say so, or the user
+                            // reads "Listening" all call and gets no transcript.
+                            Text(liveSession.silenceLooksLikeCaptureGap
+                                 ? "Can't hear this meeting" : "Meeting ended?")
                                 .font(.caption.bold())
-                            Text("No speech detected for 3+ minutes")
+                            Text(liveSession.silenceLooksLikeCaptureGap
+                                 ? "If you're on a call, its audio may be playing on your iPhone or headset — take it on this Mac (or speakerphone) to get a transcript."
+                                 : "No speech detected for 3+ minutes")
                                 .font(.caption2).foregroundStyle(.secondary)
                         }
                         Spacer()

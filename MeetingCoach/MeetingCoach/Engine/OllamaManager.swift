@@ -133,6 +133,16 @@ final class OllamaManager {
             "PATH": ollamaDir.path + ":/usr/bin:/bin",
             "HOME": NSHomeDirectory(),
             "TMPDIR": NSTemporaryDirectory(),
+            // Memory posture: the app sends exactly one request at a time
+            // (the heartbeat serializes itself), so extra parallel slots
+            // would only multiply KV-cache allocations. Flash attention +
+            // q8_0 KV halves the cache again with no measurable quality
+            // cost at coaching prompt sizes. Applies to the engine we
+            // spawn; an adopted system Ollama keeps its own config.
+            "OLLAMA_NUM_PARALLEL": "1",
+            "OLLAMA_MAX_LOADED_MODELS": "1",
+            "OLLAMA_FLASH_ATTENTION": "1",
+            "OLLAMA_KV_CACHE_TYPE": "q8_0",
         ]
 
         // Log file for ollama output (helpful for debugging)
@@ -210,9 +220,13 @@ final class OllamaManager {
         return false
     }
 
-    /// Stop the embedded Ollama server.
+    /// Stop the embedded Ollama server. Only called at app termination.
     func stop() {
         guard let proc = process, proc.isRunning else {
+            // Adopted engine (system Ollama / leftover) — we can't stop it,
+            // but quitting must not leave our multi-GB model pinned in
+            // someone else's process for the rest of its keep_alive.
+            releaseAdoptedModels()
             status = .stopped
             return
         }
@@ -220,6 +234,41 @@ final class OllamaManager {
         proc.terminate()
         process = nil
         status = .stopped
+    }
+
+    /// Best-effort synchronous model eviction from an engine we didn't
+    /// spawn. Runs during willTerminate, so every request gets a hard
+    /// sub-second budget — a hung engine must not stall quit.
+    private func releaseAdoptedModels() {
+        let base = URL(string: "http://127.0.0.1:\(port)")!
+        guard let data = Self.blockingRequest(URLRequest(url: base.appendingPathComponent("api/ps"))),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let models = json["models"] as? [[String: Any]], !models.isEmpty else { return }
+        for name in models.compactMap({ $0["name"] as? String }) {
+            var req = URLRequest(url: base.appendingPathComponent("api/generate"))
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try? JSONSerialization.data(withJSONObject: [
+                "model": name, "keep_alive": 0,
+            ])
+            _ = Self.blockingRequest(req)
+            logger.info("Released adopted-engine model \(name)")
+        }
+    }
+
+    /// A loopback HTTP call that blocks the caller for at most ~0.8s.
+    private static func blockingRequest(_ request: URLRequest) -> Data? {
+        final class Box: @unchecked Sendable { var data: Data? }
+        var request = request
+        request.timeoutInterval = 0.8
+        let box = Box()
+        let done = DispatchSemaphore(value: 0)
+        URLSession.shared.dataTask(with: request) { data, _, _ in
+            box.data = data
+            done.signal()
+        }.resume()
+        guard done.wait(timeout: .now() + 1) == .success else { return nil }
+        return box.data
     }
 
     /// Poll until Ollama responds on its API port.

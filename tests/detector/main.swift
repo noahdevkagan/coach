@@ -253,6 +253,19 @@ check(MeetingWindowHeuristics.evaluate(windows: [docWin], zoomRunning: true,
                                        slackRunning: false, micHolderIsBrowser: true) == nil,
       "zoom idling while the meeting is in a browser stays unknown")
 
+// FaceTime: a call window is titled with the caller's name; the idle
+// window is titled "FaceTime" and must not read as a meeting.
+let facetimeCallWin = WindowInfo(ownerName: "FaceTime", title: "Lee Abraham Biz")
+let facetimeIdleWin = WindowInfo(ownerName: "FaceTime", title: "FaceTime")
+check(MeetingWindowHeuristics.evaluate(windows: [facetimeCallWin], zoomRunning: false,
+                                       slackRunning: false, micHolderIsBrowser: false) == true,
+      "facetime call window matches")
+check(MeetingWindowHeuristics.evaluate(windows: [facetimeIdleWin], zoomRunning: false,
+                                       slackRunning: false, micHolderIsBrowser: false) == nil,
+      "idle facetime window is not meeting evidence")
+check(MeetingWindowHeuristics.meetingTitle(from: [facetimeIdleWin, facetimeCallWin]) == "Lee Abraham Biz",
+      "facetime call window titles the session with the caller's name")
+
 // MARK: - End arbiter (veto vs stop on .ended reports)
 
 /// Replay .ended reports every 2s (the detector tick cadence) from

@@ -151,12 +151,24 @@ actor OllamaClient {
     let baseURL: URL
     let model: String
     let timeout: TimeInterval
+    /// Context window requested per call. KV-cache memory scales linearly
+    /// with this, so in-call callers (heartbeat, name inference) pass 4096 —
+    /// their prompt is a 180s window — while the post-call review keeps the
+    /// 8192 default for long transcripts. NB: changing num_ctx between
+    /// requests makes Ollama respawn the runner, so keep it stable within
+    /// a phase (all in-call = 4096; the one review reload is post-call).
+    let numCtx: Int
+    /// Sent on every generation request. Without it Ollama resets the
+    /// runner's expiry to the server default (5m) on each call.
+    let keepAlive: String
 
     private static let loopbackHosts: Set<String> = ["127.0.0.1", "localhost", "::1"]
 
     init(model: String = "qwen2.5:7b-instruct",
          baseURL: URL = URL(string: "http://127.0.0.1:11434")!,
-         timeout: TimeInterval = 120) {
+         timeout: TimeInterval = 120,
+         numCtx: Int = 8192,
+         keepAlive: String = "10m") {
         let host = baseURL.host() ?? baseURL.host ?? ""
         guard Self.loopbackHosts.contains(host) else {
             fatalError("LLM base URL host '\(host)' is not loopback. Refusing — inference must stay local.")
@@ -164,6 +176,8 @@ actor OllamaClient {
         self.baseURL = baseURL
         self.model = model
         self.timeout = timeout
+        self.numCtx = numCtx
+        self.keepAlive = keepAlive
     }
 
     /// POST /api/chat — Ollama native endpoint (faster than OpenAI-compat, supports num_ctx)
@@ -182,9 +196,10 @@ actor OllamaClient {
             ],
             "options": [
                 "temperature": 0.3,
-                "num_ctx": 8192,
+                "num_ctx": numCtx,
                 "num_predict": 512,
             ],
+            "keep_alive": keepAlive,
             "stream": false,
             "think": false,
         ]
@@ -223,19 +238,25 @@ actor OllamaClient {
     /// POST /api/generate with no prompt — Ollama's documented way to load
     /// a model into memory without generating anything. keep_alive keeps it
     /// resident so the first real call (mid-meeting, at peak memory
-    /// pressure) doesn't pay multi-GB load time. Weights are mmap'd, so an
-    /// idle resident model is file-backed memory macOS can reclaim.
+    /// pressure) doesn't pay multi-GB load time. Residency is not free:
+    /// weights are mmap'd (reclaimable) but KV cache + compute buffers are
+    /// dirty anonymous memory macOS cannot page out cheaply — hence warm
+    /// only around meetings and unloadIfLoaded() when the work is done.
     /// Returns nil on success, or a user-showable error — Ollama's OOM
     /// message ("model requires more system memory … than is available")
     /// is exactly the clear error we want instead of a freeze.
-    func preload(keepAlive: String = "2h") async -> String? {
+    func preload(keepAlive: String = "30m") async -> String? {
         let url = baseURL.appendingPathComponent("api/generate")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 180 // cold load of a many-GB model
+        // Options must match what complete() sends: a runner loaded with a
+        // different num_ctx gets torn down and respawned on the first real
+        // call, double-paying the load the warm-up was meant to save.
         request.httpBody = try? JSONSerialization.data(withJSONObject: [
             "model": model, "keep_alive": keepAlive,
+            "options": ["num_ctx": numCtx],
         ])
         do {
             let (data, _) = try await URLSession.shared.data(for: request)
@@ -247,6 +268,33 @@ actor OllamaClient {
         } catch {
             return error.localizedDescription
         }
+    }
+
+    /// GET /api/ps — models currently resident in the engine.
+    func runningModels() async -> [String] {
+        let url = baseURL.appendingPathComponent("api/ps")
+        guard let (data, _) = try? await URLSession.shared.data(from: url),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let models = json["models"] as? [[String: Any]] else { return [] }
+        return models.compactMap { $0["name"] as? String }
+    }
+
+    /// Evict this client's model from engine memory if (and only if) it is
+    /// actually resident — a bare keep_alive:0 on an unloaded model would
+    /// load gigabytes just to free them. Multi-GB of RAM come back the
+    /// moment there is no more work; warm-on-detect reloads before the
+    /// next meeting.
+    func unloadIfLoaded() async {
+        guard await runningModels().contains(model) else { return }
+        var request = URLRequest(url: baseURL.appendingPathComponent("api/generate"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 15
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "model": model, "keep_alive": 0,
+        ])
+        _ = try? await URLSession.shared.data(for: request)
+        mclog("[Ollama] Unloaded \(model)")
     }
 
     /// GET /api/tags — list locally available models

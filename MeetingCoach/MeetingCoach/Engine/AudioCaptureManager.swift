@@ -1,3 +1,4 @@
+import Accelerate
 import AVFoundation
 import AudioToolbox
 import ScreenCaptureKit
@@ -44,6 +45,10 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     /// splits the mixed "Meeting" stream in mic-only mode.
     var onSpeakerSegments: (@Sendable @MainActor (DiarizationChannel, [SpeakerSegment]) -> Void)?
     var onStatus: (@Sendable @MainActor (String) -> Void)?
+    /// Fired when the system-audio stream dies mid-session — the session
+    /// is mic-only from that point (the arbiter's mic-only protections
+    /// must kick in, and echo suppression stands down).
+    var onSystemAudioLost: (@Sendable @MainActor () -> Void)?
 
     /// Vocabulary to bias recognition toward (participant names, deal terms).
     var contextualHints: [String] = []
@@ -108,6 +113,12 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     private let micStateLock = NSLock()
     private var lastLoudMicAt = Date.distantPast
     private let micSilenceFloor: Float = 0.005
+    /// When the far side (system audio) last carried real energy. Bleed can
+    /// only exist while the speakers are actually saying something — a mic
+    /// utterance with no recent far-side audio is quiet NEAR speech (e.g. a
+    /// phone call heard faintly across the desk), not leakage.
+    private var lastLoudSystemAt = Date.distantPast
+    private let sysLoudFloor: Float = 0.002
 
     // Software echo suppression: with voice processing off, the far side's
     // voice can reach the mic acoustically (speakers). Mic sentences that
@@ -320,11 +331,16 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
                 echoFilter.recordFarText(u.text)
             } else {
                 // Bleed gate backstop: mic has been quiet — whatever was
-                // transcribed leaked from the speakers.
+                // transcribed leaked from the speakers. Only plausible while
+                // the speakers were recently loud: with the far side silent
+                // there is nothing to leak, and dropping then deletes real
+                // (just faint) near speech — a phone call taken on the
+                // iPhone across the desk lost every "You" line this way.
                 micStateLock.lock()
                 let sinceLoud = Date().timeIntervalSince(lastLoudMicAt)
+                let sinceSystemLoud = Date().timeIntervalSince(lastLoudSystemAt)
                 micStateLock.unlock()
-                if sinceLoud > 3.0 {
+                if sinceLoud > 3.0 && sinceSystemLoud < 6.0 {
                     mclog("[Capture] Dropped bleed chunk (mic quiet \(String(format: "%.1f", sinceLoud))s): \(u.text.prefix(50))")
                     return
                 }
@@ -732,14 +748,15 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         }
     }
 
-    /// RMS energy of a PCM buffer
+    /// RMS energy of a PCM buffer (vDSP — this runs per buffer on the
+    /// audio tap path, a hand-rolled loop is measurable CPU there)
     private static func rmsEnergy(_ buffer: AVAudioPCMBuffer) -> Float {
         guard let data = buffer.floatChannelData?[0] else { return 0 }
         let count = Int(buffer.frameLength)
         guard count > 0 else { return 0 }
-        var sum: Float = 0
-        for i in 0..<count { sum += data[i] * data[i] }
-        return sqrt(sum / Float(count))
+        var rms: Float = 0
+        vDSP_rmsqv(data, 1, &rms, vDSP_Length(count))
+        return rms
     }
 }
 
@@ -1029,6 +1046,11 @@ extension AudioCaptureManager: SCStreamOutput {
         )
 
         guard status == noErr else { return }
+        if Self.rmsEnergy(pcmBuffer) > sysLoudFloor {
+            micStateLock.lock()
+            lastLoudSystemAt = Date()
+            micStateLock.unlock()
+        }
         // Mirror the mono stream into the far-side diarizer (config pins
         // this stream to 1 channel). Fed unconditionally: its timestamps
         // are relative to fed audio, so gaps would skew every segment.
@@ -1044,7 +1066,15 @@ extension AudioCaptureManager: SCStreamOutput {
 extension AudioCaptureManager: SCStreamDelegate {
     func stream(_ stream: SCStream, didStopWithError error: any Error) {
         mclog("[Capture] System audio stream stopped: \(error.localizedDescription)")
+        // The session is genuinely mic-only from here: without this,
+        // isMicOnly stayed false, so the arbiter kept the dual-mode 45s
+        // end cap (losing mic-only's unlimited veto) and the echo filter
+        // kept second-guessing mic utterances against a dead channel.
+        hasSystemAudio = false
         emitStatus("System audio lost — mic only")
+        Task { @MainActor [onSystemAudioLost] in
+            onSystemAudioLost?()
+        }
     }
 }
 

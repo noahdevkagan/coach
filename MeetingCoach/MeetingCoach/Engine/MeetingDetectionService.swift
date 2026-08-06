@@ -331,10 +331,23 @@ final class MeetingDetectionService {
             // browser actually HOLDING the mic counts. This makes Slack
             // huddles detectable (Slack runs all day; Slack-using-the-mic
             // doesn't) and makes dictation/Siri/Voice Memos structurally
-            // invisible (Apple processes are excluded, Safari excepted).
+            // invisible (Apple processes are excluded — except Safari and
+            // Apple's own call surfaces: a FaceTime or iPhone-relayed call
+            // taken on the Mac IS a meeting, and filtering those made every
+            // phone call invisible to detection; field report 2026-08-06).
             let relevant = micUsers.filter { id in
                 id != Bundle.main.bundleIdentifier
-                    && (!id.hasPrefix("com.apple.") || id == "com.apple.Safari")
+                    && (!id.hasPrefix("com.apple.") || id == "com.apple.Safari"
+                        || Self.appleCallBundleIDs.contains(id))
+            }
+            // Field diagnostics: surface each unrecognized Apple mic holder
+            // once — if a call routes audio through a daemon we don't list
+            // yet, the user's log names it for us.
+            for id in micUsers
+            where id.hasPrefix("com.apple.") && id != "com.apple.Safari"
+                && !Self.appleCallBundleIDs.contains(id)
+                && loggedAppleMicHolders.insert(id).inserted {
+                mclog("[Detect] Apple process holding mic (ignored): \(id)")
             }
             let meetingApp = relevant.first { id in
                 Self.meetingBundlePrefixes.contains { id.hasPrefix($0) }
@@ -374,6 +387,9 @@ final class MeetingDetectionService {
     /// Last-logged end-watch arming state (dedupes the diagnostic log).
     @ObservationIgnored private var loggedArmed = false
     @ObservationIgnored private var loggedWindowSeen = false
+
+    /// Apple mic holders already reported to the log (once each per run).
+    @ObservationIgnored private var loggedAppleMicHolders: Set<String> = []
 
     /// Whether the live meeting's mic evidence came from a browser (nil
     /// until attribution is seen this session). Browser window titles only
@@ -455,6 +471,20 @@ final class MeetingDetectionService {
         "us.zoom.xos", "com.microsoft.teams", "com.cisco.webex",
         "com.webex.meetingmanager", "com.ringcentral", "com.skype.skype",
         "com.hnc.Discord", "com.loom.desktop", "com.tinyspeck.slackmacgap",
+        "com.apple.FaceTime", "com.apple.Phone",
+        "com.apple.avconferenced", "com.apple.telephonyutilities.callservicesd",
+    ]
+
+    /// Apple's call surfaces, exempt from the com.apple.* mic-holder filter.
+    /// FaceTime/Phone are the visible apps; avconferenced carries FaceTime
+    /// AV sessions and callservicesd carries iPhone-relayed cellular calls
+    /// on some macOS versions — exact holder varies by OS, hence all four
+    /// (plus the ignored-holder log line to learn new ones from the field).
+    /// Daemons can't false-positive the pre-14.4 fallback: it checks
+    /// NSWorkspace.runningApplications, where daemons never appear.
+    static let appleCallBundleIDs: Set<String> = [
+        "com.apple.FaceTime", "com.apple.Phone",
+        "com.apple.avconferenced", "com.apple.telephonyutilities.callservicesd",
     ]
 
     /// Friendly names for the prompt, keyed by bundle-id prefix.
@@ -464,6 +494,9 @@ final class MeetingDetectionService {
         ("com.ringcentral", "RingCentral"), ("com.skype.skype", "Skype"),
         ("com.hnc.Discord", "Discord"), ("com.loom.desktop", "Loom"),
         ("com.tinyspeck.slackmacgap", "Slack huddle"),
+        ("com.apple.FaceTime", "FaceTime"), ("com.apple.Phone", "Phone call"),
+        ("com.apple.avconferenced", "FaceTime"),
+        ("com.apple.telephonyutilities.callservicesd", "Phone call"),
     ]
 
     static func displayName(forBundleID id: String) -> String? {

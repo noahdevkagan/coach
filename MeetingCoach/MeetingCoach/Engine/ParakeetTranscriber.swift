@@ -1,3 +1,4 @@
+import Accelerate
 import AVFoundation
 import FluidAudio
 import Foundation
@@ -74,6 +75,9 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
     private var newAudioSinceTick = false
     private var running = false
     private var tickTask: Task<Void, Never>?
+    /// Tick counter for the partial-refresh throttle; touched only from the
+    /// (serial) tick loop.
+    private var tickCount = 0
     private let converter = AudioConverter()
     private var lastPartial = ""
     /// Voiced audio arrived after the snapshot behind `lastPartial` — when
@@ -132,9 +136,11 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
     /// Append audio from the tap/stream thread. Any format — resampled here.
     func append(_ buffer: AVAudioPCMBuffer) {
         guard isRunning, let converted = try? converter.resampleBuffer(buffer) else { return }
-        var sum: Float = 0
-        for s in converted { sum += s * s }
-        let rms = converted.isEmpty ? 0 : (sum / Float(converted.count)).squareRoot()
+        var rms: Float = 0
+        converted.withUnsafeBufferPointer { ptr in
+            guard let base = ptr.baseAddress, !ptr.isEmpty else { return }
+            vDSP_rmsqv(base, 1, &rms, vDSP_Length(ptr.count))
+        }
 
         lock.lock()
         if rms > voiceFloor {
@@ -174,6 +180,7 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
     }
 
     private func tick() async {
+        tickCount += 1
         let (hasVoice, hasNew, lastVoice, duration) = withLock {
             (chunkStartedAt != nil, newAudioSinceTick, lastVoiceAt, Double(samples.count) / 16_000)
         }
@@ -192,6 +199,15 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
                 && (Self.endsSentence(lastPartial) || silenceFor > commitSilence * 3)) {
             await commit(force: false)
         } else if hasNew {
+            // Partial-refresh throttle: every pass re-transcribes the whole
+            // window, so cost per pass grows with window age (a 25s window
+            // is ~2-3 encoder runs, re-run every tick while the speaker
+            // talks). Long windows refresh the on-screen partial every 2nd
+            // then 3rd tick instead. Commit checks above still run at every
+            // tick, so commit timing — what the transcript and tests see —
+            // is unchanged; only mid-monologue partial latency stretches.
+            let stride = duration > 22 ? 3 : duration > 12 ? 2 : 1
+            guard tickCount % stride == 0 else { return }
             let snapshot = withLock {
                 newAudioSinceTick = false
                 // Cleared at snapshot time, not after the (slow) transcribe:

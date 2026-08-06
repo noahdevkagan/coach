@@ -127,16 +127,24 @@ final class SettingsViewModel {
     /// (review, name suggestions, semantic coach) silently failed with
     /// "model not found" and degraded to heuristics.
     /// Second guard (2026-08-05): an installed-but-too-big selection would
-    /// freeze the whole Mac at load time — prefer the largest installed
-    /// model that actually fits this Mac's RAM; modelFitNote tells the user.
+    /// freeze the whole Mac at load time — fall back to a model that fits;
+    /// modelFitNote tells the user.
+    /// Fallback order (2026-08-06): the RAM-tiered recommendation when it's
+    /// installed, else the smallest fitting install. The old "largest that
+    /// fits" pick silently overrode the RAM tiering — a 24 GB Mac with a
+    /// 9.6 GB gemma lying around ran it instead of the intended ~3.4 GB
+    /// qwen, costing ~6 GB of a meeting's headroom for marginal quality.
     var effectiveModel: String {
         guard !availableModels.isEmpty else { return selectedModel }
         let fitting = availableModels.filter { ModelMemory.fits($0) }
-        if let selected = availableModels.first(where: { $0.name == selectedModel }) {
-            if ModelMemory.fits(selected) { return selectedModel }
-            return fitting.max(by: { $0.size < $1.size })?.name ?? selectedModel
+        if let selected = availableModels.first(where: { $0.name == selectedModel }),
+           ModelMemory.fits(selected) {
+            return selectedModel
         }
-        return fitting.max(by: { $0.size < $1.size })?.name
+        if let recommended = fitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
+            return recommended.name
+        }
+        return fitting.min(by: { $0.size < $1.size })?.name
             ?? availableModels.first?.name ?? selectedModel
     }
 
@@ -274,9 +282,10 @@ final class SettingsViewModel {
                     self.selectedModel = fullName
                     self.save()
                     await self.refreshModels()
-                    // Freshly pulled = about to be used; load it now so the
-                    // first meeting doesn't pay model-load time.
-                    await self.warmUpModelIfNeeded()
+                    // Freshly pulled = the user is right here in Settings;
+                    // a short warm-up window verifies it loads (OOM surfaces
+                    // now, not mid-meeting) without pinning RAM for hours.
+                    await self.warmUpModelIfNeeded(keepAlive: "10m")
                     return
                 }
                 if progress.status.hasPrefix("error") {
@@ -299,13 +308,17 @@ final class SettingsViewModel {
     /// the log while the meeting-time load froze the Mac.
     var modelWarmupError: String?
 
-    /// Load the effective model into the engine now (app launch, session
-    /// start, download finish) instead of at the first mid-meeting LLM
-    /// call — model-load at minute one of a call was the worst possible
+    /// Load the effective model into the engine now (meeting detected,
+    /// session start, download finish) instead of at the first mid-meeting
+    /// LLM call — model-load at minute one of a call was the worst possible
     /// timing: peak memory pressure plus a stalled first heartbeat.
+    /// Warmed around meetings, not at launch (2026-08-06): the launch
+    /// warm-up held multi-GB of KV/compute memory for 2h on Macs that
+    /// weren't in a meeting at all. In-call num_ctx (4096) is requested so
+    /// the heartbeat's first call reuses this runner instead of respawning.
     /// Memory-preflights first: a model that doesn't fit is never loaded
     /// (loading it IS the freeze), it's reported via modelFitNote.
-    func warmUpModelIfNeeded() async {
+    func warmUpModelIfNeeded(keepAlive: String = "30m") async {
         guard !useMock, downloadingModel == nil else { return }
         await refreshModels()
         guard !availableModels.isEmpty else { return }
@@ -319,7 +332,7 @@ final class SettingsViewModel {
             mclog("[Settings] Warm-up skipped: engine unavailable")
             return
         }
-        if let error = await OllamaClient(model: name).preload() {
+        if let error = await OllamaClient(model: name, numCtx: 4096).preload(keepAlive: keepAlive) {
             modelWarmupError = "Couldn't load \(name): \(error)"
             mclog("[Settings] Warm-up of \(name) failed: \(error)")
         } else {

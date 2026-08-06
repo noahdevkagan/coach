@@ -12,8 +12,14 @@ nonisolated(unsafe) private var mclogHandle: FileHandle?
 
 func mclog(_ msg: String) {
     let now = Date()
-    NSLog("%@", msg)
     mclogQueue.async {
+        // Debug builds mirror to NSLog for Xcode's console. Release skips
+        // it: NSLog is a synchronous unified-logging round-trip, and this
+        // used to run on the CALLING thread — per utterance, per Parakeet
+        // commit, per detection tick, some of them audio-adjacent.
+        #if DEBUG
+        NSLog("%@", msg)
+        #endif
         // Reopen when the file is gone: /tmp gets cleaned, and anything
         // (a dev session, the user) deleting the log used to leave a
         // long-running app writing to the unlinked inode forever — a whole

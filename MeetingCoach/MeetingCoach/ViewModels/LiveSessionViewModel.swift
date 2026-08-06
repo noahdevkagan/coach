@@ -67,6 +67,9 @@ final class LiveSessionViewModel {
 
     /// Silence detection — nudge user to stop if meeting seems over
     var showSilenceWarning = false
+    /// The silence looks like a capture failure (nothing was ever really
+    /// heard), not a finished meeting — drives the warning card's copy.
+    var silenceLooksLikeCaptureGap = false
     private var silenceCheckTask: Task<Void, Never>?
     private let silenceThreshold: TimeInterval = 180  // 3 minutes
 
@@ -214,8 +217,9 @@ final class LiveSessionViewModel {
             if ollamaManager.status == .stopped {
                 ollamaManager.start()
             }
-            // Normally resident since app launch; this re-warm covers an
-            // engine that restarted or a model evicted since (no-op then).
+            // Normally resident since meeting detection fired; this re-warm
+            // covers sessions started by hand (no detection pill) and an
+            // engine that restarted or evicted the model since (no-op then).
             Task { await settings.warmUpModelIfNeeded() }
             startSemanticHeartbeat(ollamaManager: ollamaManager)
         } else {
@@ -269,6 +273,12 @@ final class LiveSessionViewModel {
         manager.onStatus = { [weak self] msg in
             guard let self, self.nudges.isEmpty else { return }
             self.status = msg
+        }
+
+        manager.onSystemAudioLost = { [weak self] in
+            // Flip live state too (isMicOnly was sampled once at start) so
+            // the arbiter regains mic-only's unlimited end veto.
+            self?.micOnly = true
         }
 
         Task {
@@ -843,6 +853,14 @@ final class LiveSessionViewModel {
             } else {
                 finishReview(instantReview(durationMinutes: durationMin))
             }
+            // The recap was the model's last job — give the multi-GB of
+            // KV/compute memory back instead of letting keep_alive hold it.
+            // Skipped when another meeting already started (or the same
+            // model would just reload mid-call); warm-on-detect brings it
+            // back before the next one.
+            if !isLive {
+                await OllamaClient(model: settings.effectiveModel).unloadIfLoaded()
+            }
         }
     }
 
@@ -961,14 +979,31 @@ final class LiveSessionViewModel {
             // Let the meeting build some context before the first pass.
             try? await Task.sleep(for: .seconds(90))
 
+            // Each pass is a full local-LLM prompt eval — the single biggest
+            // recurring CPU cost of a session. Two gates keep it honest
+            // (field data 2026-08-06: 62 passes over a 72-min call, every
+            // one returning zero calls):
+            //   - skip when fewer than 3 utterances arrived since the last
+            //     pass — the window the model would see barely changed;
+            //   - after each empty pass stretch the interval one step
+            //     (60→90→120s); any fired nudge snaps it back to 60. A
+            //     nudge-worthy moment stays in the 180s window, so the
+            //     worst-case extra latency is one stretched beat.
+            var analyzedCount = 0
+            var interval = SemanticCoach.heartbeatSeconds
             while !Task.isCancelled, let self, self.isLive {
-                if ollamaManager.status == .running, let coach = self.semanticCoach {
+                if ollamaManager.status == .running, let coach = self.semanticCoach,
+                   self.utterances.count - analyzedCount >= 3 {
+                    analyzedCount = self.utterances.count
                     let newNudges = await coach.analyze(
                         utterances: self.utterances,
                         elapsed: self.elapsedTime,
                         context: self.preCallContext
                     )
                     guard self.isLive else { break }
+                    interval = newNudges.isEmpty
+                        ? min(interval + 30, 120)
+                        : SemanticCoach.heartbeatSeconds
                     for nudge in newNudges {
                         self.nudges.append(nudge)
                         self.setActiveNudge(nudge)
@@ -990,7 +1025,7 @@ final class LiveSessionViewModel {
                         mclog("[Names] Suggesting \(s.label) = \(s.name) (\(s.confidence))")
                     }
                 }
-                try? await Task.sleep(for: .seconds(SemanticCoach.heartbeatSeconds))
+                try? await Task.sleep(for: .seconds(interval))
             }
         }
     }
@@ -1105,8 +1140,18 @@ final class LiveSessionViewModel {
                 let silenceDuration = self.elapsedTime - lastUtteranceTime
 
                 if silenceDuration >= self.silenceThreshold && !self.showSilenceWarning {
+                    // Two very different diagnoses share this trigger. A
+                    // transcript that flowed and stopped = the room went
+                    // quiet ("Meeting ended?"). A transcript that never
+                    // really started = WE can't hear — typically a call
+                    // whose audio lives on the iPhone or a headset (field
+                    // report 2026-08-06: relayed call, "Listening", one
+                    // utterance, then blamed the room). Blaming the room
+                    // for a capture gap hides the one thing the user could
+                    // actually fix.
+                    self.silenceLooksLikeCaptureGap = self.utterances.count <= 3
                     self.showSilenceWarning = true
-                    mclog("[Silence] No speech for \(Int(silenceDuration))s — showing warning")
+                    mclog("[Silence] No speech for \(Int(silenceDuration))s — showing \(self.silenceLooksLikeCaptureGap ? "capture-gap" : "meeting-ended") warning")
                 } else if silenceDuration < self.silenceThreshold && self.showSilenceWarning {
                     self.showSilenceWarning = false
                     mclog("[Silence] Speech resumed — dismissed warning")

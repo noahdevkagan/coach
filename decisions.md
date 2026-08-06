@@ -384,3 +384,113 @@ call itself may be using it. Also: mclog now reopens its file handle
 when /tmp/mc_debug.log vanishes — a deleted log left long-running apps
 writing to the unlinked inode, which is why today's live bug report
 had no log evidence.
+
+## 2026-08-06 — LLM memory: warm around meetings, not at launch; smallest-sufficient model, not largest
+
+Field data (Noah, 32 GB Mac, live call): llama-server 7.19 GB resident,
+app 16.4% CPU, and the 60s semantic heartbeat made 62 LLM passes over a
+72-min call with every one returning zero calls. Three reversals/fixes:
+
+1. **Warm-on-detect replaces warm-at-launch** (reverses part of
+   2026-08-05). The launch warm-up's justification ("mmap'd weights are
+   file-backed and reclaimable, so residency is cheap") missed that KV
+   cache + compute buffers are dirty anonymous memory macOS cannot
+   reclaim — multi-GB pinned for 2h on a Mac not in any meeting. The
+   original problem (model load at minute one of a call = freeze) stays
+   solved: the meeting-detection pill fires the warm-up, so the model is
+   resident before the user even clicks Start. startLive re-warms as a
+   no-op backstop (hand-started sessions, engine restarts). After the
+   post-call review the model is explicitly unloaded (keep_alive 0,
+   guarded by /api/ps so an unloaded model is never loaded just to
+   unload it); app quit evicts models from an adopted system engine too
+   (stop() previously no-op'd there, leaving 7 GB pinned after quit).
+
+2. **effectiveModel fallback prefers the RAM-tiered recommendation,
+   then the smallest fitting install** (was: largest fitting). The
+   "largest that fits" rule silently overrode recommendedCatalogModel's
+   whole point — a 24 GB Mac with gemma4:e4b (9.6 GB) lying around ran
+   it instead of the intended qwen3.5:4b (3.4 GB). An explicit
+   user selection that fits is still always honored.
+
+3. **KV memory is now configured, not defaulted.** Spawned engine gets
+   OLLAMA_NUM_PARALLEL=1 (the app is strictly one-request-at-a-time; the
+   auto default allocates KV per slot), OLLAMA_MAX_LOADED_MODELS=1,
+   OLLAMA_FLASH_ATTENTION=1 + OLLAMA_KV_CACHE_TYPE=q8_0 (~halves KV).
+   In-call clients (SemanticCoach, SpeakerNameInference) request
+   num_ctx 4096 — their prompt is a 180s window — while the post-call
+   review keeps 8192 for long transcripts; the one runner respawn this
+   causes lands post-call, when it's harmless. preload() now sends the
+   same options as generation: a mismatched num_ctx made Ollama respawn
+   the runner on the first real call, double-paying the load the
+   warm-up existed to save. Generation requests carry keep_alive
+   explicitly (10m) — they used to silently reset the server default
+   (5m), making actual residency an accident of whichever request came
+   last.
+
+CPU (same batch): heartbeat gates on conversation change (skip when <3
+new utterances since last pass; empty passes stretch the interval
+60→90→120s, any fired nudge snaps back to 60 — worst case one stretched
+beat of extra latency on a signal that stays in the 180s window);
+Parakeet partial refresh throttles on long windows (every 2nd tick >12s,
+3rd >22s — commit checks still run every tick, so transcript/test-visible
+commit timing is unchanged); RMS loops moved to vDSP; mclog's NSLog is
+DEBUG-only and off the calling thread (it was a synchronous
+unified-logging round-trip per utterance on audio-adjacent threads).
+Deferred, evidence-gathered but not done: FluidAudio streaming decoder
+(fresh TdtDecoderState per pass re-transcribes the whole window today),
+incremental applyDiarization/turn rebuild, SCK audio-only capture,
+event-driven idle meeting detection (2s CoreAudio poll), coalescing the
+per-utterance + 5s signal evaluations. corespeechd CPU during Noah's
+call was NOT MeetingCoach (session log shows pure Parakeet) — likely
+Live Captions or the meeting app's own captions.
+
+## 2026-08-06 — Apple calls become first-class meetings; silence warning stops blaming the room
+
+Customer report + Noah repro (relayed iPhone call, "From Your iPhone"):
+no detection pill, one utterance, then "Meeting ended? No speech
+detected" while 30+ minutes of call went untranscribed. Root causes and
+choices:
+
+1. **The com.apple.* mic-holder filter was hiding every phone call.**
+   The filter exists so Siri/dictation/Voice Memos never look like
+   meetings — correct — but FaceTime and iPhone-relayed cellular calls
+   are also com.apple.*. Fix: a narrow allowlist (FaceTime, Phone,
+   avconferenced, callservicesd) through the filter, same IDs added to
+   meetingBundlePrefixes. The exact mic-holding process for relayed
+   calls varies by macOS version and could not be verified live (Noah's
+   call kept its audio on the iPhone — no Mac process ever held call
+   audio, confirmed via CoreAudio process-object probe during the call),
+   so detection also logs each unrecognized Apple mic holder once per
+   run: the field names the daemon for us. Daemons can't false-positive
+   the pre-14.4 fallback (NSWorkspace.runningApplications never lists
+   them). FaceTime call windows (owner "FaceTime", title ≠ "FaceTime")
+   count as meeting-window evidence and title the session with the
+   caller's name.
+
+2. **A call answered on the iPhone is UNFIXABLE capture** — the Mac has
+   no audio path (probe: default input/output stayed iMac mic/speakers,
+   zero call processes doing audio IO). The only correct behavior is
+   honesty: the 3-minute silence card now distinguishes "transcript
+   flowed then stopped" (Meeting ended?) from "transcript never started"
+   (≤3 utterances → "Can't hear this meeting — call audio may be on
+   your iPhone or headset; take it on this Mac or speakerphone").
+   Threshold is utterance count, not audio energy: faint across-the-desk
+   speech still commits occasional fragments, so energy alone can't
+   separate the cases.
+
+3. **Bleed gate required a loud speaker to justify a drop.** The gate
+   dropped any mic utterance after 3s of mic quiet — but bleed is by
+   definition speaker leakage; with the system channel silent for 6s+
+   there is nothing to leak, and the drop was deleting real-but-faint
+   near speech (the across-the-desk call case). Now: drop only when the
+   system side was recently loud (new lastLoudSystemAt, floor 0.002).
+
+4. **Mid-session SCK death now flips micOnly.** stream(didStopWithError)
+   only emitted a status string; isMicOnly stayed false, so the arbiter
+   kept the dual-mode 45s end cap (losing mic-only's unlimited veto) and
+   echo suppression kept filtering against a dead channel. New
+   onSystemAudioLost callback sets session.micOnly = true.
+
+Also confirmed in the same probe: corespeechd CPU belongs to
+com.apple.CoreSpeech holding the mic system-wide (Siri/Live Captions),
+not to MeetingCoach.

@@ -5,7 +5,39 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-08-05)
+## Current state (2026-08-06)
+
+- **CPU/memory reduction batch DONE, gate green** (Noah: app 16.4% CPU
+  + llama-server 7.19 GB resident during a call). Memory: model warms
+  on meeting-detect instead of at launch, unloads after the post-call
+  review and on quit (incl. adopted system engine); engine env
+  NUM_PARALLEL=1, MAX_LOADED_MODELS=1, FLASH_ATTENTION=1, KV q8_0;
+  num_ctx 4096 in-call / 8192 review; preload options now match
+  generation (no double load); keep_alive explicit on generation;
+  effectiveModel fallback prefers the RAM tier, not the largest
+  install. CPU: heartbeat gates on <3 new utterances + backs off
+  60→90→120s on empty passes; Parakeet partial-refresh throttled on
+  long windows (commit cadence untouched); vDSP RMS; mclog NSLog
+  debug-only. decisions.md 2026-08-06 has the full why.
+  Deferred (evidence gathered, not done): streaming Parakeet decoder,
+  applyDiarization incremental rebuild, SCK audio-only capture,
+  event-driven idle detection, signal-eval coalescing.
+- **Apple-call batch DONE, gate green** (customer + Noah repro: iPhone
+  relayed call → no pill, no transcript, "Meeting ended?" banner).
+  FaceTime/Phone/avconferenced/callservicesd now pass the com.apple
+  mic-holder filter and count as meeting apps; FaceTime call windows
+  are meeting evidence and title the session with the caller's name;
+  unrecognized Apple mic holders get logged once per run (field
+  diagnostics — watch for the real relayed-call daemon id in logs).
+  Silence card now distinguishes "meeting ended?" from "can't hear
+  this meeting" (≤3 utterances → capture-gap copy with iPhone/headset
+  guidance). Bleed gate only drops when the system channel was
+  recently loud (was deleting faint real speech). Mid-session SCK
+  death flips micOnly (arbiter veto + echo filter correctness).
+  KNOWN LIMIT: a call whose audio stays on the iPhone is uncapturable
+  — the honest banner is the fix; detection of relayed-call mic
+  holders is best-guess until field logs name the daemon.
+
 
 - **Mic device-change recovery (branch
   `claude/computer-microphone-detection-geppbc`, NOT yet built on a

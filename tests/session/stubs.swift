@@ -43,6 +43,7 @@ final class AudioCaptureManager {
     var onPartialText: ((String, String) -> Void)?
     var onSpeakerSegments: ((DiarizationChannel, [SpeakerSegment]) -> Void)?
     var onStatus: ((String) -> Void)?
+    var onSystemAudioLost: (() -> Void)?
     /// Recorded renames (label, name) — the real manager routes these to
     /// the channel diarizers and the voice-profile store.
     private(set) var renames: [(String, String)] = []

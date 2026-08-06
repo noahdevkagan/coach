@@ -171,14 +171,21 @@ struct MenuBarLabel: View {
                 // launch the main window never opens — without it the engine
                 // handle is nil and launch flows silently no-op.
                 settings.ollamaManager = ollamaManager
-                // The LLM loads at launch, not when a meeting starts —
-                // paying multi-GB model-load at minute one of a call (peak
-                // memory pressure) froze small-RAM Macs. No-op when no model
-                // is installed, one is downloading, or the pick doesn't fit.
-                Task { await settings.warmUpModelIfNeeded() }
             }
             .onChange(of: detection.meetingDetected) { _, detected in
-                if detected { showPrompt() } else { hidePrompt() }
+                if detected {
+                    showPrompt()
+                    // The LLM loads the moment a meeting is detected — early
+                    // enough that startLive finds it resident (loading at
+                    // minute one of a call froze small-RAM Macs), late
+                    // enough that an idle Mac isn't holding multi-GB of
+                    // model memory all day (it was: 2h keep-alive from
+                    // launch). No-op when no model is installed, one is
+                    // downloading, or the pick doesn't fit.
+                    Task { await settings.warmUpModelIfNeeded() }
+                } else {
+                    hidePrompt()
+                }
             }
     }
 

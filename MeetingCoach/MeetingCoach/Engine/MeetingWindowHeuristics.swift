@@ -35,7 +35,8 @@ enum MeetingWindowHeuristics {
                          micHolderIsBrowser: Bool) -> Bool? {
         for w in windows {
             if isZoomMeetingWindow(w) || isSlackHuddleWindow(w)
-                || isMeetTabWindow(w) || isHangoutsTabWindow(w) {
+                || isMeetTabWindow(w) || isHangoutsTabWindow(w)
+                || isFaceTimeCallWindow(w) {
                 return true
             }
         }
@@ -55,6 +56,13 @@ enum MeetingWindowHeuristics {
 
     static func isSlackHuddleWindow(_ w: WindowInfo) -> Bool {
         w.ownerName == "Slack" && w.title.localizedCaseInsensitiveContains("huddle")
+    }
+
+    /// FaceTime's idle window is titled "FaceTime"; during a call (FaceTime
+    /// or an iPhone-relayed cellular call) the window title is the caller's
+    /// name — which is also the best session title we'll ever get.
+    static func isFaceTimeCallWindow(_ w: WindowInfo) -> Bool {
+        w.ownerName == "FaceTime" && !w.title.isEmpty && w.title != "FaceTime"
     }
 
     static func isMeetTabWindow(_ w: WindowInfo) -> Bool {
@@ -95,6 +103,11 @@ enum MeetingWindowHeuristics {
                 if !t.isEmpty { return t }
             }
             if isSlackHuddleWindow(w) {
+                let t = w.title.trimmingCharacters(in: .whitespaces)
+                if !t.isEmpty { return t }
+            }
+            if isFaceTimeCallWindow(w) {
+                // The call window title is the caller's name.
                 let t = w.title.trimmingCharacters(in: .whitespaces)
                 if !t.isEmpty { return t }
             }

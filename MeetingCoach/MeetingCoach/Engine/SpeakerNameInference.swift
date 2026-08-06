@@ -35,7 +35,9 @@ final class SpeakerNameInference {
     private var isAnalyzing = false
 
     init(model: String) {
-        client = OllamaClient(model: model, timeout: 45)
+        // 4096 ctx, matching SemanticCoach — in-call requests share one
+        // runner config so no reload happens between the two callers.
+        client = OllamaClient(model: model, timeout: 45, numCtx: 4096)
     }
 
     /// Propose names for unnamed speaker labels in the transcript.

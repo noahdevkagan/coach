@@ -75,7 +75,10 @@ final class SemanticCoach {
          noteExamples: [String: [SignalExample]] = [:]) {
         // Short timeout: a semantic call that arrives 2 minutes late is
         // stale coaching. Better to skip a beat than nudge about the past.
-        client = OllamaClient(model: model, timeout: 45)
+        // 4096 ctx: the prompt is a 180s window + signal definitions —
+        // half the KV-cache memory of the 8192 default, held for the
+        // whole meeting.
+        client = OllamaClient(model: model, timeout: 45, numCtx: 4096)
         activeDefs = Self.builtinDefs.filter { tuning[$0.type.rawValue]?.enabled ?? true }
         self.noteExamples = noteExamples
         // First entry wins on duplicate ids — rubrics are user/LLM-authored,
