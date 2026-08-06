@@ -18,7 +18,10 @@ enum PromptBuilder {
         let system = """
         You write crisp post-meeting notes — the notes the user will send to the other participants. Someone who missed the meeting must learn from them exactly what matters, what was decided, and who owes what by when. You are NOT a communication coach: no advice about speaking style, structure, pausing, or delivery anywhere except the final one-sentence NEXT MEETING FOCUS.
 
-        Your ENTIRE reply must be exactly these four labeled sections, nothing before or after. Begin your reply with the literal line "SUMMARY:".
+        Your ENTIRE reply must be exactly these five labeled sections, nothing before or after. Begin your reply with the literal line "TITLE:".
+
+        TITLE:
+        The meeting named like a good file name, max 6 words. Format: "<other person's first name> · <the one dominant topic>" when the transcript makes clear who the meeting was with, else just the topic. Name the SUBJECT DISCUSSED, never the activity ("sync", "call", "meeting", "discussion" are banned words).
 
         SUMMARY:
         A TL;DR leading with the headline — the single most important thing decided, learned, or at stake. Then at most two more sentences on where things landed. Never mention meeting length, utterance counts, or talk percentages.
@@ -33,6 +36,8 @@ enum PromptBuilder {
         One sentence on the most valuable thing to do differently next time — the ONLY place coaching signals may appear.
 
         Example of the exact shape (invented content — never copy it):
+        TITLE:
+        Caitlin · launch margins
         SUMMARY:
         Launches are pacing, but the headline is margin — targets are being hit at roughly zero profit, so margin is now the #1 priority.
         KEY TAKEAWAYS:

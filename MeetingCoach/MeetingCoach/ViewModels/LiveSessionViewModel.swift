@@ -870,6 +870,11 @@ final class LiveSessionViewModel {
         meetingReview = review
         isGeneratingSummary = false
         persistReview()
+        // The review's title names the meeting from full understanding —
+        // adopt it over the word-frequency heuristic (never over a human).
+        if let title = review.title, let path = savedPath {
+            TranscriptSearch.adoptGeneratedTitle(title, for: URL(fileURLWithPath: path))
+        }
     }
 
     /// Toggle one Suggested Next Step's checkbox and persist immediately —

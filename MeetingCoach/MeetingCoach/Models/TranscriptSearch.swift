@@ -245,6 +245,23 @@ enum TranscriptSearch {
     /// Rename a session: write (or, when cleared, blank out) the Title
     /// header line. The date-based filename is untouched — it's the sort
     /// key and is parsed for the session date.
+    /// Adopt a generated (LLM review) title unless a human or a real
+    /// meeting name got there first. Machine titles are reproducible: a
+    /// header title that matches what `suggestedTitle` would produce for
+    /// this content was machine-written by the sidebar, so upgrading it
+    /// loses nothing. Anything else (rename, window title, pre-call
+    /// person·subject) wins, and a bare Title line is the user's
+    /// cleared-title sentinel — the date stays.
+    static func adoptGeneratedTitle(_ title: String, for file: URL) {
+        guard let content = try? String(contentsOf: file, encoding: .utf8) else { return }
+        if let current = headerTitle(in: content) {
+            guard current == suggestedTitle(in: content) else { return }
+        } else if hasTitleLine(in: content) {
+            return
+        }
+        setTitle(title, for: file)
+    }
+
     static func setTitle(_ title: String, for file: URL) {
         guard let content = try? String(contentsOf: file, encoding: .utf8) else { return }
         var lines = content.components(separatedBy: "\n")

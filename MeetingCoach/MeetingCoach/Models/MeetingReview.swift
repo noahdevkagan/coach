@@ -12,6 +12,10 @@ struct ActionItem: Identifiable, Equatable {
 /// deterministic (no-LLM) builder directly, the LLM path via `parse` — so
 /// the UI never renders a raw text blob and internal signal ids never leak.
 struct MeetingReview: Equatable {
+    /// LLM-proposed session title ("Caitlin · margins & win-back") — the
+    /// model has read the whole meeting, so it names it far better than
+    /// the word-frequency heuristic. nil on the deterministic path.
+    var title: String?
     var summary: String = ""
     var takeaways: [String] = []
     var actionItems: [ActionItem] = []
@@ -67,8 +71,19 @@ struct MeetingReview: Equatable {
     /// sections PromptBuilder asks for, but survives markdown decoration,
     /// numbering, and tables — and when nothing parses, the whole cleaned
     /// text lands in `summary` so content is never dropped on the floor.
+    /// Title hygiene: models wrap names in quotes or run long — strip
+    /// decoration, collapse whitespace, hard-cap for the sidebar.
+    private static func clipTitle(_ raw: String) -> String? {
+        var t = raw.trimmingCharacters(in: CharacterSet(charactersIn: " \"'“”‘’.*_"))
+        t = t.components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }.joined(separator: " ")
+        guard !t.isEmpty else { return nil }
+        if t.count > 60 { t = String(t.prefix(57)) + "…" }
+        return t
+    }
+
     static func parse(llmText: String, talkShare: Double? = nil) -> MeetingReview {
-        enum Section { case summary, takeaways, nextSteps, wins, focus }
+        enum Section { case title, summary, takeaways, nextSteps, wins, focus }
         var review = MeetingReview(talkShare: talkShare)
         var section = Section.summary
         var summaryLines: [String] = []
@@ -86,6 +101,7 @@ struct MeetingReview: Equatable {
             }
             h = h.trimmingCharacters(in: CharacterSet(charactersIn: ": *_"))
             guard !h.isEmpty, h.count <= 40 else { return nil }
+            if h == "title" || h == "meeting title" || h == "session title" { return .title }
             if h.hasPrefix("summary") { return .summary }
             if h.contains("takeaway") || h.contains("key point") || h.contains("highlight")
                 || h.contains("discussion point") || h.contains("key discussion")
@@ -106,6 +122,7 @@ struct MeetingReview: Equatable {
             let stripped = line.trimmingCharacters(in: CharacterSet(charactersIn: "#*_ \t"))
             let lower = stripped.lowercased()
             let labels: [(String, Section)] = [
+                ("title", .title),
                 ("summary", .summary),
                 ("key takeaways", .takeaways),
                 ("takeaways", .takeaways),
@@ -173,6 +190,7 @@ struct MeetingReview: Equatable {
                 section = s
                 if !rest.isEmpty {
                     switch s {
+                    case .title: if review.title == nil { review.title = clipTitle(rest) }
                     case .summary: summaryLines.append(rest)
                     case .takeaways: review.takeaways.append(rest)
                     case .nextSteps: review.actionItems.append(ActionItem(text: rest))
@@ -196,6 +214,10 @@ struct MeetingReview: Equatable {
             }
             let bullet = bulletText(line)
             switch section {
+            case .title:
+                // First content line only — anything further is a model
+                // rambling past the label, not part of the name.
+                if review.title == nil { review.title = clipTitle(bullet ?? clean(line)) }
             case .summary:
                 summaryLines.append(bullet ?? clean(line))
             case .takeaways:

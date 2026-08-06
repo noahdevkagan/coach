@@ -282,6 +282,9 @@ struct SessionDetailView: View {
         let parsed = MeetingReview.parse(llmText: text, talkShare: talkShareValue)
         review = parsed
         persistReview(parsed)
+        if let title = parsed.title {
+            TranscriptSearch.adoptGeneratedTitle(title, for: url)
+        }
     }
 
     private func persistReview(_ r: MeetingReview) {
