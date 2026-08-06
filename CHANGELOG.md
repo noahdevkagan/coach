@@ -9,6 +9,12 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.16.0 — 2026-08-06
+
+- Phone calls on your Mac no longer silence coaching: handing a call to the Mac makes the iPhone's microphone the system input, which delivers nothing to other apps — the app kept saying "Listening" over an empty transcript. It now detects that and listens through the Mac's own microphone instead, whether the call started before or during your session
+- Granola re-import now repairs meetings that came in empty: if an earlier import left a meeting without its transcript (a bug fixed in 0.12.0), importing the same export again fills the transcript in instead of saying "already imported" — your renames and notes stay untouched
+- The Questions to Ask, Coaching Notes, and Model rows in Advanced now open with a click anywhere on the row, not just the tiny chevron
+
 ## 0.15.0 — 2026-08-05
 
 - Fixed: switching audio devices mid-meeting (taking a phone call on your Mac, connecting AirPods, plugging in a headset) silently killed the microphone — the app kept saying "Listening" but stopped transcribing. It now detects the change and reconnects to your mic automatically
