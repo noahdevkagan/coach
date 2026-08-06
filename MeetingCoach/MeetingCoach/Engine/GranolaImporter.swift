@@ -13,11 +13,13 @@ import Foundation
 enum GranolaImporter {
     struct Report: Sendable {
         var imported = 0
+        var updated = 0
         var skippedExisting = 0
         var skippedNoDate = 0
 
         var summary: String {
             var parts = ["Imported \(imported) meeting\(imported == 1 ? "" : "s")"]
+            if updated > 0 { parts.append("\(updated) updated with transcript") }
             if skippedExisting > 0 { parts.append("\(skippedExisting) already imported") }
             if skippedNoDate > 0 { parts.append("\(skippedNoDate) skipped (no date)") }
             return parts.joined(separator: " · ")
@@ -118,8 +120,18 @@ enum GranolaImporter {
             let marker = id.isEmpty
                 ? "granola-csv:\(title)@\(isoPlain.string(from: date))"
                 : "granola:\(id)"
-            if existing.contains(marker) {
-                report.skippedExisting += 1
+            if let existingFile = existing[marker] {
+                // The pre-0.12.0 importer wrote title-only shells (the CSV
+                // parse dropped every column past the header); the marker
+                // then blocked re-imports from ever fixing them. A shell
+                // with no transcript + a CSV row that has one = heal in
+                // place. Only the transcript section is appended — the
+                // user's file (title renames, notes) is otherwise theirs.
+                if !transcript.isEmpty, backfillTranscript(transcript, into: existingFile) {
+                    report.updated += 1
+                } else {
+                    report.skippedExisting += 1
+                }
                 continue
             }
 
@@ -296,21 +308,43 @@ enum GranolaImporter {
 
     // MARK: - Helpers
 
-    /// Dedupe markers already present in the sessions folder — read from
-    /// the header block only (first 12 lines) to keep re-import scans fast.
-    private static func existingImportMarkers(in dir: URL) -> Set<String> {
-        var markers: Set<String> = []
+    /// Dedupe markers already present in the sessions folder (marker → its
+    /// session file, so re-imports can heal transcript-less shells) — read
+    /// from the header block only (first 12 lines) to keep scans fast.
+    private static func existingImportMarkers(in dir: URL) -> [String: URL] {
+        var markers: [String: URL] = [:]
         for file in TranscriptSearch.sessionFiles(in: dir) {
             guard let content = try? String(contentsOf: file, encoding: .utf8) else { continue }
             for line in content.components(separatedBy: .newlines).prefix(12) {
                 if line.hasPrefix("**Imported-From:**") {
-                    markers.insert(line.dropFirst("**Imported-From:**".count)
-                        .trimmingCharacters(in: .whitespaces))
+                    let marker = line.dropFirst("**Imported-From:**".count)
+                        .trimmingCharacters(in: .whitespaces)
+                    markers[marker] = file
                 }
                 if line.hasPrefix("## ") { break }
             }
         }
         return markers
+    }
+
+    /// Append a transcript to an already-imported session that has none
+    /// (a shell from the broken pre-0.12.0 importer), updating the
+    /// utterance count in the header. Returns false when the file already
+    /// has a transcript (nothing to heal) or can't be read.
+    static func backfillTranscript(_ transcript: [String], into file: URL) -> Bool {
+        guard let content = try? String(contentsOf: file, encoding: .utf8),
+              !content.contains("\n## Transcript") else { return false }
+        var lines = content.components(separatedBy: "\n")
+        if let i = lines.firstIndex(where: { $0.hasPrefix("**Utterances:**") }) {
+            lines[i] = "**Utterances:** \(transcript.count)"
+        }
+        while lines.last?.isEmpty == true { lines.removeLast() }
+        lines.append("")
+        lines.append("## Transcript")
+        lines.append(contentsOf: transcript)
+        lines.append("")
+        return (try? lines.joined(separator: "\n")
+            .write(to: file, atomically: true, encoding: .utf8)) != nil
     }
 
     nonisolated(unsafe) private static let isoWithFraction: ISO8601DateFormatter = {
