@@ -18,6 +18,11 @@ final class LiveSessionViewModel {
     /// declined) — the transcript can't tell You from the meeting.
     var micOnly = false
 
+    /// Mic-only because an Apple call (FaceTime/iPhone relay) was active —
+    /// deliberate, not a permissions problem. The banner must explain the
+    /// call-audio limitation instead of sending users to Screen Recording.
+    var appleCallCapture = false
+
     /// This session transcribed on the SFSpeech fallback (high-accuracy
     /// Parakeet model not ready — usually still downloading on a fresh
     /// install). Fragmented "random words" transcripts are expected on
@@ -291,6 +296,7 @@ final class LiveSessionViewModel {
                 return
             }
             micOnly = manager.isMicOnly
+            appleCallCapture = manager.isAppleCall
             usedFallbackEngine = manager.engineLabel == "SFSpeech"
             startSignalTick()
             startTimer(from: sessionStart)
@@ -472,6 +478,7 @@ final class LiveSessionViewModel {
         segmentRenames = [:]
         endedCaptureManager = nil
         micOnly = false
+        appleCallCapture = false
         usedFallbackEngine = false
         sessionStartDate = nil
         nudges = []

@@ -9,6 +9,9 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Fixed FaceTime and phone calls saying you talked 100% of the time: macOS never lets apps hear call audio directly, so the other side's voice coming out of your speakers was being counted as you. On a call, the app now listens through your Mac's microphone and tells the voices in the room apart — play the call out loud (speakers, not headphones) and both sides land in the transcript, correctly attributed
+- A new orange card during calls explains this: "Call detected — listening through your Mac's mic," with the actual fix (use speakers) instead of pointing you at permission settings that wouldn't help
+
 ## 0.17.0 — 2026-08-06
 
 - FaceTime and iPhone calls taken on your Mac are now real meetings: they trigger the "Meeting detected" prompt just like Zoom, and call sessions are titled with the caller's name

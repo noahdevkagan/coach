@@ -346,25 +346,34 @@ struct LiveTimelineView: View {
             }
 
             // Degraded capture is easy to miss in the status caption — make
-            // it loud: no You/Them separation until Screen Recording is on.
+            // it loud. Two distinct causes, two distinct fixes: an Apple
+            // call (macOS never exposes call audio to capture — the fix is
+            // speakers, not a permission) vs. missing Screen Recording.
             if liveSession.isLive && liveSession.micOnly {
                 HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill")
+                    Image(systemName: liveSession.appleCallCapture
+                          ? "phone.circle.fill" : "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Only hearing your mic — not the meeting")
+                        Text(liveSession.appleCallCapture
+                             ? "Call detected — listening through your Mac's mic"
+                             : "Only hearing your mic — not the meeting")
                             .font(.caption.bold())
-                        Text("MeetingCoach can't hear the other participants, so it can't tell who's speaking. Grant Screen Recording, then restart the session.")
+                        Text(liveSession.appleCallCapture
+                             ? "macOS doesn't let apps capture FaceTime or phone-call audio. Play the call out loud (speakers, not headphones) and both sides will be heard and told apart."
+                             : "MeetingCoach can't hear the other participants, so it can't tell who's speaking. Grant Screen Recording, then restart the session.")
                             .font(.caption2).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
-                    Button("Open Settings") {
-                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
-                            NSWorkspace.shared.open(url)
+                    if !liveSession.appleCallCapture {
+                        Button("Open Settings") {
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                                NSWorkspace.shared.open(url)
+                            }
                         }
+                        .font(.caption)
                     }
-                    .font(.caption)
                 }
                 .padding(8)
                 .background(Color.orange.opacity(0.1))

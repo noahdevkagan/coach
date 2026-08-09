@@ -34,6 +34,7 @@ final class AudioCaptureManager {
     var contextualHints: [String] = []
     var vocabulary: VocabularyNormalizer?
     var isMicOnly = false
+    var isAppleCall = false
     private(set) var stopped = false
     /// Mirrors the real manager's engine attribution (recorded into saved
     /// sessions); tests can override to assert the header line.

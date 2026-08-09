@@ -101,6 +101,11 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     /// Recording declined/unavailable) — no structural You/Them separation.
     var isMicOnly: Bool { !hasSystemAudio }
 
+    /// True when this session deliberately skipped system audio because an
+    /// Apple call (FaceTime/iPhone relay) was in progress — the UI should
+    /// explain the call-audio limitation, not ask for Screen Recording.
+    private(set) var isAppleCall = false
+
     // Speaker diarization. Mic-only mode: split "Meeting" into Speaker 1/2/…
     // Dual mode: split the system-audio "Them" into Them 1/2/… — the mic
     // channel is structurally "You" and needs no diarizer.
@@ -156,14 +161,32 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         engineLabel = usingParakeet ? "Parakeet" : "SFSpeech"
         mclog("[Capture] Transcription engine: \(engineLabel)")
 
-        // System audio next — whether it works decides mic configuration
-        // (echo cancellation on, mic speaker label "You" vs "Meeting").
-        do {
-            try await startSystemAudio()
-            hasSystemAudio = true
-        } catch {
-            mclog("[Capture] System audio failed: \(error.localizedDescription)")
+        // Apple call surfaces (FaceTime, iPhone-relayed calls) render their
+        // audio through a privacy-protected call path that ScreenCaptureKit
+        // cannot hear: the SCK stream starts fine and delivers digital
+        // silence for the far side. Dual mode is then poison — the "Them"
+        // pipeline never speaks, the bleed gate never arms (it requires a
+        // recently-loud system channel), the echo pool stays empty, and the
+        // far side leaking speakers → mic gets transcribed as "You" (Ned's
+        // FaceTime read "you talked 100% of the time", field report
+        // 2026-08-08). Mic-only is strictly better here: on speakers the
+        // room mic hears both sides and the diarizer splits them.
+        let appleCallHolders = await (MeetingDetectionService.micUsingBundleIDs() ?? [])
+            .intersection(MeetingDetectionService.appleCallBundleIDs)
+        if !appleCallHolders.isEmpty {
+            isAppleCall = true
             hasSystemAudio = false
+            mclog("[Capture] Apple call in progress (\(appleCallHolders.sorted().joined(separator: ", "))) — skipping system audio (SCK can't hear call audio), mic-only + diarizer")
+        } else {
+            // System audio next — whether it works decides mic configuration
+            // (echo cancellation on, mic speaker label "You" vs "Meeting").
+            do {
+                try await startSystemAudio()
+                hasSystemAudio = true
+            } catch {
+                mclog("[Capture] System audio failed: \(error.localizedDescription)")
+                hasSystemAudio = false
+            }
         }
 
         // Mic pipeline. Without system audio there is no You/Them separation,
@@ -517,8 +540,9 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
     /// The steady-state status line for the active capture mode.
     private var listeningStatus: String {
-        hasSystemAudio ? "Listening (you + them)"
-                       : "Listening (mic only — grant Screen Recording for Zoom)"
+        if hasSystemAudio { return "Listening (you + them)" }
+        return isAppleCall ? "Listening through the Mac's mic (call audio can't be captured)"
+                           : "Listening (mic only — grant Screen Recording for Zoom)"
     }
 
     // MARK: - Input device selection (CoreAudio)

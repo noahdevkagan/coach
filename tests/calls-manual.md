@@ -15,10 +15,17 @@ tail -f /tmp/mc_debug.log | grep -E "Detect|Mic|Capture|Silence|Apple process"
 
 ## Scenarios
 
-### 1. FaceTime call answered on the Mac
+### 1. FaceTime call answered on the Mac (speakers, not headphones)
+macOS never exposes FaceTime/phone-call audio to capture (SCK delivers
+digital silence for the call — field-confirmed twice, 2026-08-08/09), so
+Apple-call sessions deliberately run mic-only with the diarizer:
 - [ ] "Meeting detected" pill appears (labeled FaceTime), chirp plays
-- [ ] Start coaching: both sides appear in the transcript within ~15s
-      ("You" = you, "Them" = caller via system audio)
+- [ ] Start coaching: orange card reads **"Call detected — listening
+      through your Mac's mic"** (speakers guidance, NO "Open Settings"
+      button); log: `[Capture] Apple call in progress`
+- [ ] Both sides appear in the transcript within ~15s, split as
+      Speaker 1/2 (or enrolled names) — NOT everything labeled "You"
+- [ ] Talk-time does NOT read ~100% for one side while both are talking
 - [ ] Session title becomes the caller's name after save
 - [ ] Hang up: session auto-ends within ~60s (log: `Meeting ended`)
 
@@ -26,7 +33,7 @@ tail -f /tmp/mc_debug.log | grep -E "Detect|Mic|Capture|Silence|Apple process"
 - [ ] Pill appears (FaceTime/Phone call label). If it does NOT, check the
       log for `Apple process holding mic (ignored): <id>` — that id
       belongs in `appleCallBundleIDs` (MeetingDetectionService); add it.
-- [ ] Both sides transcribe, as in scenario 1
+- [ ] Same mic-only call banner + both sides transcribe, as in scenario 1
 
 ### 3. Call answered on the iPhone, Mac shows the call widget
 This is the **uncapturable** case — the Mac has no audio path. Expected
@@ -45,10 +52,15 @@ behavior is honesty, not magic:
       (`ccwd`/`ccwl`) — check the `[Mic]` lines
 
 ### 5. Call on the Mac with AirPods
-- [ ] Both sides still transcribe (far side rides system audio
-      regardless of output device; mic = AirPods)
-- [ ] If the transcript is thin, note which side is missing — that is a
-      finding, not a pass
+The far side plays only inside the AirPods — no room audio, nothing to
+capture. Expected behavior is the honest banner, not magic:
+- [ ] The call banner from scenario 1 shows (its guidance — switch to
+      speakers — is the actual fix)
+- [ ] Only your side transcribes; switching output to speakers mid-call
+      brings the far side into the transcript
+- [ ] NOTE any far-side words that appear while on AirPods — that would
+      mean SCK can hear this call path after all, which changes the
+      design (see decisions.md 2026-08-09)
 
 ## Record of runs
 

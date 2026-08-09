@@ -516,3 +516,64 @@ Operational, learned twice now (v0.15.0, v0.17.0): pushing a tag does
 NOT trigger the Release workflow on this repo — the tag arrives but no
 run is created. Ship via Actions → Release → Run workflow (version
 input attaches to the existing tag). Root cause still unknown.
+[CORRECTED 2026-08-09 — this was a myth; see the autopsy below.]
+
+## 2026-08-09 — Tag-push "doesn't trigger releases" was a myth
+
+Autopsy from GitHub's own records (run list + events feed): every tag
+ever pushed from a normal user credential triggered the Release
+workflow — v0.8.0 through v0.14.0, AND v0.15.0 (push-triggered run at
+20:48Z on Aug 5, right after the lesson was first "learned"), AND
+v0.16.0 (pushed the day the lesson was re-recorded). The two "failures"
+were something else entirely:
+
+- v0.15.0: the tag was pushed from a REMOTE Claude session whose
+  credentials 403'd — the tag never reached GitHub, so of course no run
+  appeared. Once pushed from a real machine, it triggered normally.
+- v0.17.0: no tag was ever pushed (events feed shows zero tag-push
+  events that day). Believing the v0.15.0 lore, the operator went
+  straight to workflow_dispatch — and that run CREATES the tag itself
+  via action-gh-release using GITHUB_TOKEN, which GitHub deliberately
+  exempts from triggering further workflows (recursion guard). The
+  absence of a push-run was the system working as designed.
+
+The real rule: `git tag vX.Y.Z && git push origin vX.Y.Z` from a
+machine with user credentials works and is the primary path (AGENTS.md
+was right all along). workflow_dispatch is the fallback for remote
+sessions that can't push tags. Nothing to fix in the workflow.
+
+## 2026-08-09 — Apple calls: SCK cannot hear call audio → mic-only
+
+Field reports twice in two days (Noah's FaceTime; Ned Donovan's email:
+"it said I talked 100% of the time, but I talked the least"): on a
+FaceTime call taken on the Mac, the far side never transcribes. Root
+cause: macOS renders FaceTime/Phone audio through the privacy-protected
+call path (avconferenced) that ScreenCaptureKit cannot capture — the
+SCK stream starts cleanly and delivers digital silence for the call.
+Dual mode then fails three ways at once: the "Them" pipeline never
+speaks; the bleed gate never arms (it requires a recently-loud system
+channel); the echo filter's far-text pool stays empty. Net effect: the
+far side leaking speakers → mic is transcribed and labeled "You" —
+the app hears the whole call and attributes every word to the user.
+That is how "100% talk time" happens to the quietest person on the
+call, with no banner (the capture-gap card only fires when the
+transcript never starts, and here it flows continuously).
+
+Decision: when an Apple call daemon (appleCallBundleIDs) holds the mic
+at session start, skip SCK entirely and run the mic-only path — label
+"Meeting", mic diarizer splits the room into Speaker 1/2/enrolled
+names. On speakers this captures BOTH sides correctly attributed; on
+headphones it captures only the user, and a dedicated orange card
+("Call detected — listening through your Mac's mic") says the fix is
+speakers, not a permission — replacing the misleading "grant Screen
+Recording" banner for this case. This also answers Ned's "tell it what
+my output is" ask: no output setting can help; capture is impossible.
+
+Deliberately NOT done: (a) mid-session flip when a call starts after
+Go Live — the mic pipeline's "You" label and diarizer clock make a
+live swap messy, and every reported case starts the session from the
+call's detection pill; logged-only for now. (b) Core Audio process
+taps (macOS 14.4+ AudioHardwareCreateProcessTap) as a way to actually
+capture call audio — worth an experiment someday, but unverifiable
+without a live call and may be privacy-blocked for the call path too.
+Scenario 5 of tests/calls-manual.md now records the evidence to revisit.
