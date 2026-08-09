@@ -96,6 +96,9 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     private var micWatchdog: DispatchSourceTimer?
     private var micRecovering = false          // micRestartQueue-confined
     private var lastMicBufferAt = Date()       // micStateLock-guarded
+    private var micPeakRMS: Float = 0          // micStateLock-guarded
+    private var lastRMSLogAt = Date()          // micStateLock-guarded
+    private var lastNonzeroAudioAt = Date()    // micStateLock-guarded
 
     /// True after start() when system audio couldn't be captured (Screen
     /// Recording declined/unavailable) — no structural You/Them separation.
@@ -191,8 +194,15 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
         // Mic pipeline. Without system audio there is no You/Them separation,
         // so keep the old generic label.
+        //
+        // Apple-call mode runs ~10x quieter: once FaceTime flips the device
+        // into call mode, other clients get the processed stream at whisper
+        // levels (measured live 2026-08-09: peak RMS 0.0063 during normal
+        // conversation vs the 0.006 floor — one word survived in 4 minutes).
+        // Lower the floor to match what the call path actually delivers.
         emitStatus("Setting up microphone...")
-        let micPipe = try makePipeline(speaker: hasSystemAudio ? "You" : "Meeting")
+        let micPipe = try makePipeline(speaker: hasSystemAudio ? "You" : "Meeting",
+                                       voiceFloor: isAppleCall ? 0.0012 : 0.006)
         micPipeline = micPipe
         micPipe.start()
         do {
@@ -418,12 +428,19 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             Self.setInputDevice(builtIn, on: inputNode, label: "pre-start")
         }
 
-        // NEVER enable voice processing (Apple's echo cancellation): it ducks
-        // all other system audio — even at the minimum ducking level users
-        // could barely hear their Zoom call — and it hijacks the mic into
-        // "call mode" (multi-channel formats, Bluetooth quality drops).
-        // Acoustic echo (the far side leaking speakers → mic) is handled in
-        // software instead: see isLikelyEcho + the bleed gate in deliver().
+        // NEVER enable voice processing (Apple's echo cancellation) in
+        // normal sessions: it ducks all other system audio — even at the
+        // minimum ducking level users could barely hear their Zoom call —
+        // and it hijacks the mic into "call mode" (multi-channel formats,
+        // Bluetooth quality drops). Acoustic echo (the far side leaking
+        // speakers → mic) is handled in software instead: see isLikelyEcho
+        // + the bleed gate in deliver().
+        //
+        // During an Apple call this makes no difference either way: macOS
+        // hard-walls the mic from every other client while FaceTime/Phone
+        // owns it — plain AUHAL (3ch), VPIO (7ch), rebuild after rebuild,
+        // all deliver pure digital zeros (measured live 2026-08-09). The
+        // zero-audio watchdog + the call banner are the honest behavior.
         try? inputNode.setVoiceProcessingEnabled(false)
 
         let recordingFormat = inputNode.outputFormat(forBus: 0)
@@ -480,11 +497,29 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
                 dia.enqueue(samples, sampleRate: speechBuffer.format.sampleRate)
             }
 
-            if Self.rmsEnergy(speechBuffer) > self.micSilenceFloor {
+            let rms = Self.rmsEnergy(speechBuffer)
+            if rms > self.micSilenceFloor {
                 self.micStateLock.lock()
                 self.lastLoudMicAt = Date()
                 self.micStateLock.unlock()
             }
+            // Level telemetry (debug builds): peak RMS per 5s window. Field
+            // question this answers: during an Apple call, does the shared
+            // mic deliver real levels to us, or a call-mode-attenuated
+            // whisper below every voice floor? (FaceTime session 2026-08-09
+            // transcribed one word in 4 minutes; floors are tuned for
+            // rms ≈ 0.006+.)
+            self.micStateLock.lock()
+            if rms > 0 { self.lastNonzeroAudioAt = Date() }
+            self.micPeakRMS = max(self.micPeakRMS, rms)
+            if Date().timeIntervalSince(self.lastRMSLogAt) > 5 {
+                mclog(String(format: "[Mic] Peak RMS last 5s: %.4f%@",
+                             self.micPeakRMS,
+                             self.micPeakRMS < 0.006 ? " (below voice floor)" : ""))
+                self.micPeakRMS = 0
+                self.lastRMSLogAt = Date()
+            }
+            self.micStateLock.unlock()
 
             self.micPipeline?.append(speechBuffer)
         }
@@ -541,7 +576,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     /// The steady-state status line for the active capture mode.
     private var listeningStatus: String {
         if hasSystemAudio { return "Listening (you + them)" }
-        return isAppleCall ? "Listening through the Mac's mic (call audio can't be captured)"
+        return isAppleCall ? "Waiting — macOS blocks apps from hearing this call"
                            : "Listening (mic only — grant Screen Recording for Zoom)"
     }
 
@@ -650,15 +685,57 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             guard let self, self.isRunning, !self.micRecovering else { return }
             self.micStateLock.lock()
             let quiet = Date().timeIntervalSince(self.lastMicBufferAt)
+            let zeroFor = Date().timeIntervalSince(self.lastNonzeroAudioAt)
             self.micStateLock.unlock()
             if quiet > 5 {
                 mclog("[Mic] No buffers for \(String(format: "%.1f", quiet))s — rebuilding capture")
                 self.micRecovering = true
                 self.attemptMicRestart(reason: "tap went silent", attempt: 0)
+            } else if zeroFor > 8 {
+                // Zombie stream: buffers arrive but every sample is digital
+                // zero (a live room never reads exactly 0 — only a muted or
+                // call-captured device does). Seen live 2026-08-09, twice:
+                // the pre-answer 3ch device zeros out for ~23s when a
+                // FaceTime call connects, and a call ANSWERED MID-SESSION
+                // zeros the mic with no config-change notification at all —
+                // the ordinary watchdog stays happy throughout. Check who
+                // holds the mic now: if an Apple call grabbed it, adopt
+                // call mode (quieter voice floor) before rebuilding.
+                mclog("[Mic] Buffers flowing but all-zero for \(String(format: "%.1f", zeroFor))s — rebuilding capture")
+                self.micRecovering = true
+                Task { @MainActor in
+                    let holders = (MeetingDetectionService.micUsingBundleIDs() ?? [])
+                        .intersection(MeetingDetectionService.appleCallBundleIDs)
+                    self.micRestartQueue.async {
+                        guard self.isRunning else { self.micRecovering = false; return }
+                        if !holders.isEmpty { self.adoptAppleCallMode(holders: holders) }
+                        self.attemptMicRestart(reason: "zero-audio zombie", attempt: 0)
+                    }
+                }
             }
         }
         timer.resume()
         micWatchdog = timer
+    }
+
+    /// micRestartQueue only. A call was answered mid-session: the mic just
+    /// went digitally silent and an Apple call daemon now holds it. Flip
+    /// this session's mic handling to call mode — the call path delivers
+    /// ~10x quieter audio, so the pipeline must be rebuilt with the call
+    /// voice floor or everything gates out as silence. Mic-only sessions
+    /// only: converting a dual (SCK) session mid-flight is a bigger swap,
+    /// and every observed case is mic-only by then anyway.
+    private func adoptAppleCallMode(holders: Set<String>) {
+        guard !isAppleCall, !hasSystemAudio else { return }
+        isAppleCall = true
+        mclog("[Capture] Apple call grabbed the mic mid-session (\(holders.sorted().joined(separator: ", "))) — adopting call mode")
+        if let old = micPipeline,
+           let fresh = try? makePipeline(speaker: "Meeting", voiceFloor: 0.0012) {
+            old.stop()          // flushes the pending tail
+            fresh.start()
+            micPipeline = fresh
+        }
+        emitStatus(listeningStatus)
     }
 
     private func restartMicrophone(reason: String) {
@@ -692,6 +769,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             }
             micStateLock.lock()
             lastMicBufferAt = Date()
+            lastNonzeroAudioAt = Date()   // fresh grace window for the zero-audio check
             micStateLock.unlock()
             micRecovering = false
             mclog("[Mic] Capture restarted (\(reason)) after \(attempt + 1) attempt(s)")

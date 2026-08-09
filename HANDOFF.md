@@ -8,20 +8,20 @@ The durable "why" behind choices goes in `decisions.md`, not here.
 ## Current state (2026-08-09)
 
 - **v0.17.0 SHIPPED and installed** (Noah's /Applications copy is on it).
-- **Apple-call capture fix ON MAIN, UNRELEASED** (decisions.md 2026-08-09
-  has the full why). Field-confirmed twice (Noah's FaceTime; Ned
-  Donovan's email — "said I talked 100% of the time"): ScreenCaptureKit
-  CANNOT hear FaceTime/Phone call audio (privacy-protected call path) —
-  the SCK stream runs and delivers silence, so the far side leaking
-  speakers → mic was transcribed as "You", talk-time read ~100%, and no
-  banner fired (transcript flowed, so the capture-gap card stayed
-  quiet). Fix: when an appleCallBundleIDs daemon holds the mic at
-  session start, skip SCK → mic-only + diarizer (both sides split as
-  Speaker 1/2/enrolled names when on speakers), plus a dedicated orange
-  card ("Call detected — listening through your Mac's mic" — use
-  speakers, no Open Settings button). `isAppleCall` on
-  AudioCaptureManager → `appleCallCapture` on the VM. Debug build green.
-  NOT yet verified on a live FaceTime call — that's the release gate.
+- **Apple-call truth behavior ON MAIN, UNRELEASED — LIVE-VERIFIED**
+  (decisions.md 2026-08-09 + addendum). Definitive finding from a real
+  FaceTime call with RMS telemetry: **calls taken on the Mac are
+  uncapturable, period** — macOS hard-walls the mic (pure digital
+  zeros to every other client, AUHAL and VPIO both, confirmed across
+  repeated rebuilds) and SCK never gets call audio. That's why Ned's
+  session said "you talked 100%" (pre-fix, speaker bleed → mic labeled
+  "You") and why no capture strategy can work. Shipped behavior:
+  detect the call at start (skip SCK) or mid-session (zero-audio
+  watchdog + daemon check → adoptAppleCallMode), show the truth card
+  ("macOS blocks apps from hearing this call" + iPhone-speakerphone /
+  meeting-app workarounds), never fake a transcript; watchdog keeps
+  probing so capture self-recovers when the call ends. Mic zero-audio
+  recovery + RMS telemetry (debug) are general-purpose keepers.
 - **Tag-push release trigger: NOTHING WAS BROKEN** (decisions.md
   2026-08-09 autopsy). Every tag pushed with user credentials has
   always triggered the Release workflow. v0.15.0's "failure" was a
@@ -39,20 +39,19 @@ The durable "why" behind choices goes in `decisions.md`, not here.
 
 ## Outstanding
 
-- **Verify the Apple-call fix on a real FaceTime call, then ship it**
-  (0.17.1 or 0.18.0): run `tests/calls-manual.md` — esp. scenario 1
-  (banner + Speaker 1/2 split + sane talk-time, on speakers) and 5
-  (AirPods → one-sided transcript + banner; note any far-side words,
-  they'd reopen the design). Log greps: `[Capture] Apple call in
-  progress`, `Apple process holding mic (ignored)` (add new daemon ids
-  to appleCallBundleIDs).
-- **Reply to Ned Donovan** (neddonovan@gmail.com, Aug 8): the answer is
-  "no output setting can help — macOS hides call audio from apps; next
-  release listens through the mic, use speakers." Draft ready to send
-  once the fix is verified/shipped.
-- Deferred: mid-session Apple-call flip (call answered AFTER Go Live
-  still mislabels — logged only); Core Audio process-tap experiment as
-  a real capture path (macOS 14.4+, may be privacy-blocked too).
+- **Ship the Apple-call truth release** (0.17.1 or 0.18.0): CHANGELOG
+  Unreleased section is written; live verification done 2026-08-09
+  (scenarios 1-equivalent + mid-session, on Noah's real FaceTime call).
+  Remaining before tag: quick sanity pass of scenario 1's checklist on
+  the final build + scenario 3/4 unaffected-path spot checks.
+- **Reply to Ned Donovan** (neddonovan@gmail.com, Aug 8): the honest
+  answer — "no output setting can help; macOS blocks every app from
+  hearing Mac-taken calls (we tested hard). Workarounds: answer on
+  your iPhone on speakerphone near the Mac, or use Zoom/Meet; the next
+  release detects calls and says this in-app." Send once released.
+- Deferred: Core Audio process-tap experiment (macOS 14.4+, tap
+  avconferenced's OUTPUT for the far side) — the only remaining idea
+  for real call capture; may be privacy-blocked like everything else.
 - Verify 0.17.0 in the wild: llama-server memory release after recap,
   CPU during calls, LLM title quality (mostly unobserved — mclog is
   debug-only now, /tmp/mc_debug.log stays near-empty on release builds).
@@ -69,8 +68,8 @@ The durable "why" behind choices goes in `decisions.md`, not here.
 
 ## Next session
 
-The Apple-call mic-only fix is on main, build-verified only. First: has
-Noah made a FaceTime call on a build with it? If yes, check the result
-against calls-manual scenario 1 (banner, Speaker split, talk-time). If
-verified, cut the release (CHANGELOG section exists) and send Ned the
-reply. If not, walk Noah through a 2-minute test call.
+The Apple-call truth behavior is on main and live-verified (Noah's
+real FaceTime call, 2026-08-09 — see decisions.md addendum). Next:
+cut the release (CHANGELOG Unreleased is ready; tag from this machine,
+tag-push triggers CI fine), then send Ned Donovan the reply (draft
+points in Outstanding). After that: the carried list.

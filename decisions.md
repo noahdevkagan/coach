@@ -577,3 +577,26 @@ taps (macOS 14.4+ AudioHardwareCreateProcessTap) as a way to actually
 capture call audio — worth an experiment someday, but unverifiable
 without a live call and may be privacy-blocked for the call path too.
 Scenario 5 of tests/calls-manual.md now records the evidence to revisit.
+
+ADDENDUM, same day, after live testing on a real FaceTime call (Noah +
+Mafe, ~15 min, RMS telemetry added to the mic tap): the mic-only
+strategy is DEAD for calls taken on the Mac. macOS hard-walls the
+microphone from every other client while FaceTime/Phone owns it — not
+attenuates: pure digital zeros. Measured: plain AUHAL client, 3ch,
+zeros; VPIO client (voice-processing mode, 7ch), zeros; rebuild after
+rebuild via the new zero-audio watchdog, zeros. Audio flowed perfectly
+until the instant the call connected (the transcript caught "I'm
+calling you again. Should I answer?" and went silent on the answer).
+The two brief exceptions earlier (peak RMS 0.0063–0.027, single words
+committed) rode transient 1ch device states FaceTime itself created —
+not requestable. So: no capture strategy exists for Mac-taken calls;
+speakers vs headphones is irrelevant; Ned's "tell it my output" ask
+can't help. Final behavior: detect the call (start-time AND
+mid-session via the zero-audio watchdog + daemon check), skip SCK,
+show the truth card with real workarounds (iPhone speakerphone near
+the Mac — that mic path works and is already handled — or a meeting
+app). Kept: the call-mode low voice floor (0.0012) — harmless, and it
+catches words if a transient whisper state ever appears; the
+zero-audio watchdog doubles as general dead-mic recovery and brings
+capture back the moment a call ends. VPIO experiment reverted.
+Process-tap exploration remains the only open thread for real capture.

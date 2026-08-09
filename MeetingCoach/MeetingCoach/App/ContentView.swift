@@ -356,11 +356,11 @@ struct LiveTimelineView: View {
                         .foregroundStyle(.orange)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(liveSession.appleCallCapture
-                             ? "Call detected — listening through your Mac's mic"
+                             ? "macOS blocks apps from hearing this call"
                              : "Only hearing your mic — not the meeting")
                             .font(.caption.bold())
                         Text(liveSession.appleCallCapture
-                             ? "macOS doesn't let apps capture FaceTime or phone-call audio. Play the call out loud (speakers, not headphones) and both sides will be heard and told apart."
+                             ? "FaceTime and phone calls taken on a Mac are off-limits to every app — even the microphone goes silent for them. To get coached: answer on your iPhone on speakerphone near the Mac, or use Zoom, Meet, or another meeting app."
                              : "MeetingCoach can't hear the other participants, so it can't tell who's speaking. Grant Screen Recording, then restart the session.")
                             .font(.caption2).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
