@@ -350,10 +350,13 @@ struct LiveTimelineView: View {
             // call (macOS never exposes call audio to capture — the fix is
             // speakers, not a permission) vs. missing Screen Recording.
             if liveSession.isLive && liveSession.micOnly {
+                // Red for the call card: coaching is NOT happening and no
+                // action inside the app can fix it. Orange stays for the
+                // degraded-but-working permission case.
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: liveSession.appleCallCapture
                           ? "phone.circle.fill" : "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(liveSession.appleCallCapture ? .red : .orange)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(liveSession.appleCallCapture
                              ? "macOS blocks apps from hearing this call"
@@ -376,7 +379,7 @@ struct LiveTimelineView: View {
                     }
                 }
                 .padding(8)
-                .background(Color.orange.opacity(0.1))
+                .background((liveSession.appleCallCapture ? Color.red : Color.orange).opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 
