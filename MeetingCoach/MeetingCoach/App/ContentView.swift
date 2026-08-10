@@ -251,10 +251,14 @@ struct LiveTimelineView: View {
                                 Image(systemName: "arrow.down.circle")
                                     .foregroundStyle(.blue)
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("This session used the basic transcription engine — the transcript (and this review) missed words. The high-accuracy engine will be ready for your next session.")
+                                    Text(PlatformSupport.neuralModelsSupported
+                                         ? "This session used the basic transcription engine — the transcript (and this review) missed words. The high-accuracy engine will be ready for your next session."
+                                         : "This session used Apple's built-in transcription — the transcript (and this review) missed words. The high-accuracy engine needs Apple Silicon, so Intel Macs always run this way.")
                                         .font(.caption2).foregroundStyle(.secondary)
                                         .fixedSize(horizontal: false, vertical: true)
-                                    ParakeetProgressLine()
+                                    if PlatformSupport.neuralModelsSupported {
+                                        ParakeetProgressLine()
+                                    }
                                 }
                             }
                             .padding(8)
@@ -388,20 +392,31 @@ struct LiveTimelineView: View {
             // one-line status that said so vanishes under the first nudge.
             if liveSession.isLive && liveSession.usedFallbackEngine {
                 HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "arrow.down.circle")
-                        .foregroundStyle(.blue)
+                    Image(systemName: PlatformSupport.neuralModelsSupported
+                          ? "arrow.down.circle" : "cpu")
+                        .foregroundStyle(PlatformSupport.neuralModelsSupported ? .blue : .orange)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Transcript accuracy is reduced this session")
+                        // Intel gets the truth, not a promise: the
+                        // high-accuracy engine needs Apple Silicon and will
+                        // never be ready on this Mac.
+                        Text(PlatformSupport.neuralModelsSupported
+                             ? "Transcript accuracy is reduced this session"
+                             : "Intel Macs aren't fully supported")
                             .font(.caption.bold())
-                        Text("The high-accuracy engine wasn't ready when this session started. Expect missing words today — your next session will be much better.")
+                        Text(PlatformSupport.neuralModelsSupported
+                             ? "The high-accuracy engine wasn't ready when this session started. Expect missing words today — your next session will be much better."
+                             : "High-accuracy transcription and speaker identification need Apple Silicon. On this Mac, sessions use Apple's built-in transcription — expect missing words, and remote speakers won't be told apart.")
                             .font(.caption2).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
-                        ParakeetProgressLine()
+                        if PlatformSupport.neuralModelsSupported {
+                            ParakeetProgressLine()
+                        }
                     }
                     Spacer()
                 }
                 .padding(8)
-                .background(Color.blue.opacity(0.08))
+                .background((PlatformSupport.neuralModelsSupported ? Color.blue : Color.orange)
+                    .opacity(0.08))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 

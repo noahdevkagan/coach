@@ -126,6 +126,14 @@ final class SpeakerDiarizer: @unchecked Sendable {
     }
 
     func start() {
+        // Intel: LS-EEND crashes the process in CoreML's x86 CPU kernels
+        // (see PlatformSupport). Marking the diarizer stopped makes enqueue
+        // drop audio instead of accumulating a preload no model will read.
+        guard PlatformSupport.neuralModelsSupported else {
+            mclog("[Diarizer:\(labelPrefix)] Skipped — diarization unavailable on Intel Macs")
+            queue.async { self.stopped = true }
+            return
+        }
         Task {
             do {
                 // .dihard3: in-the-wild conversations — right for room audio

@@ -600,3 +600,45 @@ catches words if a transient whisper state ever appears; the
 zero-audio watchdog doubles as general dead-mic recovery and brings
 capture back the moment a call ends. VPIO experiment reverted.
 Process-tap exploration remains the only open thread for real capture.
+
+## 2026-08-10 — Menu-bar red dot for pending updates rides on a non-template icon
+
+Added a CleanShot-style red dot on the menu bar icon while a Sparkle
+update is pending, plus an "Update Available — Install…" item at the
+top of the dropdown. The Sparkle popup is unchanged — the dot exists
+because the popup is dismissible and then nothing reminds the user.
+Mechanism: `UpdateBadgeModel` is the `SPUUpdaterDelegate`
+(didFindValidUpdate sets, updaterDidNotFindUpdate clears — which also
+covers "Skip This Version", since the next scheduled check reports
+no update; installing clears by relaunch). Non-obvious part: macOS
+strips ALL color from menu bar template images, so the badged state
+hand-draws a non-template NSImage (glyph tinted white/black from
+SwiftUI's colorScheme + a systemRed oval) while the normal state stays
+a plain SF Symbol template. Cost of non-template: wallpaper-tinted
+menu bars won't recolor the glyph — accepted, it only shows while an
+update is pending. Debug hook to see it on demand:
+`defaults write com.coach.MeetingCoach ForceUpdateBadge -bool true`.
+Verified 2026-08-10 via window-scoped screenshot (dot renders red) and
+AX menu dump (item present, first position).
+
+## 2026-08-10 — Intel Macs: block CoreML models entirely, don't try to catch the crash
+
+Customer crash report (0.17.0, iMac20,1): SIGFPE divide-by-zero inside
+Apple's Espresso x86 CPU padding kernel, on CoreMLBatchProcessingQueue,
+~28s after launch — the first real Parakeet/LS-EEND inference window.
+FluidAudio's maintainer confirms the models were never validated on
+Intel ("I don't think the models support Intel devices", issue #173).
+Key constraint: SIGFPE is a signal, not a thrown error — no Swift
+catch around `transcribe()`/`process()` can survive it, so recovery
+in-place is impossible; the only defense is never starting inference.
+Decision: one compile-time gate (`PlatformSupport.neuralModelsSupported`,
+`#if arch(arm64)`) consulted at every model entry point — ParakeetEngine
+(load + cached check), ParakeetDownloadState (skip the 600 MB download),
+SpeakerDiarizer (start() marks itself stopped so enqueue drops audio
+instead of growing a preload no model will read). Intel sessions run
+SFSpeech with diarization off, and the UI says so honestly (onboarding
+row, live banner, post-session review note, site FAQ) instead of
+promising "next session will be better". Rejected: shipping arm64-only
+(existing Intel customers would lose the app entirely) and runtime
+input validation (the divide is inside Apple's kernel; no input shape
+is documented safe on x86).

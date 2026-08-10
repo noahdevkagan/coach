@@ -152,7 +152,14 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         // When the model isn't on disk yet, don't hold the session hostage
         // behind a ~600 MB download: start immediately on SFSpeech (if it can
         // run on-device) and fetch Parakeet in the background for next time.
-        if ParakeetEngine.isCachedOnDisk || !Self.sfSpeechOnDeviceAvailable {
+        if !PlatformSupport.neuralModelsSupported {
+            // Intel: Parakeet would SIGFPE the process (see PlatformSupport).
+            // SFSpeech is the only engine; if it can't run on-device,
+            // makePipeline below throws and the session refuses to start
+            // rather than send audio off-device.
+            usingParakeet = false
+            mclog("[Capture] Intel Mac — Parakeet unsupported, using SFSpeech")
+        } else if ParakeetEngine.isCachedOnDisk || !Self.sfSpeechOnDeviceAvailable {
             emitStatus("Preparing transcription engine...")
             usingParakeet = await ParakeetEngine.shared.ensureLoaded()
         } else {

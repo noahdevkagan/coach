@@ -115,10 +115,14 @@ struct OnboardingChecklistView: View {
     }
 
     private var transcriptionRow: some View {
-        checklistRow(done: download.isReady,
+        // Intel: no download will ever run — show the row as settled with an
+        // honest caption instead of an eternally-unchecked download.
+        checklistRow(done: download.isReady || !PlatformSupport.neuralModelsSupported,
                      active: download.isActive,
                      title: "Transcription engine",
-                     caption: "High-accuracy, on-device (~600 MB). Downloads automatically.") {
+                     caption: PlatformSupport.neuralModelsSupported
+                         ? "High-accuracy, on-device (~600 MB). Downloads automatically."
+                         : "Intel Mac: uses Apple's built-in transcription. The high-accuracy engine and speaker naming need Apple Silicon.") {
             EmptyView()
         } detail: {
             ParakeetProgressLine()
@@ -155,7 +159,7 @@ struct OnboardingChecklistView: View {
                     Text(error)
                         .font(.caption2).foregroundStyle(.red)
                         .fixedSize(horizontal: false, vertical: true)
-                } else if !download.isReady {
+                } else if !download.isReady && PlatformSupport.neuralModelsSupported {
                     Text("Queued — starts after the transcription engine.")
                         .font(.caption2).foregroundStyle(.tertiary)
                 }

@@ -9,6 +9,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Fixed a crash on Intel Macs: the high-accuracy transcription model only runs on Apple Silicon, and starting a session on an Intel Mac could quit the app mid-meeting. Intel Macs now automatically use Apple's built-in transcription instead, and the app says clearly (during setup and in each session) that Intel isn't fully supported — reduced accuracy, no speaker identification. Intel Macs also no longer download the unusable 600 MB model
 - The truth about FaceTime and phone calls on your Mac: macOS blocks every app from hearing them — including the microphone itself, which goes silent for other apps the moment a call connects. Previously the app pretended to listen anyway and blamed you for 100% of the talking; now it detects the call and tells you straight, with what actually works: answer on your iPhone on speakerphone near your Mac, or use Zoom/Meet for coached calls
 - The microphone also now notices when it's receiving dead silence (a call grabbed it mid-session, a device glitch) and reconnects automatically instead of listening to nothing forever
 

@@ -39,6 +39,7 @@
 		46BB0140FA3D0C6D5953EA48 /* NextStepsSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C6B8636393601795161557 /* NextStepsSignal.swift */; };
 		47D5418F46BB2B90178F534E /* CoachingOverlayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E80054B1508EFBBFD8D840F3 /* CoachingOverlayPanel.swift */; };
 		48DFEC114082BF96EBEF74C8 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D25D2CC8CBD4346DBFB9924 /* main.swift */; };
+		4A4FF91E00B9AFD2E0944107 /* PlatformSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BB9F3C621505E5F9C1C74CF /* PlatformSupport.swift */; };
 		4C4CE6FBC1FF6641932BEC3B /* TrainingExample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C9A04C9B391284F7BCDBD2E /* TrainingExample.swift */; };
 		55D4DD753779ACBE7E35E8D3 /* NoteDistiller.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5AE5052D754AAC4553B6E69 /* NoteDistiller.swift */; };
 		5786720067BE8A950F4165ED /* SignalEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2E43CC253B7430EF30361 /* SignalEngine.swift */; };
@@ -153,6 +154,7 @@
 		68FD97A461F0CDDDFC997439 /* meetingcoach-mcp */ = {isa = PBXFileReference; includeInIndex = 0; path = "meetingcoach-mcp"; sourceTree = BUILT_PRODUCTS_DIR; };
 		69834923A05B2FEECE228263 /* ollama */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ollama; path = MeetingCoach/Resources/ollama; sourceTree = SOURCE_ROOT; };
 		6A1BF8C4DA14D327E81E1832 /* OllamaClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaClient.swift; sourceTree = "<group>"; };
+		6BB9F3C621505E5F9C1C74CF /* PlatformSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlatformSupport.swift; sourceTree = "<group>"; };
 		736B9D6AC7AFE9AA6A2D5725 /* Nudge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Nudge.swift; sourceTree = "<group>"; };
 		73E93FA8D25DA2577F2827FF /* ParakeetTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParakeetTranscriber.swift; sourceTree = "<group>"; };
 		74A9072A6A77D0C9F86838A1 /* Fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fonts; path = MeetingCoach/Resources/Fonts; sourceTree = SOURCE_ROOT; };
@@ -295,6 +297,7 @@
 				9AA712484D677FBBAA951166 /* OllamaManager.swift */,
 				CDAB5DD9D8D87802B15EAF68 /* ParakeetDownloadState.swift */,
 				73E93FA8D25DA2577F2827FF /* ParakeetTranscriber.swift */,
+				6BB9F3C621505E5F9C1C74CF /* PlatformSupport.swift */,
 				78FD64A28567F115FD3944A4 /* PromptBuilder.swift */,
 				3148143DE9DBDDDC62BC5535 /* RecapExporter.swift */,
 				A7923682551623339C11F93D /* RubricAdvisor.swift */,
@@ -614,6 +617,7 @@
 				ED6A7299FC6E5DD91524676C /* ParakeetDownloadState.swift in Sources */,
 				4030F7FB23A09D09F296291C /* ParakeetTranscriber.swift in Sources */,
 				1D7451CFA623A70BBDE9DBBC /* PermissionStatus.swift in Sources */,
+				4A4FF91E00B9AFD2E0944107 /* PlatformSupport.swift in Sources */,
 				C4B5DD336F4BEA94B577F930 /* PositiveSignals.swift in Sources */,
 				1C1FD0E1B619D8BD0BDE9FF4 /* PreCallContext.swift in Sources */,
 				643DA0464410998385AE5E60 /* PreCallFormView.swift in Sources */,

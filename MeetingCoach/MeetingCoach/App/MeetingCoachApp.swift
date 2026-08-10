@@ -164,7 +164,13 @@ struct MenuBarLabel: View {
                 // launches fetch too. Sequential on purpose: Parakeet
                 // (~600 MB, the core product) first, then the recommended
                 // LLM — parallel multi-GB pulls would just halve each other.
-                ParakeetDownloadState.shared.startIfNeeded {
+                if PlatformSupport.neuralModelsSupported {
+                    ParakeetDownloadState.shared.startIfNeeded {
+                        Task { await settings.autoDownloadRecommendedIfNeeded() }
+                    }
+                } else {
+                    // Intel: no Parakeet download to sequence behind — go
+                    // straight to the LLM.
                     Task { await settings.autoDownloadRecommendedIfNeeded() }
                 }
                 // ContentView also assigns this, but on a login/menu-bar-only

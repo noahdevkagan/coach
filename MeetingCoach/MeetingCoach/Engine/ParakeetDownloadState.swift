@@ -44,6 +44,10 @@ final class ParakeetDownloadState {
     /// available — immediately when cached, after the download otherwise,
     /// and never on failure (a retry that succeeds still fires it).
     func startIfNeeded(onReady: (@MainActor () -> Void)? = nil) {
+        // Intel: the model can't run here (see PlatformSupport), so a 600 MB
+        // download would be pure waste. Phase stays .idle; onReady never
+        // fires — callers chaining follow-up downloads must branch themselves.
+        guard PlatformSupport.neuralModelsSupported else { return }
         if ParakeetEngine.isCachedOnDisk {
             phase = .ready
             onReady?()

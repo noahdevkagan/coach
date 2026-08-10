@@ -20,13 +20,18 @@ actor ParakeetEngine {
     /// is never blocked behind the ~600 MB download — it starts on the
     /// SFSpeech fallback instead while the model fetches in the background.
     nonisolated static var isCachedOnDisk: Bool {
-        AsrModels.modelsExist(at: AsrModels.defaultCacheDirectory(for: .v2), version: .v2)
+        guard PlatformSupport.neuralModelsSupported else { return false }
+        return AsrModels.modelsExist(at: AsrModels.defaultCacheDirectory(for: .v2), version: .v2)
     }
 
     /// Load the engine, downloading models on first run (~600 MB, cached in
     /// Application Support/FluidAudio). Returns false if unavailable — the
     /// caller falls back to SFSpeechRecognizer.
     func ensureLoaded() async -> Bool {
+        guard PlatformSupport.neuralModelsSupported else {
+            mclog("[Parakeet] Skipped — model crashes on Intel (see PlatformSupport)")
+            return false
+        }
         if manager != nil { return true }
         do {
             let models = try await AsrModels.downloadAndLoad(version: .v2)
