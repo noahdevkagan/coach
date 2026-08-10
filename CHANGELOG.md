@@ -7,7 +7,7 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
-## Unreleased
+## 0.17.1 — 2026-08-10
 
 - A red dot on the menu bar icon shows when an update is waiting, with "Update available…" pinned to the top of the dropdown — so a dismissed update popup doesn't mean a missed update
 - Fixed a crash on Intel Macs: the high-accuracy transcription model only runs on Apple Silicon, and starting a session on an Intel Mac could quit the app mid-meeting. Intel Macs now automatically use Apple's built-in transcription instead, and the app says clearly (during setup and in each session) that Intel isn't fully supported — reduced accuracy, no speaker identification. Intel Macs also no longer download the unusable 600 MB model
