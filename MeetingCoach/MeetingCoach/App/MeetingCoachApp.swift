@@ -16,10 +16,16 @@ struct MeetingCoachApp: App {
     // check (respects SUEnableAutomaticChecks in Info.plist); the standard
     // controller shows the familiar "A new version is available" panel with
     // release notes, Download & Install — no custom UI needed.
-    private let updaterController = SPUStandardUpdaterController(
-        startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+    private let updaterController: SPUStandardUpdaterController
+    // Menu-bar red dot while an update is pending. The badge model is the
+    // updater's delegate, so it must exist before the controller does.
+    @StateObject private var updateBadge: UpdateBadgeModel
 
     init() {
+        let badge = UpdateBadgeModel()
+        _updateBadge = StateObject(wrappedValue: badge)
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: true, updaterDelegate: badge, userDriverDelegate: nil)
         // An always-available meeting detector must survive "I quit it
         // once": register as a login item on first launch (release builds
         // only — a dev build at login would fight the installed copy).
@@ -94,12 +100,14 @@ struct MeetingCoachApp: App {
         MenuBarExtra {
             MenuBarView(liveSession: liveSession, settings: settings,
                         ollamaManager: ollamaManager, detection: detection,
-                        updater: updaterController.updater)
+                        updater: updaterController.updater,
+                        updateBadge: updateBadge)
         } label: {
             // The label view is the app's only always-alive SwiftUI view, so
             // it also owns the floating "Meeting Detected" prompt panel.
             MenuBarLabel(liveSession: liveSession, settings: settings,
-                         ollamaManager: ollamaManager, detection: detection)
+                         ollamaManager: ollamaManager, detection: detection,
+                         updateBadge: updateBadge)
         }
 
         // Feedback form, opened from the menu bar dropdown.
@@ -143,11 +151,25 @@ struct MenuBarLabel: View {
     @Bindable var settings: SettingsViewModel
     @Bindable var ollamaManager: OllamaManager
     @Bindable var detection: MeetingDetectionService
+    @ObservedObject var updateBadge: UpdateBadgeModel
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.colorScheme) private var colorScheme
     @State private var promptPanel: MeetingPromptPanel?
 
     var body: some View {
-        Image(systemName: symbol)
+        // Normal state uses a plain SF Symbol (template image — the system
+        // recolors it for menu bar appearance). The update badge needs real
+        // color, and the menu bar strips color from template images, so that
+        // state hand-draws a non-template NSImage: glyph tinted to match the
+        // current appearance + a red dot that survives untouched.
+        Group {
+            if updateBadge.updateAvailable {
+                Image(nsImage: Self.badgedIcon(symbol: symbol,
+                                               dark: colorScheme == .dark))
+            } else {
+                Image(systemName: symbol)
+            }
+        }
             .onAppear {
                 detection.bind(liveSession: liveSession)
                 // Countdown expiry uses the same start path as the pill's
@@ -216,6 +238,32 @@ struct MenuBarLabel: View {
         #endif
     }
 
+    /// Menu-bar icon with the update dot. Non-template on purpose (see body)
+    /// — which means light/dark adaptation is on us, via `dark`.
+    private static func badgedIcon(symbol: String, dark: Bool) -> NSImage {
+        let size = NSSize(width: 20, height: 17)
+        let image = NSImage(size: size, flipped: false) { rect in
+            let glyphColor: NSColor = dark ? .white : .black
+            let config = NSImage.SymbolConfiguration(pointSize: 14.5, weight: .regular)
+                .applying(.init(paletteColors: [glyphColor]))
+            if let glyph = NSImage(systemSymbolName: symbol,
+                                   accessibilityDescription: "MeetingCoach")?
+                .withSymbolConfiguration(config) {
+                let g = glyph.size
+                glyph.draw(in: NSRect(x: (rect.width - g.width) / 2,
+                                      y: (rect.height - g.height) / 2,
+                                      width: g.width, height: g.height))
+            }
+            let d: CGFloat = 6.5
+            NSColor.systemRed.setFill()
+            NSBezierPath(ovalIn: NSRect(x: rect.maxX - d, y: rect.maxY - d,
+                                        width: d, height: d)).fill()
+            return true
+        }
+        image.isTemplate = false
+        return image
+    }
+
     private func showPrompt() {
         if promptPanel == nil { promptPanel = MeetingPromptPanel() }
         guard let panel = promptPanel else { return }
@@ -249,9 +297,19 @@ struct MenuBarView: View {
     @Bindable var ollamaManager: OllamaManager
     @Bindable var detection: MeetingDetectionService
     let updater: SPUUpdater
+    @ObservedObject var updateBadge: UpdateBadgeModel
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
+        // The red dot's landing spot: same Sparkle panel the daily check
+        // shows, but reachable the moment the user comes looking.
+        if updateBadge.updateAvailable {
+            Button("Update Available — Install…") {
+                updater.checkForUpdates()
+            }
+            Divider()
+        }
+
         if detection.meetingDetected && !liveSession.isLive {
             Button("Meeting detected — Start coaching") {
                 startCoaching()
@@ -312,6 +370,34 @@ struct MenuBarView: View {
         liveSession.startLive(context: liveSession.preCallContext,
                               settings: settings,
                               ollamaManager: ollamaManager)
+    }
+}
+
+// MARK: - Update badge
+
+/// Sparkle updater delegate that drives the menu-bar red dot. The scheduled
+/// (daily) check sets it; a later check that finds nothing — including after
+/// the user hits "Skip This Version" — clears it. An installed update clears
+/// it by relaunching the app. The Sparkle panel still appears as before; the
+/// dot just persists after the panel is dismissed.
+final class UpdateBadgeModel: NSObject, ObservableObject, SPUUpdaterDelegate {
+    @Published var updateAvailable = false
+
+    #if DEBUG
+    // GUI verification hook — the dot can't be triggered on demand otherwise:
+    // defaults write com.coach.MeetingCoach ForceUpdateBadge -bool true
+    override init() {
+        super.init()
+        updateAvailable = UserDefaults.standard.bool(forKey: "ForceUpdateBadge")
+    }
+    #endif
+
+    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+        DispatchQueue.main.async { self.updateAvailable = true }
+    }
+
+    func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
+        DispatchQueue.main.async { self.updateAvailable = false }
     }
 }
 
