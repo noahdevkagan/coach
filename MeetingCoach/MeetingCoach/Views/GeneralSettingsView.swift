@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Sparkle
 import UniformTypeIdentifiers
 
 /// One vocabulary rule as the user thinks of it: the error → the fix.
@@ -19,9 +20,15 @@ struct VocabEntry: Identifiable, Equatable {
 struct GeneralSettingsView: View {
     @Bindable var detection: MeetingDetectionService
     @Bindable var settings: SettingsViewModel
+    let updater: SPUUpdater
 
     /// Re-read after "Change…" so the row updates without relaunching.
     @State private var sessionsPath = AppSupport.sessionsDir.path
+
+    /// Mirror of Sparkle's automaticallyDownloadsUpdates (an NSObject
+    /// property SwiftUI can't observe directly). Synced on appear, written
+    /// through on toggle; Sparkle persists it to UserDefaults itself.
+    @State private var autoInstallUpdates = true
 
     /// Custom transcription vocabulary — same store the live pipeline and
     /// the transcript's "Fix a misheard term" flow write to.
@@ -52,6 +59,13 @@ struct GeneralSettingsView: View {
             Section("Startup") {
                 Toggle("Start MeetingCoach at login", isOn: $settings.launchAtLogin)
                 Text("Opens MeetingCoach automatically after a restart or log-in, so meeting detection is ready before your first call. Also manageable under System Settings \u{2192} General \u{2192} Login Items.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Software updates") {
+                Toggle("Install updates automatically", isOn: $autoInstallUpdates)
+                Text("Updates download in the background and install the next time the app isn't running \u{2014} never during a meeting. Turn this off to review each update yourself; the menu bar dot will tell you when one is waiting.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -193,7 +207,13 @@ struct GeneralSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .onAppear { syncVocabFromStorage() }
+        .onAppear {
+            syncVocabFromStorage()
+            autoInstallUpdates = updater.automaticallyDownloadsUpdates
+        }
+        .onChange(of: autoInstallUpdates) { _, on in
+            updater.automaticallyDownloadsUpdates = on
+        }
         // The transcript's "Fix a misheard term" flow writes to the same
         // store — refresh the rows if it changes while Settings is open.
         .onChange(of: vocabularyText) { _, _ in syncVocabFromStorage() }

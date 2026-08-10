@@ -7,6 +7,13 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## 0.17.2 — 2026-08-10
+
+- Updates now install themselves: they download quietly in the background and apply the next time the app isn't running — never during a meeting. No more missing a fix because an update popup got dismissed
+- If an update has been waiting a few days (this app rarely quits, so it rarely gets the chance to install), the app offers it right after a call ends — at most once a day, and never while you're in one. The menu bar shows how long it's been waiting
+- Prefer to review each update yourself? Settings → General → "Install updates automatically" turns the automatic behavior off; the menu bar dot still tells you when one is ready
+- The app now records its version when it starts, so support questions get answered from your first log line instead of guesswork
+
 ## 0.17.1 — 2026-08-10
 
 - A red dot on the menu bar icon shows when an update is waiting, with "Update available…" pinned to the top of the dropdown — so a dismissed update popup doesn't mean a missed update

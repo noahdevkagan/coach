@@ -22,6 +22,16 @@ struct MeetingCoachApp: App {
     @StateObject private var updateBadge: UpdateBadgeModel
 
     init() {
+        // First line of every run: which binary produced this log. Field
+        // debugging 2026-08-10 had to fingerprint the version from log-line
+        // *ordering* because nothing ever logged it.
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        let commit = info?["MCBuildCommit"] as? String
+        mclog("[App] MeetingCoach v\(version) (build \(build))"
+              + (commit.map { " @ \($0)" } ?? ""))
+
         let badge = UpdateBadgeModel()
         _updateBadge = StateObject(wrappedValue: badge)
         updaterController = SPUStandardUpdaterController(
@@ -107,6 +117,7 @@ struct MeetingCoachApp: App {
             // it also owns the floating "Meeting Detected" prompt panel.
             MenuBarLabel(liveSession: liveSession, settings: settings,
                          ollamaManager: ollamaManager, detection: detection,
+                         updater: updaterController.updater,
                          updateBadge: updateBadge)
         }
 
@@ -127,7 +138,8 @@ struct MeetingCoachApp: App {
         // and Stats (session trends + learned sensitivity).
         Settings {
             TabView {
-                GeneralSettingsView(detection: detection, settings: settings)
+                GeneralSettingsView(detection: detection, settings: settings,
+                                    updater: updaterController.updater)
                     .tabItem { Label("General", systemImage: "gear") }
                 ScrollView {
                     SessionTrendsView()
@@ -151,6 +163,7 @@ struct MenuBarLabel: View {
     @Bindable var settings: SettingsViewModel
     @Bindable var ollamaManager: OllamaManager
     @Bindable var detection: MeetingDetectionService
+    let updater: SPUUpdater
     @ObservedObject var updateBadge: UpdateBadgeModel
     @Environment(\.openWindow) private var openWindow
     @Environment(\.colorScheme) private var colorScheme
@@ -199,6 +212,20 @@ struct MenuBarLabel: View {
                 // launch the main window never opens — without it the engine
                 // handle is nil and launch flows silently no-op.
                 settings.ollamaManager = ollamaManager
+            }
+            .onChange(of: liveSession.isLive) { wasLive, isLive in
+                // Session-end update reminder: a login-item menu-bar app can
+                // run for weeks without the quit that lets Sparkle install
+                // its downloaded update (field report 2026-08-10: a week-old
+                // CPU fix sitting undelivered). The end of a call is the one
+                // natural pause — never during one — so a stale update
+                // (3+ days, once a day max) re-surfaces the panel here. The
+                // delay lets session teardown and the review UI settle first.
+                if wasLive && !isLive && updateBadge.shouldNagNow() {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        updater.checkForUpdates()
+                    }
+                }
             }
             .onChange(of: detection.meetingDetected) { _, detected in
                 if detected {
@@ -302,10 +329,18 @@ struct MenuBarView: View {
 
     var body: some View {
         // The red dot's landing spot: same Sparkle panel the daily check
-        // shows, but reachable the moment the user comes looking.
+        // shows, but reachable the moment the user comes looking. Once the
+        // update has sat unclaimed a few days the label says so — "available"
+        // reads as optional, "waiting N days" reads as overdue.
         if updateBadge.updateAvailable {
-            Button("Update Available — Install…") {
+            Button {
                 updater.checkForUpdates()
+            } label: {
+                if let days = updateBadge.daysWaiting, days >= UpdateBadgeModel.staleAfterDays {
+                    Text("Update waiting \(days) days — Install…")
+                } else {
+                    Text("Update Available — Install…")
+                }
             }
             Divider()
         }
@@ -380,8 +415,42 @@ struct MenuBarView: View {
 /// the user hits "Skip This Version" — clears it. An installed update clears
 /// it by relaunching the app. The Sparkle panel still appears as before; the
 /// dot just persists after the panel is dismissed.
+///
+/// It also remembers *when* each update version was first seen (persisted, so
+/// relaunches don't reset the clock). A login-item menu-bar app can run for
+/// weeks without the quit that lets Sparkle auto-install, so once an update
+/// has been waiting `staleAfterDays` the app escalates: the menu item says
+/// how long, and the end of a session re-surfaces the update panel (at most
+/// once a day, never mid-meeting) — see MenuBarLabel.
 final class UpdateBadgeModel: NSObject, ObservableObject, SPUUpdaterDelegate {
     @Published var updateAvailable = false
+
+    static let staleAfterDays = 3
+    private static let firstSeenVersionKey = "updateFirstSeenVersion"
+    private static let firstSeenDateKey = "updateFirstSeenDate"
+    private static let lastNagDateKey = "updateLastNagDate"
+
+    /// Days the currently-offered update has been waiting, or nil when none.
+    var daysWaiting: Int? {
+        guard updateAvailable,
+              let seen = UserDefaults.standard.object(forKey: Self.firstSeenDateKey) as? Date
+        else { return nil }
+        return Calendar.current.dateComponents([.day], from: seen, to: Date()).day
+    }
+
+    var isStale: Bool { (daysWaiting ?? 0) >= Self.staleAfterDays }
+
+    /// True at most once per day while an update is stale — the session-end
+    /// reminder consumes this so ending three calls in an afternoon doesn't
+    /// nag three times.
+    func shouldNagNow() -> Bool {
+        guard isStale else { return false }
+        let defaults = UserDefaults.standard
+        if let last = defaults.object(forKey: Self.lastNagDateKey) as? Date,
+           Calendar.current.isDateInToday(last) { return false }
+        defaults.set(Date(), forKey: Self.lastNagDateKey)
+        return true
+    }
 
     #if DEBUG
     // GUI verification hook — the dot can't be triggered on demand otherwise:
@@ -393,10 +462,19 @@ final class UpdateBadgeModel: NSObject, ObservableObject, SPUUpdaterDelegate {
     #endif
 
     func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+        let defaults = UserDefaults.standard
+        // Keyed by version so a newer release restarts the staleness clock
+        // instead of inheriting the previous update's age.
+        if defaults.string(forKey: Self.firstSeenVersionKey) != item.versionString {
+            defaults.set(item.versionString, forKey: Self.firstSeenVersionKey)
+            defaults.set(Date(), forKey: Self.firstSeenDateKey)
+        }
         DispatchQueue.main.async { self.updateAvailable = true }
     }
 
     func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
+        UserDefaults.standard.removeObject(forKey: Self.firstSeenVersionKey)
+        UserDefaults.standard.removeObject(forKey: Self.firstSeenDateKey)
         DispatchQueue.main.async { self.updateAvailable = false }
     }
 }

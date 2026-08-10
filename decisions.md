@@ -642,3 +642,24 @@ promising "next session will be better". Rejected: shipping arm64-only
 (existing Intel customers would lose the app entirely) and runtime
 input validation (the divide is inside Apple's kernel; no input shape
 is documented safe on x86).
+
+## 2026-08-10 — Updates install themselves; stale updates escalate at session end
+
+A field report (friend on an M4 Air) traced "the app slows my computer"
+to a pre-0.12.0 build still running the two-engine CPU bug a week after
+the fix shipped — Sparkle only auto-checked, so a dismissed panel meant
+staying stale indefinitely. Three changes: (1) SUAutomaticallyUpdate on
+— updates download in the background and install at quit/reboot with no
+click needed; (2) because a login-item menu-bar app can run for weeks
+without quitting, an update pending 3+ days re-surfaces the Sparkle
+panel when a session ends (never mid-call, once a day max) and the
+menu-bar item escalates to "Update waiting N days"; (3) every launch now
+logs "[App] MeetingCoach vX (build N) @ commit" — that field session had
+to fingerprint the running version from log-line *ordering* because
+nothing ever logged it. Rejected: force-relaunch after install-on-idle
+(too aggressive for an app that may be mid-workday context) and nagging
+on a timer (interrupts meetings; session end is the one natural pause).
+Sparkle persists the master switch in UserDefaults, so the new
+Settings → General → "Install updates automatically" toggle (on by
+default) binds straight to updater.automaticallyDownloadsUpdates — no
+parallel preference key to drift.

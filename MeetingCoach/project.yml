@@ -38,6 +38,13 @@ targets:
         # (secret SPARKLE_ED_PRIVATE_KEY). Placeholder replaced by generate_keys.
         SUPublicEDKey: "AAD6OqEDMP6l/7gMFXBY8knuVAZWigp77zuYSSAS8CE="
         SUEnableAutomaticChecks: true
+        # Download and install updates without waiting for a click: a
+        # dismissed update panel used to mean staying stale until the user
+        # went looking (field report 2026-08-10: a pre-0.12.0 build still
+        # burning double-engine CPU a week after the fix shipped). With this
+        # on, Sparkle fetches in the background and installs at quit/reboot;
+        # the red dot + session-end reminder cover the never-quits case.
+        SUAutomaticallyUpdate: true
         # Daily is enough (and it also checks at every launch).
         SUScheduledCheckInterval: 86400
     sources:
