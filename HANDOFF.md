@@ -7,9 +7,13 @@ The durable "why" behind choices goes in `decisions.md`, not here.
 
 ## Current state (2026-08-09)
 
-- **IN PROGRESS (2026-08-11, branch crxnamja/improve-speaker-naming):
-  Reliable speaker naming** — plan reviewed and agreed
-  (.context/attachments/3XGTxn/plan.md holds the full updated plan).
+- **v0.18.0 SHIPPED 2026-08-11 — Reliable speaker naming** (built on
+  branch crxnamja/improve-speaker-naming, fast-forwarded to main, tag
+  released via CI, site deployed). Full plan + agreed adjustments in
+  .context/attachments/3XGTxn/plan.md; rationale in decisions.md
+  (2026-08-11 entries). Manual validation still owed on real hardware:
+  dual-channel one-on-one, three-person call, next-session voice
+  recognition, callout/pencil UI. Scope shipped:
   Scope: (1) `ParticipantStore` extracted to `Models/ParticipantStore.swift`
   with `remember(name:)` + pure typeahead matching; every rename persists
   the name immediately (gated `!isDemo`). (2) Rename popover typeahead
