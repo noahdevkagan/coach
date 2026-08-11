@@ -28,6 +28,9 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Engine/PromptBuilder.swift" \
   "$SRC/Engine/DeterministicReview.swift" \
   "$SRC/Engine/TranscriptParser.swift" \
+  "$SRC/Engine/PendingProfileSaves.swift" \
+  "$SRC/Engine/VoiceProfileStore.swift" \
+  "$SRC/Models/ParticipantStore.swift" \
   "$SRC/Models/Utterance.swift" \
   "$SRC/Models/Nudge.swift" \
   "$SRC/Models/MeetingReview.swift" \

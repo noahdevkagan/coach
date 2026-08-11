@@ -226,6 +226,252 @@ func runTests() async {
         vm.deleteSession()
         UserDefaults.standard.removeObject(forKey: "customVocabularyText")
     }
+
+    // 7. One-on-one alias (display layer): renaming the sole diarized
+    //    remote voice makes later RAW "Them" speech display — and save —
+    //    under the same name, while stored labels stay raw so the alias
+    //    can be dropped without provenance tracking.
+    do {
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext())
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let capture = AudioCaptureManager.last else {
+            check(false, "capture manager wired (7)"); return
+        }
+        capture.onUtterance?(Utterance(t: 1, speaker: "Them",
+            text: "Hi there, can you hear me alright today?", endT: 3))
+        try? await Task.sleep(for: .milliseconds(50))
+        capture.onSpeakerSegments?(.system, [
+            SpeakerSegment(speaker: "Them 1", start: 0.9, end: 3.1),
+        ])
+        try? await Task.sleep(for: .milliseconds(50))
+
+        vm.renameSpeaker("Them 1", to: "Lyndsay")
+        check(vm.displaySpeaker("Them") == "Lyndsay",
+              "sole remote name aliases raw Them",
+              "got \(vm.displaySpeaker("Them"))")
+
+        // Later far-side words the diarizer hasn't refined yet.
+        capture.onUtterance?(Utterance(t: 5, speaker: "Them",
+            text: "Great, let us get going then.", endT: 7))
+        try? await Task.sleep(for: .milliseconds(50))
+        check(vm.utterances.last?.speaker == "Them",
+              "stored label stays raw (display-layer alias only)",
+              "got \(vm.utterances.last?.speaker ?? "nil")")
+
+        vm.stopLive()
+        var body = ""
+        if let saved = try? FileManager.default.contentsOfDirectory(atPath: scratch.path) {
+            for file in saved where file.hasPrefix("session_") {
+                let content = (try? String(
+                    contentsOfFile: scratch.appendingPathComponent(file).path,
+                    encoding: .utf8)) ?? ""
+                if content.contains("hear me alright") { body = content }
+            }
+        }
+        check(body.contains("Lyndsay: Hi there, can you hear me alright today? Great, let us get going then."),
+              "saved file coalesces Them/Them-1 fragments under the real name",
+              "transcript: \(body.components(separatedBy: "## Transcript").last?.prefix(200) ?? "")")
+        check(!body.contains("] Them:") && !body.contains("] Them 1:"),
+              "no raw Them lines survive in the saved file")
+        vm.deleteSession()
+    }
+
+    // 8. A second remote voice retires the alias: raw "Them" reverts to
+    //    numbered/raw labels instantly, while the explicitly named
+    //    speaker's turns stay named.
+    do {
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext())
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let capture = AudioCaptureManager.last else {
+            check(false, "capture manager wired (8)"); return
+        }
+        capture.onUtterance?(Utterance(t: 1, speaker: "Them",
+            text: "First remote voice speaking here now.", endT: 3))
+        try? await Task.sleep(for: .milliseconds(50))
+        capture.onSpeakerSegments?(.system, [
+            SpeakerSegment(speaker: "Them 1", start: 0.9, end: 3.1),
+        ])
+        try? await Task.sleep(for: .milliseconds(50))
+        vm.renameSpeaker("Them 1", to: "Lyndsay")
+
+        capture.onUtterance?(Utterance(t: 5, speaker: "Them",
+            text: "And a totally different second voice.", endT: 7))
+        try? await Task.sleep(for: .milliseconds(50))
+        check(vm.displaySpeaker("Them") == "Lyndsay", "alias active before second voice")
+
+        // Diarizer now separates two people (stale "Them 1" label rides in).
+        capture.onSpeakerSegments?(.system, [
+            SpeakerSegment(speaker: "Them 1", start: 0.9, end: 3.1),
+            SpeakerSegment(speaker: "Them 2", start: 4.9, end: 7.1),
+        ])
+        try? await Task.sleep(for: .milliseconds(50))
+        check(vm.displaySpeaker("Them") == "Them",
+              "second remote voice retires the alias")
+        check(vm.utterances.map(\.speaker) == ["Lyndsay", "Them 2"],
+              "named speaker keeps her turns; second voice gets its own label",
+              "got \(vm.utterances.map(\.speaker))")
+
+        // Chained rename stays stable alongside the alias machinery.
+        vm.renameSpeaker("Lyndsay", to: "Lyndsay K")
+        check(vm.utterances.map(\.speaker) == ["Lyndsay K", "Them 2"],
+              "chained rename relabels cleanly",
+              "got \(vm.utterances.map(\.speaker))")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // 9. Pre-call seeding: exactly one named participant provisionally
+    //    names the far side; an enrolled real name beats the guess; and
+    //    multiple voices appearing revert to honest numbered labels.
+    do {
+        var ctx = PreCallContext()
+        ctx.participants = [.init(name: "Priya", role: "designer")]
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: ctx)
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let capture = AudioCaptureManager.last else {
+            check(false, "capture manager wired (9)"); return
+        }
+        check(vm.displaySpeaker("Them") == "Priya",
+              "single pre-call participant seeds the provisional alias")
+        check(vm.displaySpeaker("You") == "You", "alias never touches You")
+
+        // A diarized voice carrying a real (enrolled) name outranks the seed.
+        capture.onSpeakerSegments?(.system, [
+            SpeakerSegment(speaker: "Caitlin", start: 1, end: 4),
+        ])
+        try? await Task.sleep(for: .milliseconds(50))
+        check(vm.displaySpeaker("Them") == "Caitlin",
+              "enrolled real name beats the pre-call seed",
+              "got \(vm.displaySpeaker("Them"))")
+
+        // Two distinct voices → never guess.
+        capture.onSpeakerSegments?(.system, [
+            SpeakerSegment(speaker: "Them 1", start: 1, end: 4),
+            SpeakerSegment(speaker: "Them 2", start: 5, end: 8),
+        ])
+        try? await Task.sleep(for: .milliseconds(50))
+        check(vm.displaySpeaker("Them") == "Them",
+              "multiple voices revert to numbered labels")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // 10. Renaming after Stop rewrites ONLY the saved file's transcript
+    //     section — title and review survive byte-for-byte.
+    do {
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext())
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let capture = AudioCaptureManager.last else {
+            check(false, "capture manager wired (10)"); return
+        }
+        capture.onUtterance?(Utterance(t: 1, speaker: "You",
+            text: "Kicking off the design review now.", endT: 3))
+        capture.onUtterance?(Utterance(t: 5, speaker: "Them",
+            text: "Thanks, sharing my screen in a second.", endT: 7))
+        try? await Task.sleep(for: .milliseconds(50))
+        capture.onSpeakerSegments?(.system, [
+            SpeakerSegment(speaker: "Them 1", start: 4.9, end: 7.1),
+        ])
+        try? await Task.sleep(for: .milliseconds(50))
+        vm.stopLive()
+
+        guard let path = vm.savedPath else {
+            check(false, "session file saved (10)"); return
+        }
+        let url = URL(fileURLWithPath: path)
+        // What the app would have added by now: a human title + a review.
+        TranscriptSearch.setTitle("Design review · Priya", for: url)
+        var content = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        content = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        content += "\n\n## Review\n\n- Notable: they drove the demo\n"
+        try? content.write(to: url, atomically: true, encoding: .utf8)
+
+        vm.renameSpeaker("Them 1", to: "Priya")
+        let after = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        check(after.contains("Priya: Thanks, sharing my screen"),
+              "post-stop rename lands in the saved transcript",
+              "file: \(after.prefix(300))")
+        check(!after.contains("] Them 1:"), "old label gone from the saved transcript")
+        check(after.contains("**Title:** Design review · Priya"),
+              "title survives the transcript rewrite")
+        check(after.contains("## Review") && after.contains("they drove the demo"),
+              "review survives the transcript rewrite")
+        vm.deleteSession()
+    }
+
+    // 11. Participant memory: renames persist names immediately (no voice
+    //     profile needed), case-insensitively deduped, roles preserved;
+    //     typeahead ranks prefix matches before substring matches.
+    do {
+        UserDefaults.standard.removeObject(forKey: "savedParticipants")
+        ParticipantStore.save([.init(name: "Lyndsay", role: "founder")])
+        ParticipantStore.remember(name: "  lyndsay ")
+        var people = ParticipantStore.load()
+        check(people.count == 1, "remember dedupes case-insensitively",
+              "got \(people.map(\.name))")
+        check(people.first?.role == "founder", "existing role preserved")
+
+        ParticipantStore.remember(name: "Matt")
+        people = ParticipantStore.load()
+        check(people.map(\.name) == ["Lyndsay", "Matt"], "new name appended",
+              "got \(people.map(\.name))")
+
+        // A real rename reaches the store the moment it happens.
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext())
+        try? await Task.sleep(for: .milliseconds(300))
+        AudioCaptureManager.last?.onUtterance?(Utterance(
+            t: 1, speaker: "Them", text: "Hello over there.", endT: 2))
+        try? await Task.sleep(for: .milliseconds(50))
+        vm.renameSpeaker("Them", to: "Caitlin")
+        check(ParticipantStore.load().contains { $0.name == "Caitlin" },
+              "rename persists the name into participant memory immediately")
+        vm.stopLive()
+        vm.deleteSession()
+
+        let ranked = ParticipantStore.typeaheadMatches(
+            "ly", in: ["Molly", "Lyndsay", "Waly", "Lyle"])
+        check(ranked == ["Lyndsay", "Lyle", "Molly", "Waly"],
+              "typeahead ranks prefix before substring, stable within groups",
+              "got \(ranked)")
+        check(ParticipantStore.typeaheadMatches("", in: ["A", "B", "C", "D", "E", "F"])
+              == ["A", "B", "C", "D", "E"],
+              "empty query offers the first five candidates")
+        check(ParticipantStore.typeaheadMatches("zz", in: ["Molly"]).isEmpty,
+              "no match, no suggestions")
+        UserDefaults.standard.removeObject(forKey: "savedParticipants")
+    }
+
+    // 12. PendingProfileSaves: naming before 3s of clip loses nothing —
+    //     the save fires once the clip is viable, and session end refreshes
+    //     only when the clip actually grew.
+    do {
+        var p = PendingProfileSaves()
+        p.name(slot: 0, as: "Caitlin")
+        check(p.due(clipSeconds: [0: 1.2], minSeconds: 3, final: false).isEmpty,
+              "no save before the clip is viable")
+        let first = p.due(clipSeconds: [0: 3.4], minSeconds: 3, final: false)
+        check(first.map(\.name) == ["Caitlin"], "first viable save fires",
+              "got \(first)")
+        check(p.due(clipSeconds: [0: 3.4], minSeconds: 3, final: false).isEmpty,
+              "no rewrite on every publish")
+        check(p.due(clipSeconds: [0: 6.0], minSeconds: 3, final: false).isEmpty,
+              "mid-session growth alone doesn't rewrite")
+        check(p.due(clipSeconds: [0: 11.8], minSeconds: 3, final: true).map(\.name) == ["Caitlin"],
+              "session end refreshes with the fuller clip")
+        check(p.due(clipSeconds: [0: 11.8], minSeconds: 3, final: true).isEmpty,
+              "final refresh is a no-op unless the clip grew")
+        p.name(slot: 0, as: "Kate")
+        check(p.due(clipSeconds: [0: 11.8], minSeconds: 3, final: true).map(\.name) == ["Kate"],
+              "renaming owes a save under the new name")
+        // A slot never named never saves, however long its clip.
+        check(p.due(clipSeconds: [1: 12.0], minSeconds: 3, final: true).isEmpty,
+              "unnamed slots (enrolled profiles) are never auto-refreshed")
+    }
 }
 
 await runTests()

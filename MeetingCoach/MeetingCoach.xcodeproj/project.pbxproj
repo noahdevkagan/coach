@@ -23,6 +23,7 @@
 		1D7451CFA623A70BBDE9DBBC /* PermissionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 225E2615B3AE8C52C84A54FD /* PermissionStatus.swift */; };
 		1F9054E3DCAD7089CBA0CBA2 /* Utterance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81D33EEE89EF224DC87FCF6E /* Utterance.swift */; };
 		1FD450DC57AD4C53698800D3 /* MeetingCoachApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAF9E10DE86916E79704CA2C /* MeetingCoachApp.swift */; };
+		2265774E4ECFBF672ACE5D79 /* PendingProfileSaves.swift in Sources */ = {isa = PBXBuildFile; fileRef = A754A24BB56F62D6EE2963EA /* PendingProfileSaves.swift */; };
 		230953F58905C232A72F61EF /* SearchResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38AF9EC84551A2A07E86DADF /* SearchResultsView.swift */; };
 		27B1368F1ECD54E49385BA3E /* GoingQuietSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4A0318F6463431087594DA0 /* GoingQuietSignal.swift */; };
 		2916A44AB67B6A20284FA249 /* demo_nudges.json in Resources */ = {isa = PBXBuildFile; fileRef = 59A325315611300C1A9E2C53 /* demo_nudges.json */; };
@@ -47,6 +48,7 @@
 		643DA0464410998385AE5E60 /* PreCallFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25F544EB2BBE998E71984423 /* PreCallFormView.swift */; };
 		6C768BCDCE0CDE33A7F70567 /* Mclog.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5560738095EF73A5816E554 /* Mclog.swift */; };
 		6DDB4B7AD7A30F488D641CD9 /* GeneralSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35350EAFCF72EF5D24FA7AA1 /* GeneralSettingsView.swift */; };
+		752E7C3A09F3FFE9824E2003 /* ParticipantStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 208023EBBD04229F5503508A /* ParticipantStore.swift */; };
 		75C0D28E8BF07978D20349B6 /* SpeakerDiarizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB68720A316FEE2207F54E4B /* SpeakerDiarizer.swift */; };
 		7695EE35AC12FBA6F262F79C /* GiveMeetingCoachView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51D181953D6BD49C3F54771 /* GiveMeetingCoachView.swift */; };
 		7738C639EFAA02BEF8DD5765 /* FeedbackFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35B1ADEF0B99BDEB25D36FE4 /* FeedbackFormView.swift */; };
@@ -128,6 +130,7 @@
 		169665A106EBBC6CCDA1F018 /* AudioCaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCaptureManager.swift; sourceTree = "<group>"; };
 		1AD95CCA3F1885640ECB50DE /* demo_meeting.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = demo_meeting.txt; sourceTree = "<group>"; };
 		1E8658BF35A80CECD00D0FBE /* VoiceProfileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceProfileStore.swift; sourceTree = "<group>"; };
+		208023EBBD04229F5503508A /* ParticipantStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParticipantStore.swift; sourceTree = "<group>"; };
 		225E2615B3AE8C52C84A54FD /* PermissionStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionStatus.swift; sourceTree = "<group>"; };
 		226945101416D23B896436E1 /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
 		23D1C856F0DF834FA86ED8B8 /* default_rubric.yaml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = default_rubric.yaml; sourceTree = "<group>"; };
@@ -179,6 +182,7 @@
 		A1A12E30BEB51DFB2F939AE4 /* MeetingDetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDetectionService.swift; sourceTree = "<group>"; };
 		A4A0318F6463431087594DA0 /* GoingQuietSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoingQuietSignal.swift; sourceTree = "<group>"; };
 		A5AE5052D754AAC4553B6E69 /* NoteDistiller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteDistiller.swift; sourceTree = "<group>"; };
+		A754A24BB56F62D6EE2963EA /* PendingProfileSaves.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingProfileSaves.swift; sourceTree = "<group>"; };
 		A7923682551623339C11F93D /* RubricAdvisor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RubricAdvisor.swift; sourceTree = "<group>"; };
 		B3C6B8636393601795161557 /* NextStepsSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NextStepsSignal.swift; sourceTree = "<group>"; };
 		B601F828AB17A262298DF0AE /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -297,6 +301,7 @@
 				9AA712484D677FBBAA951166 /* OllamaManager.swift */,
 				CDAB5DD9D8D87802B15EAF68 /* ParakeetDownloadState.swift */,
 				73E93FA8D25DA2577F2827FF /* ParakeetTranscriber.swift */,
+				A754A24BB56F62D6EE2963EA /* PendingProfileSaves.swift */,
 				6BB9F3C621505E5F9C1C74CF /* PlatformSupport.swift */,
 				78FD64A28567F115FD3944A4 /* PromptBuilder.swift */,
 				3148143DE9DBDDDC62BC5535 /* RecapExporter.swift */,
@@ -323,6 +328,7 @@
 				B7CDB212B0E5B6D49D07C0A8 /* FocusGoals.swift */,
 				35964E2F9634996C0ACEB39C /* MeetingReview.swift */,
 				736B9D6AC7AFE9AA6A2D5725 /* Nudge.swift */,
+				208023EBBD04229F5503508A /* ParticipantStore.swift */,
 				225E2615B3AE8C52C84A54FD /* PermissionStatus.swift */,
 				0302009AC6EADB2189C6E775 /* PreCallContext.swift */,
 				947B36BFD468E1C108A1381C /* ReferralInvites.swift */,
@@ -616,6 +622,8 @@
 				070C44F2395C329D75265ED2 /* OverrunSignal.swift in Sources */,
 				ED6A7299FC6E5DD91524676C /* ParakeetDownloadState.swift in Sources */,
 				4030F7FB23A09D09F296291C /* ParakeetTranscriber.swift in Sources */,
+				752E7C3A09F3FFE9824E2003 /* ParticipantStore.swift in Sources */,
+				2265774E4ECFBF672ACE5D79 /* PendingProfileSaves.swift in Sources */,
 				1D7451CFA623A70BBDE9DBBC /* PermissionStatus.swift in Sources */,
 				4A4FF91E00B9AFD2E0944107 /* PlatformSupport.swift in Sources */,
 				C4B5DD336F4BEA94B577F930 /* PositiveSignals.swift in Sources */,

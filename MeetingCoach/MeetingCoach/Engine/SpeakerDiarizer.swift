@@ -109,6 +109,9 @@ final class SpeakerDiarizer: @unchecked Sendable {
         var consumedUntil: TimeInterval = 0
     }
     private var clips: [Int: ClipBuffer] = [:]
+    /// Names given this session whose clips may not be viable yet — saves
+    /// fire as clips cross the minimum, with a final refresh at stop.
+    private var pendingSaves = PendingProfileSaves()
     /// Display label per slot at last publish — lets rename/clip lookups
     /// keep working after stop() releases the model.
     private var labelBySlot: [Int: String] = [:]
@@ -205,6 +208,9 @@ final class SpeakerDiarizer: @unchecked Sendable {
                 try? d.finalizeSession()
                 self.publish(from: d)
             }
+            // Speakers named this session get their profile refreshed with
+            // the fullest clip the session collected (final harvest above).
+            self.flushProfileSaves(final: true)
             // Keep clips + labelBySlot: naming a speaker from the
             // post-session view still needs them.
             self.diarizer = nil
@@ -226,10 +232,18 @@ final class SpeakerDiarizer: @unchecked Sendable {
                 mclog("[Diarizer:\(self.labelPrefix)] rename: unknown label \(label)")
                 return
             }
-            if let clip = self.clips[slot], clip.rate > 0 {
-                VoiceProfileStore.save(name: name, samples: clip.samples, sampleRate: clip.rate)
-            } else {
-                mclog("[Diarizer:\(self.labelPrefix)] rename: no clip collected for \(label) yet")
+            // Naming before the clip is viable keeps the name pending — the
+            // save fires from publish() once enough speech is collected
+            // (early renames used to silently save no profile). After stop
+            // the clip is as full as it gets, so refresh immediately.
+            self.pendingSaves.name(slot: slot, as: name)
+            self.flushProfileSaves(final: self.stopped)
+            let collected = self.clips[slot].map {
+                $0.rate > 0 ? Double($0.samples.count) / $0.rate : 0
+            } ?? 0
+            if collected < VoiceProfileStore.minClipSeconds {
+                mclog("[Diarizer:\(self.labelPrefix)] rename: clip for \(label) at "
+                      + String(format: "%.1f", collected) + "s — profile save pending")
             }
             self.labelBySlot[slot] = name
             if let d = self.diarizer {
@@ -305,9 +319,22 @@ final class SpeakerDiarizer: @unchecked Sendable {
                 ))
             }
         }
+        flushProfileSaves(final: false)
         guard !segments.isEmpty else { return }
         segments.sort { $0.start < $1.start }
         onSegments?(segments)
+    }
+
+    /// Write any name whose clip just became viable (or, at session end,
+    /// grew past what was last written) to the profile store.
+    private func flushProfileSaves(final: Bool) {
+        let seconds = clips.mapValues { $0.rate > 0 ? Double($0.samples.count) / $0.rate : 0 }
+        for save in pendingSaves.due(clipSeconds: seconds,
+                                     minSeconds: VoiceProfileStore.minClipSeconds,
+                                     final: final) {
+            guard let clip = clips[save.slot] else { continue }
+            VoiceProfileStore.save(name: save.name, samples: clip.samples, sampleRate: clip.rate)
+        }
     }
 
     /// Top up this speaker's voice clip from newly finalized segments still

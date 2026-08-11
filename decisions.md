@@ -663,3 +663,33 @@ Sparkle persists the master switch in UserDefaults, so the new
 Settings → General → "Install updates automatically" toggle (on by
 default) binds straight to updater.automaticallyDownloadsUpdates — no
 parallel preference key to drift.
+
+## 2026-08-11 — One-on-one remote alias is display-layer only, never a mutation
+In a dual-channel one-on-one, "Them"-family labels alias to the sole
+remote name (renamed voice > enrolled name > single pre-call participant)
+via `LiveSessionViewModel.displaySpeaker`; stored utterance labels stay
+raw. Why: when a second remote voice appears, dropping the alias reverts
+every guessed label instantly with zero provenance tracking — a mutation
+path would need to know which turns were aliased vs. diarizer-assigned
+and un-relabel them. Explicit renames keep the existing mutation path;
+saved files serialize through the same resolver (alias applied before
+turn coalescing, so "Them"/"Them 1" fragments of one person merge under
+their real name). Two or more distinct remote voices always show
+numbered labels — never guess on a group call.
+
+## 2026-08-11 — Deferred voice-profile saves, scoped to speakers named this session
+Naming a speaker before 3s of clip exists keeps the name pending
+(`PendingProfileSaves`, pure state in the diarizer); the save fires from
+publish() when the clip crosses the minimum, with one refresh at stop
+using the fullest clip (≤12s cap). Why: the early, most natural rename
+("Them" → Caitlin in the first minute) used to silently save no profile.
+Scope is ONLY slots the user named this session — enrolled profiles are
+never auto-refreshed from session audio, because one misattributed
+session (speaker bleed) would silently poison a good profile.
+
+## 2026-08-11 — Post-stop rename rewrites only the saved file's `## Transcript` section
+Accepted limitation: old labels inside nudge lines, the `## Review`
+section, and the `**Participants:**` header line are not rewritten. Why:
+those sections quote history (what the nudge/review actually said at the
+time); splicing just the transcript keeps the rewrite atomic and the
+title/review byte-identical.

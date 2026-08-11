@@ -189,33 +189,3 @@ struct PreCallFormView: View {
         }
     }
 }
-
-/// Persists participants across sessions.
-enum ParticipantStore {
-    private static let key = "savedParticipants"
-
-    static func save(_ participants: [PreCallContext.Participant]) {
-        // Merge this meeting's people into the remembered list (dedupe by
-        // name) — the form only contains today's participants, not everyone.
-        let valid = participants.filter { !$0.name.isEmpty }
-        var merged = load()
-        for person in valid {
-            if let i = merged.firstIndex(where: {
-                $0.name.caseInsensitiveCompare(person.name) == .orderedSame
-            }) {
-                merged[i].role = person.role
-            } else {
-                merged.append(person)
-            }
-        }
-        guard let data = try? JSONEncoder().encode(merged) else { return }
-        UserDefaults.standard.set(data, forKey: key)
-    }
-
-    static func load() -> [PreCallContext.Participant] {
-        guard let data = UserDefaults.standard.data(forKey: key),
-              let participants = try? JSONDecoder().decode([PreCallContext.Participant].self, from: data)
-        else { return [] }
-        return participants
-    }
-}

@@ -7,7 +7,13 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
-## 0.17.2 — 2026-08-10
+## Unreleased
+
+- Naming speakers is now dependable: rename someone once and they stay named — including the words they said before the transcript learned to tell voices apart, and anything they say next. On a two-person call, naming the other person (or listing them in pre-call setup) labels the whole far side with their name; if a third voice joins, the transcript honestly goes back to numbered speakers
+- Naming someone in the first moments of a call now still saves their voice — the app waits for enough speech and saves automatically, then keeps the fullest sample at the end of the call so future meetings recognize them
+- Renaming a speaker after a session ends now updates the saved transcript too, so the name is still there when you reopen it
+- The rename popover suggests people you've already named or met with — start typing and pick, or click a suggestion straight away
+- Speaker names now show a pencil icon on hover and a one-time hint on your first real meeting, so it's obvious they're editable
 
 - Updates now install themselves: they download quietly in the background and apply the next time the app isn't running — never during a meeting. No more missing a fix because an update popup got dismissed
 - If an update has been waiting a few days (this app rarely quits, so it rarely gets the chance to install), the app offers it right after a call ends — at most once a day, and never while you're in one. The menu bar shows how long it's been waiting

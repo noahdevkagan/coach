@@ -631,9 +631,13 @@ private struct TranscriptTurnRow: View, Equatable {
         lhs.turn.id == rhs.turn.id
             && lhs.turn.text == rhs.turn.text
             && lhs.turn.speaker == rhs.turn.speaker
+            && lhs.displayName == rhs.displayName
     }
 
     let turn: Turn
+    /// What the speaker gutter shows — the one-on-one alias resolves here
+    /// while `turn.speaker` stays the raw label renames are keyed on.
+    let displayName: String
     /// Present = this speaker can be given a real name (click the label).
     var onRename: ((String, String) -> Void)?
     /// Present = words are click-to-fix (wrote, shouldBe): clicking a
@@ -645,6 +649,10 @@ private struct TranscriptTurnRow: View, Equatable {
 
     @State private var showRenamePopover = false
     @State private var nameField = ""
+    @State private var hoveringLabel = false
+    /// Everyone the app knows a name for — loaded once per popover open
+    /// (decoding voice profiles reads whole clips off disk).
+    @State private var nameCandidates: [String] = []
     @State private var showFixPopover = false
     @State private var fixWrote = ""
     @State private var fixShouldBe = ""
@@ -652,39 +660,84 @@ private struct TranscriptTurnRow: View, Equatable {
 
     private var renameable: Bool { onRename != nil && !turn.isYou }
 
+    /// The speaker gutter: a real button (keyboard/VoiceOver reachable, not
+    /// a bare tap gesture) whose pencil fades in on hover — always present
+    /// in layout so rows never shift.
+    @ViewBuilder private var speakerLabel: some View {
+        let label = HStack(spacing: 3) {
+            Text(displayName)
+                .font(Dorado.barlowBold(13))
+                .foregroundStyle(speakerColor(displayName))
+            if renameable {
+                Image(systemName: "pencil")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .opacity(hoveringLabel ? 1 : 0)
+                    .accessibilityHidden(true)
+            }
+        }
+        .frame(minWidth: 42, alignment: .leading)
+        .contentShape(Rectangle())
+
+        if renameable {
+            Button {
+                nameField = ""
+                nameCandidates = ParticipantStore.typeaheadCandidates()
+                showRenamePopover = true
+            } label: {
+                label
+            }
+            .buttonStyle(.plain)
+            .onHover { hoveringLabel = $0 }
+            .help("Click to name this speaker")
+            .accessibilityLabel("Rename \(displayName)")
+        } else {
+            label
+        }
+    }
+
+    private var renamePopover: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Who is \(displayName)?")
+                .font(.caption.bold())
+            TextField("Name", text: $nameField)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 160)
+                .onSubmit { submitRename() }
+            // Known people (participant history + saved voices) matching
+            // what's typed — one click applies the name.
+            ForEach(ParticipantStore.typeaheadMatches(nameField, in: nameCandidates),
+                    id: \.self) { name in
+                Button {
+                    nameField = name
+                    submitRename()
+                } label: {
+                    Label(name, systemImage: "person.crop.circle")
+                        .font(.caption)
+                        .frame(width: 160, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            Text("Their voice is saved locally so future meetings label them automatically.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(width: 160)
+            Button("Save") { submitRename() }
+                .keyboardShortcut(.defaultAction)
+                .disabled(nameField.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+        .padding(12)
+    }
+
     var body: some View {
         // Columnar: speaker | time | text — reads like a chat log, scans by
         // color down the speaker gutter.
         HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text(turn.speaker)
-                .font(Dorado.barlowBold(13))
-                .foregroundStyle(speakerColor(turn.speaker))
-                .frame(minWidth: 42, alignment: .leading)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    guard renameable else { return }
-                    nameField = ""
-                    showRenamePopover = true
-                }
-                .help(renameable ? "Click to name this speaker" : "")
+            speakerLabel
                 .popover(isPresented: $showRenamePopover, arrowEdge: .bottom) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Who is \(turn.speaker)?")
-                            .font(.caption.bold())
-                        TextField("Name", text: $nameField)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 160)
-                            .onSubmit { submitRename() }
-                        Text("Their voice is saved locally so future meetings label them automatically.")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(width: 160)
-                        Button("Save") { submitRename() }
-                            .keyboardShortcut(.defaultAction)
-                            .disabled(nameField.trimmingCharacters(in: .whitespaces).isEmpty)
-                    }
-                    .padding(12)
+                    renamePopover
                 }
             Text(turn.formattedTime)
                 .font(.system(.caption2, design: .monospaced))
@@ -865,6 +918,16 @@ private struct NameSuggestionBar: View {
 
 private struct LiveTranscriptPane: View {
     var liveSession: LiveSessionViewModel
+    /// One-time hint that speaker labels are editable — set here on
+    /// dismiss, and by the view model on the first successful rename.
+    @AppStorage("hasSeenSpeakerNamingHint") private var hasSeenNamingHint = false
+
+    /// The hint shows once, on the first REAL session with a nameable
+    /// (non-You) speaker on screen — never during the demo.
+    private var showNamingHint: Bool {
+        !hasSeenNamingHint && !liveSession.isDemo
+            && liveSession.turns.contains { !$0.isYou }
+    }
 
     /// Pending recognizer text, stable order (You before Them).
     private var pendingLines: [(speaker: String, text: String)] {
@@ -893,6 +956,28 @@ private struct LiveTranscriptPane: View {
                     // commits leaves phantom blank space mid-list (Parakeet
                     // partials grow into full paragraphs, so the hole is big).
                     VStack(alignment: .leading, spacing: 0) {
+                        if showNamingHint {
+                            HStack(spacing: 8) {
+                                Image(systemName: "pencil.circle")
+                                    .foregroundStyle(.secondary)
+                                Text("Click a speaker name to rename them — Meeting Coach remembers them for next time.")
+                                    .font(.caption)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Spacer(minLength: 4)
+                                Button {
+                                    hasSeenNamingHint = true
+                                } label: {
+                                    Image(systemName: "xmark.circle")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                                .help("Dismiss")
+                            }
+                            .padding(.horizontal, 10).padding(.vertical, 6)
+                            .background(Color.primary.opacity(0.04))
+                            .clipShape(Capsule())
+                            .padding(.horizontal, 14).padding(.top, 10)
+                        }
                         if !liveSession.speakerNameSuggestions.isEmpty {
                             VStack(alignment: .leading, spacing: 6) {
                                 NameSuggestionBar(liveSession: liveSession)
@@ -902,6 +987,7 @@ private struct LiveTranscriptPane: View {
                         ForEach(liveSession.turns) { turn in
                             TranscriptTurnRow(
                                 turn: turn,
+                                displayName: liveSession.displaySpeaker(turn.speaker),
                                 onRename: { label, name in
                                     liveSession.renameSpeaker(label, to: name)
                                 },
@@ -915,10 +1001,11 @@ private struct LiveTranscriptPane: View {
                         // Live pending line(s): what the recognizer hears right
                         // now, before it's committed as a turn — dictation feel.
                         ForEach(pendingLines, id: \.speaker) { line in
+                            let pendingName = liveSession.displaySpeaker(line.speaker)
                             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                                Text(line.speaker == "Meeting" ? "" : line.speaker)
+                                Text(line.speaker == "Meeting" ? "" : pendingName)
                                     .font(.caption.bold())
-                                    .foregroundStyle(speakerColor(line.speaker).opacity(0.6))
+                                    .foregroundStyle(speakerColor(pendingName).opacity(0.6))
                                     .frame(minWidth: 42, alignment: .leading)
                                 Text(line.text)
                                     .font(.callout.italic())

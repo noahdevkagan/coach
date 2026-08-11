@@ -110,6 +110,16 @@ final class LiveSessionViewModel {
     /// The capture manager of the just-ended session — kept so renaming a
     /// speaker from the post-session view can still save their voice clip.
     private var endedCaptureManager: AudioCaptureManager?
+    /// One-on-one alias: the sole remote participant's name, applied to
+    /// "Them"-family labels at DISPLAY time only (see displaySpeaker) —
+    /// stored utterance labels stay raw, so a second remote voice showing
+    /// up just drops the alias and the numbered labels are back instantly.
+    private(set) var remoteAlias: String?
+    /// Distinct remote voices in the system channel's latest publish —
+    /// the authoritative "how many people are on the other side" count.
+    private var latestRemoteLabels: Set<String> = []
+    /// Exactly one pre-call participant seeds the provisional remote name.
+    private var preCallRemoteName: String?
 
     /// Signal types sharpened by the active focus goals (set per session).
     private var focusTypes: Set<NudgeType> = []
@@ -238,6 +248,13 @@ final class LiveSessionViewModel {
         lastOllamaManager = ollamaManager
 
         resetSessionState()
+        // Exactly one named pre-call participant → they're provisionally
+        // the far side; more (or none) and we never guess.
+        let participantNames = preCallContext.participants
+            .map { $0.name.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        preCallRemoteName = participantNames.count == 1 ? participantNames[0] : nil
+        recomputeRemoteAlias()
         status = "Starting — 10 coaching signals loaded"
         isLive = true
 
@@ -476,6 +493,9 @@ final class LiveSessionViewModel {
         channelLabels = [:]
         baseLabelRenames = [:]
         segmentRenames = [:]
+        remoteAlias = nil
+        latestRemoteLabels = []
+        preCallRemoteName = nil
         endedCaptureManager = nil
         micOnly = false
         appleCallCapture = false
@@ -518,6 +538,14 @@ final class LiveSessionViewModel {
         // refined segments of later passes.
         for s in segments { channelLabels[channel, default: []].insert(s.speaker) }
         let owned = channelLabels[channel] ?? []
+
+        // The latest publish is the full finalized list, so its distinct
+        // speakers ARE the remote voice count (unlike channelLabels, which
+        // accumulates pre-rename labels forever).
+        if channel == .system {
+            latestRemoteLabels = Set(segments.map(\.speaker))
+            recomputeRemoteAlias()
+        }
 
         // Each utterance only needs the segments that can overlap it. Both
         // lists are time-sorted, so a binary-searched window replaces the
@@ -616,8 +644,84 @@ final class LiveSessionViewModel {
         // precisely so a post-session rename can still reach the clips.
         (captureManager ?? endedCaptureManager)?.renameSpeaker(label, to: name)
 
+        // The name is remembered the moment it's given — a too-short voice
+        // clip must not lose the person from participant memory. Demo
+        // renames leave no trace, like everything else about the demo.
+        if !isDemo {
+            ParticipantStore.remember(name: name)
+            UserDefaults.standard.set(true, forKey: "hasSeenSpeakerNamingHint")
+        }
+        latestRemoteLabels = Set(latestRemoteLabels.map { $0 == label ? name : $0 })
+        recomputeRemoteAlias()
+        // Renaming from the post-session view: the file on disk still says
+        // the old label — rewrite it or the name is gone on reopen.
+        if !isLive {
+            rewriteSavedTranscript()
+        }
+
         speakerNameSuggestions.removeAll { $0.label == label }
         mclog("[VM] Renamed speaker \(label) → \(name)")
+    }
+
+    // MARK: - One-on-one remote alias (display layer)
+
+    /// The label a speaker should DISPLAY as. Aliases "Them"-family labels
+    /// to the sole remote participant's name in a dual-channel one-on-one;
+    /// everything else passes through. Stored labels stay raw — turns,
+    /// partials, and saved-file serialization all resolve through here so
+    /// the whole surface agrees.
+    func displaySpeaker(_ label: String) -> String {
+        guard let alias = remoteAlias,
+              label == "Them" || label.hasPrefix("Them ") else { return label }
+        return alias
+    }
+
+    /// Sole-remote-name resolution, strongest evidence first: the one
+    /// diarized remote voice carrying a real name (enrolled or renamed),
+    /// then an explicit rename of the undiarized "Them" base label, then
+    /// the single pre-call participant as a provisional guess. Two or more
+    /// distinct remote voices kill the alias — numbered labels are the
+    /// truth on a group call.
+    private func recomputeRemoteAlias() {
+        if latestRemoteLabels.count >= 2 {
+            remoteAlias = nil
+        } else if let only = latestRemoteLabels.first,
+                  only != "Them", !only.hasPrefix("Them ") {
+            remoteAlias = only
+        } else if let renamed = baseLabelRenames["Them"] {
+            remoteAlias = renamed
+        } else {
+            remoteAlias = preCallRemoteName
+        }
+    }
+
+    /// Post-session rename: atomically replace only the saved file's
+    /// `## Transcript` section with freshly serialized turns. Title, notes,
+    /// nudges, and any review the LLM already wrote stay byte-identical.
+    private func rewriteSavedTranscript() {
+        guard let path = savedPath,
+              let content = try? String(contentsOfFile: path, encoding: .utf8) else { return }
+        var lines = content.components(separatedBy: "\n")
+        guard let heading = lines.firstIndex(of: "## Transcript") else { return }
+        let body = lines.index(after: heading)
+        let end = lines[body...].firstIndex { $0.hasPrefix("## ") } ?? lines.endIndex
+        lines.replaceSubrange(body..<end, with: serializedTranscriptLines() + [""])
+        try? lines.joined(separator: "\n")
+            .write(toFile: path, atomically: true, encoding: .utf8)
+        mclog("[VM] Rewrote saved transcript after rename: \(path)")
+    }
+
+    /// The saved file's transcript body: coalesced turns with the display
+    /// alias applied BEFORE coalescing, so "Them" and "Them 1" fragments of
+    /// the same person merge into one line under their real name.
+    private func serializedTranscriptLines() -> [String] {
+        var resolved = utterances
+        for i in resolved.indices {
+            resolved[i].speaker = displaySpeaker(resolved[i].speaker)
+        }
+        var builder = TurnBuilder()
+        builder.rebuild(resolved)
+        return builder.turns.map { "- [\($0.formattedTime)] \($0.speaker): \($0.text)" }
     }
 
     /// Accept an LLM name suggestion — routes through the full rename path.
@@ -925,11 +1029,21 @@ final class LiveSessionViewModel {
     func turnsAround(_ timestamp: TimeInterval) -> [Turn] {
         guard !turns.isEmpty else { return [] }
         guard let idx = turns.lastIndex(where: { $0.t <= timestamp }) else {
-            return [turns[0]]
+            return [resolvedForDisplay(turns[0])]
         }
-        var result = [turns[idx]]
-        if idx + 1 < turns.count { result.append(turns[idx + 1]) }
+        var result = [resolvedForDisplay(turns[idx])]
+        if idx + 1 < turns.count { result.append(resolvedForDisplay(turns[idx + 1])) }
         return result
+    }
+
+    /// A copy of the turn carrying its display label — nudge quotes must
+    /// agree with the transcript pane's aliased names.
+    private func resolvedForDisplay(_ turn: Turn) -> Turn {
+        let name = displaySpeaker(turn.speaker)
+        guard name != turn.speaker else { return turn }
+        return Turn(id: turn.id, speaker: name, isYou: turn.isYou,
+                    t: turn.t, endT: turn.endT, text: turn.text,
+                    wordCount: turn.wordCount, utteranceCount: turn.utteranceCount)
     }
 
     // MARK: - Planned questions
@@ -1241,11 +1355,7 @@ final class LiveSessionViewModel {
         // tool's export. Turns keep one timestamp per thought; the pane
         // renders the same shape.
         lines.append("## Transcript")
-        var transcriptTurns = TurnBuilder()
-        transcriptTurns.rebuild(utterances)
-        for turn in transcriptTurns.turns {
-            lines.append("- [\(turn.formattedTime)] \(turn.speaker): \(turn.text)")
-        }
+        lines.append(contentsOf: serializedTranscriptLines())
         lines.append("")
 
         // Nudges

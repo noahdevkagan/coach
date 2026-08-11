@@ -7,6 +7,26 @@ The durable "why" behind choices goes in `decisions.md`, not here.
 
 ## Current state (2026-08-09)
 
+- **IN PROGRESS (2026-08-11, branch crxnamja/improve-speaker-naming):
+  Reliable speaker naming** — plan reviewed and agreed
+  (.context/attachments/3XGTxn/plan.md holds the full updated plan).
+  Scope: (1) `ParticipantStore` extracted to `Models/ParticipantStore.swift`
+  with `remember(name:)` + pure typeahead matching; every rename persists
+  the name immediately (gated `!isDemo`). (2) Rename popover typeahead
+  (participants + voice-profile names, ≤5 case-insensitive matches).
+  (3) `PendingProfileSaves` pure helper in the diarizer: name before 3s of
+  clip is retained, first viable save at 3s, session-end refresh with the
+  fullest clip (≤12s), scoped ONLY to speakers named this session (never
+  auto-refresh enrolled profiles — bleed poisoning risk). (4) One-on-one
+  remote alias as a DISPLAY-LAYER resolver (`displaySpeaker`): raw labels
+  never mutated; sole remote name (renamed > enrolled > pre-call seed)
+  aliases "Them"-family labels; second remote voice drops the alias
+  instantly. (5) Post-Stop rename atomically rewrites only the saved
+  file's `## Transcript` section (title/nudges/review preserved).
+  (6) Tap gesture → accessible plain button, pencil revealed on hover.
+  (7) One-time callout, pref `hasSeenSpeakerNamingHint`, hidden in demo.
+  Tests extend `tests/session` (alias, seed/revert, post-stop rewrite,
+  participant memory, PendingProfileSaves).
 - **v0.17.0 SHIPPED and installed** (Noah's /Applications copy is on it).
 - **Apple-call truth behavior ON MAIN, UNRELEASED — LIVE-VERIFIED**
   (decisions.md 2026-08-09 + addendum). Definitive finding from a real
