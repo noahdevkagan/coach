@@ -7,7 +7,7 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
-## Unreleased
+## 0.18.0 — 2026-08-11
 
 - Naming speakers is now dependable: rename someone once and they stay named — including the words they said before the transcript learned to tell voices apart, and anything they say next. On a two-person call, naming the other person (or listing them in pre-call setup) labels the whole far side with their name; if a third voice joins, the transcript honestly goes back to numbered speakers
 - Naming someone in the first moments of a call now still saves their voice — the app waits for enough speech and saves automatically, then keeps the fullest sample at the end of the call so future meetings recognize them
