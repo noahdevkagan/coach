@@ -123,6 +123,87 @@ final class LiveSessionViewModel {
 
     /// Signal types sharpened by the active focus goals (set per session).
     private var focusTypes: Set<NudgeType> = []
+    /// A meeting's relationship to the local model, over its whole lifetime.
+    ///
+    /// Every state carries the session's UUID so a continuation resuming after
+    /// an await can tell whether it still belongs to the meeting in progress.
+    /// Activation is asynchronous — it waits for capture, refreshes the model
+    /// list, reads memory and preloads — and any of those awaits can outlive a
+    /// Stop or be overtaken by a new session.
+    ///
+    /// - `preparing`: capture is up, the model question is still open. No LLM
+    ///   call may happen yet, including a recap.
+    /// - `deterministic`: settled. Nothing safe can be loaded, so this meeting
+    ///   makes no LLM calls at all. Binding through the recap.
+    /// - `pinned`: this exact model is resident, and is the only one the
+    ///   heartbeat, name inference, recap and unload may name.
+    enum SessionModelState: Equatable {
+        case preparing(UUID)
+        case deterministic(UUID)
+        case pinned(UUID, String)
+
+        var sessionID: UUID {
+            switch self {
+            case .preparing(let id), .deterministic(let id): return id
+            case .pinned(let id, _): return id
+            }
+        }
+
+        /// The resident model, or nil while preparing or when deterministic.
+        var pinnedModel: String? {
+            if case .pinned(_, let model) = self { return model }
+            return nil
+        }
+    }
+
+    private(set) var sessionModelState: SessionModelState?
+
+    // Seams for the four things this lifecycle cannot do in a test: read this
+    // machine's free memory, and load, unload or query a model in a live engine.
+    // Production wiring is the default; the session harness substitutes them
+    // so preload failure, memory pressure and cancellation are exercised
+    // exactly rather than depending on what the test machine happens to have.
+    // Defaults are nonisolated statics, not inline closures: an inline
+    // closure touching the OllamaClient actor is an actor-isolated default
+    // value in a @MainActor type, which strict concurrency rejects.
+    /// Free memory heuristic, in GB. nil = unreadable.
+    static var availableMemoryGB: () -> Double? = liveAvailableMemoryGB
+    /// Loads a model. Returns an error string, or nil on success.
+    static var preloadModel: (String) async -> String? = livePreload
+    /// Frees a model if it is resident.
+    static var unloadModel: (String) async -> Void = liveUnload
+    /// Runs the post-call review prompt against the pinned model.
+    static var completeReview: (String, String, String) async throws -> String = liveCompleteReview
+
+    nonisolated static func liveAvailableMemoryGB() -> Double? { ModelMemory.availableGB }
+    nonisolated static func livePreload(_ model: String) async -> String? {
+        await OllamaClient(model: model, numCtx: 4096).preload()
+    }
+    nonisolated static func liveUnload(_ model: String) async {
+        await OllamaClient(model: model).unloadIfLoaded()
+    }
+    nonisolated static func liveCompleteReview(_ model: String,
+                                               _ system: String,
+                                               _ user: String) async throws -> String {
+        try await OllamaClient(model: model).complete(system: system, user: user)
+    }
+
+    /// The meeting currently in progress. Set at start, cleared at Stop —
+    /// every continuation compares against it before touching state, so a
+    /// stopped or replaced session cannot pin a model or start a heartbeat.
+    private var currentSessionID: UUID?
+
+    /// The in-flight activation, held so Stop (or a replacing session) can
+    /// cancel it rather than racing it.
+    private var activationTask: Task<Void, Never>?
+
+    /// Coach inputs captured at startLive, consumed once capture is up. Tier 2
+    /// can only be armed after the memory reading is meaningful, but its
+    /// rubric-derived inputs are computed with the rest of session setup.
+    private var pendingCoachSetup: (tuning: RubricTuning,
+                                    customSignals: [CustomSemanticSignal],
+                                    noteExamples: [String: [SignalExample]])?
+
     /// Held across the session so stopLive can auto-generate the recap —
     /// weak: both outlive sessions anyway, and the VM must never keep an
     /// app-level object alive.
@@ -218,29 +299,25 @@ final class LiveSessionViewModel {
         // as an internal kill-switch only (defaults true, no UI).
         // An unchecked model list stays optimistic — the heartbeat degrades
         // gracefully if the engine turns out to be empty.
-        let modelAvailable = settings.map {
-            $0.useMock || !$0.hasCheckedModels || !$0.availableModels.isEmpty
-        } ?? false
-        if let settings, let ollamaManager, settings.semanticCoachEnabled, modelAvailable {
-            semanticCoach = SemanticCoach(model: settings.effectiveModel,
-                                          tuning: tuning,
-                                          customSignals: rubric.customSemanticSignals,
-                                          noteExamples: noteExamples)
-            // Same engine, separate cadence: propose real names for diarized
-            // speakers from transcript evidence ("thanks Sarah").
-            nameInference = SpeakerNameInference(model: settings.effectiveModel)
-            if ollamaManager.status == .stopped {
-                ollamaManager.start()
-            }
-            // Normally resident since meeting detection fired; this re-warm
-            // covers sessions started by hand (no detection pill) and an
-            // engine that restarted or evicted the model since (no-op then).
-            Task { await settings.warmUpModelIfNeeded() }
-            startSemanticHeartbeat(ollamaManager: ollamaManager)
-        } else {
-            semanticCoach = nil
-            nameInference = nil
+        // Tier 2 is armed after capture is up — see activateSessionModel.
+        // Resolving the model here would read memory before Parakeet and the
+        // diarizer load, i.e. before the biggest new tenant of this meeting
+        // has arrived, and would have to guess at their cost instead of
+        // measuring what is left once they are resident.
+        semanticCoach = nil
+        nameInference = nil
+        // Replacing a session: cancel its activation and free its model before
+        // this meeting starts loading one of its own.
+        let replaced = sessionModelState
+        activationTask?.cancel()
+        activationTask = nil
+        if replaced != nil {
+            Task { [weak self] in await self?.releaseSessionModel(replaced) }
         }
+        let sessionID = UUID()
+        currentSessionID = sessionID
+        sessionModelState = .preparing(sessionID)
+        pendingCoachSetup = (tuning, rubric.customSemanticSignals, noteExamples)
 
         // Kept for the auto-recap on Stop — every session should end with
         // a summary without anyone pressing a button.
@@ -318,11 +395,117 @@ final class LiveSessionViewModel {
             startSignalTick()
             startTimer(from: sessionStart)
             startSilenceCheck()
+            // Capture (and with it Parakeet + the diarizer) is resident now,
+            // so free memory finally reflects this meeting's real baseline.
+            activationTask = Task { [weak self] in
+                await self?.activateSessionModel(sessionID: sessionID,
+                                                 settings: settings,
+                                                 ollamaManager: ollamaManager)
+            }
         }
+    }
+
+    /// Settle this meeting's model, after capture is up and against real free
+    /// memory. Runs exactly once per session and ends in `.deterministic` or
+    /// `.pinned` — never back in `.preparing`.
+    ///
+    /// The preload is the authority, not an optimisation: it is the only step
+    /// that knows whether the model actually loaded. Anything short of a
+    /// successful preload — model missing, size unknown, memory short, engine
+    /// down, load failed — settles deterministic, and no coach object is
+    /// created. Nothing may cold-load a model later; a heartbeat pulling
+    /// multiple gigabytes in at minute one is the freeze this exists to stop.
+    ///
+    /// Every continuation after an await re-checks the session UUID, because
+    /// Stop or a replacing session can land in any of these gaps.
+    private func activateSessionModel(sessionID: UUID,
+                                      settings: SettingsViewModel?,
+                                      ollamaManager: OllamaManager?) async {
+        let setup = pendingCoachSetup
+        pendingCoachSetup = nil
+
+        func stillCurrent() -> Bool { currentSessionID == sessionID && !Task.isCancelled }
+
+        func settleDeterministic(_ reason: String) {
+            guard stillCurrent() else { return }
+            sessionModelState = .deterministic(sessionID)
+            semanticCoach = nil
+            nameInference = nil
+            mclog("[Session] Deterministic coaching — \(reason)")
+        }
+
+        guard stillCurrent() else { return }
+        guard let setup, let settings, let ollamaManager else {
+            return settleDeterministic("no engine or settings")
+        }
+        // Sample-coach mode never builds a real coach or touches an LLM.
+        guard !settings.useMock else { return settleDeterministic("sample-coach mode") }
+        guard settings.semanticCoachEnabled else {
+            return settleDeterministic("semantic coaching disabled")
+        }
+
+        // The ladder can only step down to something installed, so the list
+        // has to be current before memory is even consulted.
+        await settings.refreshModels()
+        guard stillCurrent() else { return }
+
+        guard let availableGB = Self.availableMemoryGB() else {
+            return settleDeterministic("free memory unreadable")
+        }
+        guard let candidate = ModelMemory.modelForCurrentMemory(
+                chosen: settings.effectiveModel,
+                installed: settings.availableModels,
+                availableGB: availableGB) else {
+            return settleDeterministic(String(format: "%.1f GB free fits nothing installed",
+                                              availableGB))
+        }
+
+        guard await ollamaManager.ensureRunning() else {
+            return settleDeterministic("engine unavailable")
+        }
+        guard stillCurrent() else { return }
+
+        if let error = await Self.preloadModel(candidate) {
+            return settleDeterministic("preload of \(candidate) failed: \(error)")
+        }
+        // The preload landed but the meeting moved on underneath it. Free the
+        // runner rather than leaving it for a session that no longer exists.
+        guard stillCurrent() else {
+            await Self.unloadModel(candidate)
+            mclog("[Session] Discarded \(candidate) — session ended during preload")
+            return
+        }
+
+        sessionModelState = .pinned(sessionID, candidate)
+        semanticCoach = SemanticCoach(model: candidate,
+                                      tuning: setup.tuning,
+                                      customSignals: setup.customSignals,
+                                      noteExamples: setup.noteExamples)
+        // Same engine, separate cadence: propose real names for diarized
+        // speakers from transcript evidence ("thanks Sarah").
+        nameInference = SpeakerNameInference(model: candidate)
+        startSemanticHeartbeat(ollamaManager: ollamaManager)
+        mclog("[Session] Pinned \(candidate)")
+    }
+
+    /// The one place a session's model is released. Called from every exit:
+    /// the normal recap, a failed activation, an empty session, cancellation
+    /// at Stop, and a session replaced by a new one. Safe to call with a
+    /// state that never pinned anything.
+    private func releaseSessionModel(_ state: SessionModelState?) async {
+        guard let model = state?.pinnedModel else { return }
+        await Self.unloadModel(model)
+        mclog("[Session] Released \(model)")
     }
 
     func stopLive() {
         isLive = false
+        // Invalidate the session before anything else: an activation still
+        // mid-refresh or mid-preload checks this on its next continuation and
+        // stands down instead of pinning a model for a meeting that ended.
+        currentSessionID = nil
+        activationTask?.cancel()
+        activationTask = nil
         sessionEngineLabel = captureManager?.engineLabel
         captureManager?.stop()
         // Kept (not nil'd into oblivion) so a rename from the post-session
@@ -368,6 +551,9 @@ final class LiveSessionViewModel {
         // Demo sessions leave no trace: no save, no threshold adaptation.
         if isDemo {
             status = "Demo stopped"
+            let ended = sessionModelState
+            sessionModelState = nil
+            Task { [weak self] in await self?.releaseSessionModel(ended) }
             return
         }
 
@@ -397,6 +583,11 @@ final class LiveSessionViewModel {
         // generateReview, so this never blocks on an engine.
         if let settings = lastSettings, let ollamaManager = lastOllamaManager {
             generateReview(ollamaManager: ollamaManager, settings: settings)
+        } else {
+            // No recap will run, so nothing else will free the model.
+            let ended = sessionModelState
+            sessionModelState = nil
+            Task { [weak self] in await self?.releaseSessionModel(ended) }
         }
     }
 
@@ -895,7 +1086,13 @@ final class LiveSessionViewModel {
     // MARK: - Post-call review
 
     func generateReview(ollamaManager: OllamaManager, settings: SettingsViewModel) {
-        guard !utterances.isEmpty else { return }
+        guard !utterances.isEmpty else {
+            // An empty session still holds whatever it pinned.
+            let ended = sessionModelState
+            sessionModelState = nil
+            Task { [weak self] in await self?.releaseSessionModel(ended) }
+            return
+        }
         isGeneratingSummary = true
         meetingReview = nil
 
@@ -907,7 +1104,24 @@ final class LiveSessionViewModel {
         // instead of spinning up an engine that has nothing to run.
         if isDemo || settings.useMock ||
             (settings.hasCheckedModels && settings.ollamaReachable && settings.availableModels.isEmpty) {
+            let ended = sessionModelState
+            sessionModelState = nil
             finishReview(instantReview(durationMinutes: durationMin))
+            Task { [weak self] in await self?.releaseSessionModel(ended) }
+            return
+        }
+
+        // Only a model this session actually pinned may be used. A session
+        // still `preparing` never settled, and a `deterministic` one settled
+        // against loading anything — neither gets to fall back to the current
+        // preference here, where the heaviest call of the workflow would run
+        // at the tightest moment for memory.
+        guard case .pinned(_, let reviewModel) = sessionModelState else {
+            mclog("[Review] session never pinned a model — instant review only")
+            let ended = sessionModelState
+            sessionModelState = nil
+            finishReview(instantReview(durationMinutes: durationMin))
+            Task { [weak self] in await self?.releaseSessionModel(ended) }
             return
         }
 
@@ -950,7 +1164,7 @@ final class LiveSessionViewModel {
                 await settings.refreshModels()
                 if !settings.availableModels.isEmpty {
                     do {
-                        summary = try await OllamaClient(model: settings.effectiveModel).complete(system: system, user: user)
+                        summary = try await Self.completeReview(reviewModel, system, user)
                     } catch {
                         // The LLM path failed (engine died, timeout) — the
                         // instant review is still better than an error string.
@@ -966,11 +1180,13 @@ final class LiveSessionViewModel {
             }
             // The recap was the model's last job — give the multi-GB of
             // KV/compute memory back instead of letting keep_alive hold it.
-            // Skipped when another meeting already started (or the same
-            // model would just reload mid-call); warm-on-detect brings it
-            // back before the next one.
+            // Skipped when another meeting already started: that session owns
+            // its own model now, and this one's was already released when it
+            // replaced this session.
             if !isLive {
-                await OllamaClient(model: settings.effectiveModel).unloadIfLoaded()
+                let ended = sessionModelState
+                sessionModelState = nil
+                await releaseSessionModel(ended)
             }
         }
     }

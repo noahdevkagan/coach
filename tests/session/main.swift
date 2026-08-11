@@ -472,6 +472,301 @@ func runTests() async {
         check(p.due(clipSeconds: [1: 12.0], minSeconds: 3, final: true).isEmpty,
               "unnamed slots (enrolled profiles) are never auto-refreshed")
     }
+    // ---- Session model lifecycle -------------------------------------
+    //
+    // One coherent lifecycle per meeting: preparing -> (deterministic |
+    // pinned). Activation runs after capture is up, refreshes the installed
+    // list, reads free memory, preloads, and only then pins. Every await is
+    // a place Stop or a replacing session can land, so these drive the races
+    // directly rather than asserting the stored value alone.
+
+    let gb = 1_073_741_824.0
+    func installed(_ name: String, _ sizeGB: Double) -> OllamaModel {
+        OllamaModel(name: name, size: Int64(sizeGB * gb), parameterSize: "")
+    }
+    /// Restore production seams between cases.
+    func resetSeams() {
+        LiveSessionViewModel.availableMemoryGB = { ModelMemory.availableGB }
+        LiveSessionViewModel.preloadModel = { _ in nil }
+        LiveSessionViewModel.unloadModel = { _ in }
+        LiveSessionViewModel.completeReview = { _, _, _ in "" }
+    }
+    /// A settings stub wired for the real (non-mock) path.
+    func liveSettings(_ model: String = "qwen3.5:4b") -> SettingsViewModel {
+        let s = SettingsViewModel()
+        s.useMock = false
+        s.semanticCoachEnabled = true
+        s.hasCheckedModels = true
+        s.selectedModel = model
+        s.availableModels = [installed("qwen3.5:9b", 6.6), installed("qwen3.5:4b", 3.4)]
+        return s
+    }
+
+    // Policy, injected at exact pressures — no dependence on this machine.
+    do {
+        let pool = [installed("qwen3.5:9b", 6.6), installed("qwen3.5:4b", 3.4),
+                    installed("granite4:3b", 2.1)]
+        // The originating incident: 32 GB Mac, ~8 GB actually free. 9b passes
+        // every static check (minRAMGB 16 on 32 GB) and still swaps.
+        check(ModelMemory.modelForCurrentMemory(chosen: "qwen3.5:9b",
+                                                installed: pool, availableGB: 8) == "qwen3.5:4b",
+              "busy 32GB selects 4B instead of 9B",
+              "got: \(ModelMemory.modelForCurrentMemory(chosen: "qwen3.5:9b", installed: pool, availableGB: 8) ?? "nil")")
+        check(ModelMemory.modelForCurrentMemory(chosen: "qwen3.5:9b",
+                                                installed: pool, availableGB: 24) == "qwen3.5:9b",
+              "idle 32GB keeps 9B")
+        check(ModelMemory.modelForCurrentMemory(chosen: "qwen3.5:9b",
+                                                installed: pool, availableGB: 3) == nil,
+              "nothing fits -> no model")
+        check(ModelMemory.modelForCurrentMemory(chosen: "ghost:model",
+                                                installed: pool, availableGB: 24) == "qwen3.5:9b",
+              "a missing model is unsafe and steps down")
+        check(ModelMemory.modelForCurrentMemory(chosen: "mystery:model",
+                                                installed: [installed("mystery:model", 0)],
+                                                availableGB: 64) == nil,
+              "unknown size is unsafe, not assumed small")
+    }
+
+    // Happy path: refresh -> preload -> pin, in that order, and the SAME
+    // model reaches preload, the pin, and the unload.
+    do {
+        resetSeams()
+        var preloaded: [String] = []
+        var unloaded: [String] = []
+        LiveSessionViewModel.availableMemoryGB = { 24 }
+        LiveSessionViewModel.preloadModel = { preloaded.append($0); return nil }
+        LiveSessionViewModel.unloadModel = { unloaded.append($0) }
+
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings("qwen3.5:9b")
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+
+        check(vm.sessionModelState?.pinnedModel == "qwen3.5:9b",
+              "activation pins the preloaded model",
+              "state: \(String(describing: vm.sessionModelState))")
+        check(settings.callLog.contains("refresh"),
+              "installed list is refreshed before selection", "log: \(settings.callLog)")
+        check(preloaded == ["qwen3.5:9b"],
+              "exactly the selected model is preloaded", "preloaded: \(preloaded)")
+
+        capture: do {
+            guard let cap = AudioCaptureManager.last else { break capture }
+            cap.onUtterance?(Utterance(t: 1, speaker: "You", text: "Some words here.", endT: 3))
+        }
+        vm.stopLive()
+        try? await Task.sleep(for: .milliseconds(500))
+        check(unloaded == ["qwen3.5:9b"],
+              "warm-up, heartbeat, recap and unload all receive the same model",
+              "preloaded: \(preloaded), unloaded: \(unloaded)")
+        vm.deleteSession()
+    }
+
+    // Preload failure cannot produce a heartbeat.
+    do {
+        resetSeams()
+        LiveSessionViewModel.availableMemoryGB = { 24 }
+        LiveSessionViewModel.preloadModel = { _ in "out of memory" }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings()
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+        check(vm.sessionModelState == .deterministic(vm.sessionModelState!.sessionID),
+              "preload failure settles deterministic",
+              "state: \(String(describing: vm.sessionModelState))")
+        check(vm.sessionModelState?.pinnedModel == nil,
+              "preload failure cannot produce a heartbeat — nothing is pinned")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // Engine that won't start is the same outcome.
+    do {
+        resetSeams()
+        LiveSessionViewModel.availableMemoryGB = { 24 }
+        let manager = OllamaManager()
+        manager.engineAvailable = false
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext(), settings: liveSettings(), ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+        check(vm.sessionModelState?.pinnedModel == nil,
+              "engine failure settles deterministic",
+              "state: \(String(describing: vm.sessionModelState))")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // No fitting model stays deterministic through the recap: the recap is
+    // the heaviest call and must not resurrect a model on its own.
+    do {
+        resetSeams()
+        var preloaded: [String] = []
+        LiveSessionViewModel.availableMemoryGB = { 2 }        // nothing fits
+        LiveSessionViewModel.preloadModel = { preloaded.append($0); return nil }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings()
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+        check(vm.sessionModelState?.pinnedModel == nil,
+              "no fitting model -> deterministic",
+              "state: \(String(describing: vm.sessionModelState))")
+        if let cap = AudioCaptureManager.last {
+            cap.onUtterance?(Utterance(t: 1, speaker: "You", text: "Words for a recap.", endT: 3))
+        }
+        vm.stopLive()
+        try? await Task.sleep(for: .milliseconds(500))
+        check(preloaded.isEmpty,
+              "no fitting model stays deterministic through recap — nothing loaded",
+              "preloaded: \(preloaded)")
+        check(vm.meetingReview != nil, "a deterministic recap is still produced",
+              "utterances: \(vm.utterances.count), state: \(String(describing: vm.sessionModelState)), generating: \(vm.isGeneratingSummary)")
+        vm.deleteSession()
+    }
+
+    // Mock mode never constructs an LLM client.
+    do {
+        resetSeams()
+        var preloaded: [String] = []
+        LiveSessionViewModel.availableMemoryGB = { 64 }
+        LiveSessionViewModel.preloadModel = { preloaded.append($0); return nil }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings()
+        settings.useMock = true
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+        check(vm.sessionModelState?.pinnedModel == nil,
+              "mock mode is deterministic",
+              "state: \(String(describing: vm.sessionModelState))")
+        check(preloaded.isEmpty, "mock mode never constructs an LLM client",
+              "preloaded: \(preloaded)")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // Stop during the model refresh: the continuation must stand down.
+    do {
+        resetSeams()
+        var preloaded: [String] = []
+        LiveSessionViewModel.availableMemoryGB = { 24 }
+        LiveSessionViewModel.preloadModel = { preloaded.append($0); return nil }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings()
+        let (stream, cont) = AsyncStream<Void>.makeStream()
+        settings.refreshGate = (stream, cont)
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(400))   // parked inside refresh
+        vm.stopLive()
+        cont.yield(())                                    // release the refresh
+        try? await Task.sleep(for: .milliseconds(400))
+        check(vm.sessionModelState?.pinnedModel == nil,
+              "Stop during model refresh never pins",
+              "state: \(String(describing: vm.sessionModelState))")
+        check(preloaded.isEmpty,
+              "Stop during model refresh never preloads", "preloaded: \(preloaded)")
+        vm.deleteSession()
+    }
+
+    // Stop during preload: the load lands, but for a session that has ended,
+    // so it must be released rather than pinned.
+    do {
+        resetSeams()
+        var unloaded: [String] = []
+        LiveSessionViewModel.availableMemoryGB = { 24 }
+        let (stream, cont) = AsyncStream<Void>.makeStream()
+        LiveSessionViewModel.preloadModel = { _ in
+            var it = stream.makeAsyncIterator()
+            _ = await it.next()
+            return nil
+        }
+        LiveSessionViewModel.unloadModel = { unloaded.append($0) }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings()
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(400))   // parked inside preload
+        vm.stopLive()
+        cont.yield(())                                    // preload completes late
+        try? await Task.sleep(for: .milliseconds(500))
+        check(vm.sessionModelState?.pinnedModel == nil,
+              "Stop during preload never pins",
+              "state: \(String(describing: vm.sessionModelState))")
+        check(unloaded.contains("qwen3.5:4b"),
+              "a preload that lands after Stop is released, not left resident",
+              "unloaded: \(unloaded)")
+        vm.deleteSession()
+    }
+
+    // Session B starts while A is still activating: A must not pin, and A's
+    // model must be released.
+    do {
+        resetSeams()
+        var unloaded: [String] = []
+        LiveSessionViewModel.availableMemoryGB = { 24 }
+        let (stream, cont) = AsyncStream<Void>.makeStream()
+        var firstPreload = true
+        LiveSessionViewModel.preloadModel = { _ in
+            if firstPreload {
+                firstPreload = false
+                var it = stream.makeAsyncIterator()
+                _ = await it.next()
+            }
+            return nil
+        }
+        LiveSessionViewModel.unloadModel = { unloaded.append($0) }
+        let vm = LiveSessionViewModel()
+        let settingsA = liveSettings("qwen3.5:9b")
+        let managerA = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settingsA, ollamaManager: managerA)
+        try? await Task.sleep(for: .milliseconds(400))   // A parked in preload
+        let idA = vm.sessionModelState?.sessionID
+
+        vm.stopLive()
+        let settings = liveSettings("qwen3.5:4b")
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        let idB = vm.sessionModelState?.sessionID
+        check(idA != nil && idB != nil && idA != idB,
+              "each session gets its own UUID", "A: \(String(describing: idA)), B: \(String(describing: idB))")
+        cont.yield(())                                    // A's preload lands late
+        try? await Task.sleep(for: .milliseconds(600))
+        check(vm.sessionModelState?.sessionID == idB,
+              "the completing A activation does not overwrite B's state",
+              "state: \(String(describing: vm.sessionModelState))")
+        check(vm.sessionModelState?.pinnedModel != "qwen3.5:9b",
+              "A's model is never pinned onto B",
+              "state: \(String(describing: vm.sessionModelState))")
+        check(unloaded.contains("qwen3.5:9b"),
+              "A's late preload is released", "unloaded: \(unloaded)")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // An empty session (mis-click, no words) still frees its model.
+    do {
+        resetSeams()
+        var unloaded: [String] = []
+        LiveSessionViewModel.availableMemoryGB = { 24 }
+        LiveSessionViewModel.preloadModel = { _ in nil }
+        LiveSessionViewModel.unloadModel = { unloaded.append($0) }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings("qwen3.5:4b")
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+        check(vm.sessionModelState?.pinnedModel == "qwen3.5:4b", "precondition: pinned")
+        vm.stopLive()                                     // no utterances at all
+        try? await Task.sleep(for: .milliseconds(500))
+        check(unloaded.contains("qwen3.5:4b"),
+              "empty session unloads its model", "unloaded: \(unloaded)")
+        vm.deleteSession()
+    }
+
+    resetSeams()
 }
 
 await runTests()

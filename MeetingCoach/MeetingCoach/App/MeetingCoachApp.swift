@@ -237,7 +237,12 @@ struct MenuBarLabel: View {
                     // model memory all day (it was: 2h keep-alive from
                     // launch). No-op when no model is installed, one is
                     // downloading, or the pick doesn't fit.
-                    Task { await settings.warmUpModelIfNeeded() }
+                    // No speculative warm here (2026-08-11). Preloading on
+                    // detection guesses at a model before capture is up, so
+                    // it can hold gigabytes for a meeting that never starts,
+                    // or load one the session then rejects on memory grounds
+                    // and has to unload. The session preloads its own choice
+                    // once Parakeet is resident and memory is real.
                 } else {
                     hidePrompt()
                 }

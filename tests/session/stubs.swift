@@ -71,15 +71,36 @@ final class SettingsViewModel {
     var defaultMeetingMinutes = 0
     var hasCheckedModels = false
     var ollamaReachable = false
-    var availableModels: [String] = []
+    var availableModels: [OllamaModel] = []
     func loadRubricOrDefault() throws -> Rubric { Rubric() }
-    func refreshModels() async {}
-    func warmUpModelIfNeeded() async {}
+
+    // Test hooks. The real path reads this machine's free memory and talks to
+    // an engine; these let a test choose the outcome and then assert what the
+    // view model DID about it.
+    /// Ordered record of the lifecycle's steps, so tests can assert sequence
+    /// (refresh before resolve, preload before any pin) rather than only the
+    /// final stored value.
+    private(set) var callLog: [String] = []
+    /// Blocks inside refreshModels until released — lets a test land Stop
+    /// exactly during the refresh await.
+    var refreshGate: (stream: AsyncStream<Void>, cont: AsyncStream<Void>.Continuation)?
+
+    func refreshModels() async {
+        callLog.append("refresh")
+        if let gate = refreshGate {
+            var it = gate.stream.makeAsyncIterator()
+            _ = await it.next()
+        }
+    }
 }
 
 @MainActor
 final class OllamaManager {
     enum Status: Equatable { case stopped, running, error(String) }
     var status: Status = .stopped
-    func start() {}
+    /// false simulates an engine that won't come up — one of the ways
+    /// activation must settle deterministic.
+    var engineAvailable = true
+    func start() { status = .running }
+    func ensureRunning() async -> Bool { engineAvailable }
 }

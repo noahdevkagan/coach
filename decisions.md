@@ -693,3 +693,104 @@ section, and the `**Participants:**` header line are not rewritten. Why:
 those sections quote history (what the nudge/review actually said at the
 time); splicing just the transcript keeps the rewrite atomic and the
 title/review byte-identical.
+
+## 2026-08-11 — One model per meeting: pin it, don't re-read it
+`settings.effectiveModel` is computed over `availableModels`, and the recap
+calls `refreshModels()` before generating. So every late read of it could
+name a different model than the heartbeat actually loaded — a Settings
+change mid-call or a refresh that alters what fits was enough. The recap
+then loaded a second runner beside the resident one, and the unload that
+follows freed whichever name it happened to resolve, leaving the other held
+until keep_alive expired. Two multi-GB runners, and the cleanup missing.
+
+`LiveSessionViewModel.activeSessionModel` is now pinned once at session start
+and drives the heartbeat, name inference, the recap request, and the existing
+`unloadIfLoaded()` call. The rule is that load, use, and unload must always
+name the same model; nothing may re-read the preference mid-meeting. Reviews
+re-run outside a session (session detail view) still fall back to
+`effectiveModel`, since nothing was pinned for them.
+
+Deliberately NOT done: sizing against *free* RAM at session start. Today's
+`ModelMemory` sizes against physical RAM (70% budget + 1.5 GB), which cannot
+see that another app is holding 20 GB right now — the case that started this
+was a 32 GB Mac swapping with a model that passes the physical-RAM test. A
+free-RAM check is the real remaining gap, but doing it honestly means
+measuring after capture/Parakeet is initialized, which is a session-start
+restructure rather than a constant. A guessed "capture reserve" constant was
+prototyped and rejected: it double-counts the 30% ModelMemory already holds
+back, and its value would have been invented rather than measured.
+
+## 2026-08-11 — Size against free memory too, not just installed RAM
+`ModelMemory.fits(_:)` asks whether a Mac COULD run a model: weights + 1.5 GB
+inside 70% of physical RAM. It cannot see what is resident right now. The
+incident that opened this thread was a 32 GB Mac swapping hard (28.5 GB used,
+2.7 GB swap, 10.9 GB compressed) on qwen3.5:9b — minRAMGB 16, so it passes
+that rule with room to spare, while a browser, a video call and two Electron
+apps held the memory it needed.
+
+So there are now two rules and a model must pass both. They are complementary,
+not duplicated: the 70% rule reserves a fraction of TOTAL memory for the
+machine's general needs, while the new check reserves headroom inside what is
+actually free at this moment.
+
+- `ModelMemory.availableGB` — free + inactive pages via host_statistics64,
+  documented as a heuristic. Inactive pages are reclaimable, not free, and the
+  number moves under us; compressed and purgeable pages are excluded rather
+  than counted so the estimate does not inflate.
+- Need = installed size + 1.5 GB KV/runner, taken from the installed list
+  (refreshed first) rather than from a catalog guess.
+- `currentHeadroomGB` = 3, for live capture (Parakeet, diarizer, buffers) plus
+  growth over a meeting. Provisional and labelled as such — chosen
+  conservatively, NOT measured, and wants calibration against a real session.
+- Unsafe -> step down `recommendationLadder` to the best INSTALLED rung that
+  fits. Never the largest that fits (same trap the 2026-08-06 effectiveModel
+  fix removed), and never a rung that isn't downloaded — pulling gigabytes
+  mid-meeting is worse than the fallback.
+- Nothing fits -> `.deterministic`, and that decision is binding. It is a
+  distinct case from "no session pinned anything" precisely so the recap —
+  the heaviest call, running when memory is tightest — cannot quietly load
+  the model session start refused.
+
+Verified on the machine that produced the original freeze: 9.1 GB free, 9b
+needs 8.0 + 3 = 11.0 (unsafe), 4b needs 4.8 + 3 = 7.8 (safe) -> steps to 4b.
+Policy is pure and injectable, so the busy-32GB, 16GB and nothing-fits cases
+are tested at exact pressures instead of depending on the test machine.
+
+## 2026-08-11 — One session-model lifecycle, replacing three patched layers
+The previous three passes (pin, then free-memory sizing, then "make it
+authoritative") each patched the one before and left seams between them:
+resolution ran before capture, warm-up was advisory, and cleanup was spread
+across warm bookkeeping in SettingsViewModel plus an unload in the recap.
+Replaced with a single lifecycle owned by LiveSessionViewModel.
+
+State is exactly `preparing(id)` -> `deterministic(id)` | `pinned(id, model)`,
+every case carrying the session UUID. Activation is one stored Task, started
+after capture returns — so free memory is read with Parakeet and the diarizer
+already resident rather than guessed at — and it refreshes the installed list,
+reads the heuristic, selects with the 3 GB growth reserve, preloads that exact
+model, and only then pins and starts coaching. Every continuation after an
+await re-checks the UUID: Stop clears it and cancels the task, and a preload
+that lands late is unloaded instead of pinned.
+
+Anything short of a successful preload is deterministic: missing model,
+unknown size, insufficient memory, engine failure, load failure. Nothing may
+cold-load later, which is why no coach object is created in those cases — an
+object is all a heartbeat needs to pull gigabytes in at minute one. Mock mode
+is deterministic too and never constructs a real SemanticCoach.
+
+Meeting-detection warm-up is gone. It guessed a model before capture was up,
+so it could hold gigabytes for a meeting that never started, or load one the
+session then rejected and had to unload. Correctness beat the preload latency
+it bought. The only remaining non-session load is a post-download check in
+Settings that a freshly pulled model runs at all.
+
+`releaseSessionModel` is the single cleanup, called from all five exits:
+normal recap, failed activation, empty session, cancellation, and a replaced
+session. The recap may use only the pinned model — preparing or deterministic
+gets the instant review, never effectiveModel — while session-detail review
+stays independent and still uses the current effective model.
+
+Four seams (memory read, preload, unload, review completion) default to the
+live implementations and are substituted by the harness, so the races are
+tested exactly rather than depending on the test machine's memory or a running
+engine. The 3 GB reserve remains provisional and unmeasured.

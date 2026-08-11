@@ -285,7 +285,7 @@ final class SettingsViewModel {
                     // Freshly pulled = the user is right here in Settings;
                     // a short warm-up window verifies it loads (OOM surfaces
                     // now, not mid-meeting) without pinning RAM for hours.
-                    await self.warmUpModelIfNeeded(keepAlive: "10m")
+                    await self.verifyDownloadedModelLoads()
                     return
                 }
                 if progress.status.hasPrefix("error") {
@@ -318,26 +318,49 @@ final class SettingsViewModel {
     /// the heartbeat's first call reuses this runner instead of respawning.
     /// Memory-preflights first: a model that doesn't fit is never loaded
     /// (loading it IS the freeze), it's reported via modelFitNote.
-    func warmUpModelIfNeeded(keepAlive: String = "30m") async {
+    /// The model to load given what's free on this Mac *right now*, or nil to
+    /// stay deterministic. `effectiveModel` answers the static question (does
+    /// it fit this machine); this answers the live one (does it fit today's
+    /// workload). Callers should refresh the installed list first — a stale
+    /// list makes the ladder step down to something that isn't there.
+    func modelForCurrentMemory() -> String? {
+        guard !useMock else { return effectiveModel }
+        // Memory unreadable — don't second-guess the user's choice.
+        guard let availableGB = ModelMemory.availableGB else { return effectiveModel }
+        let resolved = ModelMemory.modelForCurrentMemory(chosen: effectiveModel,
+                                                         installed: availableModels,
+                                                         availableGB: availableGB)
+        if resolved != effectiveModel {
+            mclog(String(format: "[Memory] %.1f GB free — %@ instead of %@",
+                         availableGB, resolved ?? "deterministic coaching", effectiveModel))
+        }
+        return resolved
+    }
+
+    /// Verifies a freshly pulled model actually loads, so an OOM surfaces in
+    /// Settings rather than mid-meeting. Deliberately NOT a general warm-up:
+    /// sessions preload their own choice once capture is up and free memory
+    /// is real (see LiveSessionViewModel.activateSessionModel), and a second
+    /// warming path is how two runners end up resident at once.
+    func verifyDownloadedModelLoads(keepAlive: String = "10m") async {
         guard !useMock, downloadingModel == nil else { return }
         await refreshModels()
-        guard !availableModels.isEmpty else { return }
         let name = effectiveModel
         guard let model = availableModels.first(where: { $0.name == name }),
               ModelMemory.fits(model) else {
-            mclog("[Settings] Warm-up skipped: \(name) doesn't fit in \(ModelMemory.physicalRAMGB) GB RAM")
+            mclog("[Settings] Load check skipped: \(name) doesn't fit in \(ModelMemory.physicalRAMGB) GB RAM")
             return
         }
         guard let manager = ollamaManager, await manager.ensureRunning() else {
-            mclog("[Settings] Warm-up skipped: engine unavailable")
+            mclog("[Settings] Load check skipped: engine unavailable")
             return
         }
         if let error = await OllamaClient(model: name, numCtx: 4096).preload(keepAlive: keepAlive) {
             modelWarmupError = "Couldn't load \(name): \(error)"
-            mclog("[Settings] Warm-up of \(name) failed: \(error)")
+            mclog("[Settings] Load check of \(name) failed: \(error)")
         } else {
             modelWarmupError = nil
-            mclog("[Settings] Warmed up \(name)")
+            mclog("[Settings] Load check passed for \(name)")
         }
     }
 

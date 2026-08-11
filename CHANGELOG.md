@@ -7,6 +7,13 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## 0.18.1 — 2026-08-11
+
+- MeetingCoach now checks how much memory is actually free once a call is underway — not just how much your Mac has — and picks a lighter model when your machine is busy. A 32 GB Mac with a lot already open no longer slows to a crawl mid-meeting
+- If nothing can run safely, coaching continues without the AI parts instead of freezing your call, and it stays that way for the whole meeting rather than loading a model at the end
+- A meeting now uses exactly one model from start to finish, and always releases it when the call is over — including when you stop before saying anything
+- Models are no longer loaded speculatively when a meeting is detected: your Mac only holds one while a call is actually running
+
 ## 0.18.0 — 2026-08-11
 
 - Naming speakers is now dependable: rename someone once and they stay named — including the words they said before the transcript learned to tell voices apart, and anything they say next. On a two-person call, naming the other person (or listing them in pre-call setup) labels the whole far side with their name; if a third voice joins, the transcript honestly goes back to numbered speakers

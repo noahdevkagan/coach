@@ -63,6 +63,94 @@ enum ModelMemory {
         guard model.size > 0 else { return true }
         return fits(weightBytes: model.size)
     }
+
+    // MARK: - Current workload
+    //
+    // `fits(_:)` above answers a static question: could this Mac ever run this
+    // model comfortably. It cannot see that a browser, a video call and two
+    // Electron apps are holding 20 GB *right now* — which is how a 32 GB Mac
+    // swaps on a model whose minRAMGB is 16 and passes every static check.
+    // The two rules are complementary, not redundant: the 70% rule reserves a
+    // fraction of TOTAL memory for the machine's general needs, while these
+    // reserve headroom inside what is actually free at this moment. A model
+    // must pass both before it is loaded.
+
+    /// KV cache + runner process overhead on top of the weights themselves.
+    /// Same figure the static rule uses.
+    static let runtimeOverheadBytes: Int64 = 1_500_000_000
+
+    /// Kept free beyond the model itself: live capture (Parakeet weights, the
+    /// diarizer, audio buffers) plus normal growth over a meeting.
+    ///
+    /// Provisional — chosen conservatively, NOT measured per-machine. It wants
+    /// calibration against a real session before anyone tightens it.
+    static let currentHeadroomGB: Double = 3
+
+    /// Free + inactive pages, in GB.
+    ///
+    /// A heuristic, and deliberately labelled as one. Inactive pages are
+    /// reclaimable but not free — reclaiming dirty ones costs writeback — and
+    /// the figure moves between this reading and the model finishing its load.
+    /// Compressed and purgeable pages are excluded rather than counted, which
+    /// keeps the estimate from inflating. nil if the kernel call fails, which
+    /// callers treat as "don't second-guess the user".
+    static var availableGB: Double? {
+        var stats = vm_statistics64_data_t()
+        var count = mach_msg_type_number_t(
+            MemoryLayout<vm_statistics64_data_t>.size / MemoryLayout<integer_t>.size)
+        let result = withUnsafeMutablePointer(to: &stats) { pointer in
+            pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                host_statistics64(mach_host_self(), HOST_VM_INFO64, $0, &count)
+            }
+        }
+        guard result == KERN_SUCCESS else { return nil }
+        // Queried, not read from `vm_kernel_page_size`: that global is a
+        // mutable var and strict concurrency rejects it.
+        var pageSize: vm_size_t = 0
+        guard host_page_size(mach_host_self(), &pageSize) == KERN_SUCCESS else { return nil }
+        let pages = Double(stats.free_count) + Double(stats.inactive_count)
+        return pages * Double(pageSize) / 1_073_741_824
+    }
+
+    /// What loading this model will actually cost: its installed size plus
+    /// KV/runner overhead.
+    static func runtimeNeedGB(installedBytes: Int64) -> Double {
+        Double(installedBytes + runtimeOverheadBytes) / 1_073_741_824
+    }
+
+    /// The model to load right now, or nil to run deterministic-only.
+    ///
+    /// Pure — available memory and the installed set are passed in — so the
+    /// policy is testable at exact memory pressures instead of depending on
+    /// whatever the test machine happens to be doing.
+    ///
+    /// Walks `recommendationLadder` rather than taking the largest model that
+    /// still fits: largest-that-fits would prefer a bulkier, weaker model over
+    /// a leaner, better one, the same trap the 2026-08-06 effectiveModel fix
+    /// removed from the static path.
+    static func modelForCurrentMemory(chosen: String,
+                                      installed: [OllamaModel],
+                                      availableGB: Double,
+                                      headroomGB: Double = currentHeadroomGB) -> String? {
+        // A model with no reported size can't be sized, and one that isn't
+        // installed can't be loaded at all — both are unsafe. Treating either
+        // as "fine" is how something oversized slips through: the optimistic
+        // reading is exactly the one that ends in a swapping meeting.
+        func safe(_ model: OllamaModel) -> Bool {
+            guard model.size > 0 else { return false }
+            return runtimeNeedGB(installedBytes: model.size) + headroomGB <= availableGB
+        }
+        guard let selected = installed.first(where: { $0.name == chosen }),
+              safe(selected) else {
+            for name in recommendationLadder {
+                if let rung = installed.first(where: { $0.name == name }), safe(rung) {
+                    return name
+                }
+            }
+            return nil
+        }
+        return chosen
+    }
 }
 
 /// A model available in the Ollama catalog for download.
@@ -85,6 +173,15 @@ struct CatalogModel: Identifiable, Sendable {
 /// flagship 9b: a real meeting means Zoom + a browser + live transcription
 /// running alongside the model, so headroom beats benchmark points (the
 /// old one-size default froze smaller Macs at exactly the wrong moment).
+/// Step-down order when the Mac is too busy right now for the chosen model,
+/// best first. Sizing decides which rung is reachable; this decides which
+/// model is best at each rung. One family end to end — the heartbeat depends
+/// on strict JSON, and swapping families to save a gigabyte trades that away.
+///
+/// The 27B is deliberately absent: a fallback should never be the largest
+/// thing that happens to fit.
+let recommendationLadder = ["qwen3.5:9b", "qwen3.5:4b", "granite4:3b"]
+
 var recommendedCatalogModel: CatalogModel {
     let name = ModelMemory.physicalRAMGB >= 32 ? "qwen3.5:9b" : "qwen3.5:4b"
     return modelCatalog.first { $0.fullName == name } ?? modelCatalog[0]
