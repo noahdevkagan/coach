@@ -12,6 +12,20 @@ final class SettingsViewModel {
     var useMock: Bool = false
     var showModelCatalog: Bool = false
 
+    /// Global selection, resolved and snapshotted by LiveSessionViewModel at
+    /// meeting start. Changing it begins the needed download but never mutates
+    /// a session already in progress.
+    var meetingLanguage: MeetingLanguageSelection {
+        didSet {
+            UserDefaults.standard.set(meetingLanguage.rawValue,
+                                      forKey: MeetingLanguageSelection.defaultsKey)
+            ParakeetDownloadState.shared.startIfNeeded(
+                for: meetingLanguage.resolved().preferredEngine)
+        }
+    }
+
+    var resolvedMeetingLanguage: ResolvedMeetingLanguage { meetingLanguage.resolved() }
+
     /// Engine handle so on-demand flows (model downloads) can start
     /// Ollama first — it is otherwise only started lazily at session start.
     @ObservationIgnored weak var ollamaManager: OllamaManager?
@@ -56,6 +70,7 @@ final class SettingsViewModel {
     private var downloadTask: Task<Void, Never>?
 
     init() {
+        self.meetingLanguage = MeetingLanguageSelection.current
         self.semanticCoachEnabled = UserDefaults.standard.object(forKey: "semanticCoachEnabled") as? Bool ?? true
         self.showCoachOverlay = UserDefaults.standard.object(forKey: "showCoachOverlay") as? Bool ?? true
         self.showOverlayClock = UserDefaults.standard.object(forKey: "showOverlayClock") as? Bool ?? true

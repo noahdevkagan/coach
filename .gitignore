@@ -48,6 +48,7 @@ tests/asr/.out/
 tests/nudges/.build/
 tests/echo/.build/
 tests/hygiene/.build/
+tests/language/.build/
 .wrangler/
 tests/session/.build
 tests/granola/.build/

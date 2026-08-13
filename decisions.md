@@ -794,3 +794,68 @@ Four seams (memory read, preload, unload, review completion) default to the
 live implementations and are substituted by the harness, so the races are
 tested exactly rather than depending on the test machine's memory or a running
 engine. The 3 GB reserve remains provisional and unmeasured.
+
+## 2026-08-12 — Meeting language is an explicit session policy, not detection
+Multilingual V1 defaults to “Mac language,” resolving the Mac's primary locale
+exactly once when a meeting starts. An unsupported locale resolves to English
+and Settings explains the fallback. This is intentionally not audio-language
+detection: preserving known English quality and avoiding a silently wrong
+language guess matter more than convenience in V1. A typed resolved-language
+snapshot drives engine routing, cleanup, signals, review prompts, and the saved
+ISO header, so changing the global picker cannot mutate a call already running.
+
+English remains on Parakeet v2 and may start immediately with the existing
+local SFSpeech fallback while v2 downloads. The other 24 supported European
+languages use Parakeet v3 with its script hint, require Apple Silicon, and wait
+for v3 rather than feeding non-English audio to an English fallback. v2 and v3
+downloads serialize; passive Settings requests coalesce to the latest choice,
+but a queued session-start waiter is never discarded. Both caches remain on
+disk because eviction UI is outside V1.
+
+## 2026-08-12 — Non-English mode keeps only language-independent evidence
+The English deterministic suite depends on lexicons, punctuation, or discourse
+shape in ways that are unsafe to generalize. Non-English sessions therefore run
+exactly Talk Time, Voice Share, and Overrun. The semantic coach may still reason
+over any transcript with a local model, but its protocol surface — JSON keys,
+signal IDs, and nudge text — stays English.
+
+Parakeet v3 output bypasses the Vietnamese-artifact fold at every session-bound
+normalization path; otherwise legitimate Romanian `ă` and Croatian `đ` are
+destroyed. Reviews put content in the snapshotted language while retaining the
+five exact English headers required by the parser. Saved ISO codes reproduce
+that policy during regeneration; sessions without a code (legacy and imports)
+ask the model to follow the transcript's dominant language.
+
+## 2026-08-12 — Capture readiness, not button press, starts the meeting clock
+Non-English session start may wait minutes for the first Parakeet v3 download.
+The capture manager now stamps its start only after engine selection succeeds,
+before any pipeline is constructed, and the view model adopts that timestamp
+for its wall clock and saved session time. This keeps pipeline-relative
+utterance times and the visible session timer on the same zero point without
+counting model setup as meeting time.
+
+When a later session switches between Parakeet v2 and v3, the old FluidAudio
+manager is cleaned up before the other model loads. It cannot serve the new
+session because transcription already gates on the loaded version, and keeping
+it alive only creates a two-model peak in memory.
+
+## 2026-08-12 — Intel Macs always resolve to English (reverses the refusal)
+The entry above shipped "non-English requires Apple Silicon and waits for v3
+rather than refusing," which on Intel meant *refusing* — and because the
+default selection is the Mac's language, any Intel Mac set to French, German,
+Spanish, … would throw `multilingualRequiresAppleSilicon` on every Start with
+no recovery except finding the Settings picker. Those users previously
+transcribed fine on SFSpeech. Language resolution is now gated on
+`PlatformSupport.neuralModelsSupported`: on Intel every selection resolves to
+English, because Parakeet v3 cannot run there at all, so honoring the choice
+buys the user nothing and costs them the app.
+
+The override is silent in the transcript path but never silent in the UI:
+`ResolvedMeetingLanguage.intelFallbackFrom` carries the language that was
+wanted (kept separate from `selection`, which is `.system` — "Mac language" —
+when the Mac locale supplied it), and Settings names it. The Apple Silicon
+gate is injectable alongside the locale identifier so `tests/language` covers
+both platforms from whichever machine runs the gate; the Intel guard in
+`AudioCaptureManager.start()` is now unreachable and kept deliberately, since
+its branch is the one that would otherwise feed non-English audio to an en-US
+recognizer.

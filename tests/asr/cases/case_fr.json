@@ -1,0 +1,6 @@
+[
+ {"file": "audio/fr1.aiff", "gapAfter": 1.5},
+ {"file": "audio/fr2.aiff", "gapAfter": 1.5},
+ {"file": "audio/fr3.aiff", "gapAfter": 1.5},
+ {"file": "audio/fr4.aiff", "gapAfter": 0.5}
+]

@@ -92,6 +92,7 @@ else
 fi
 bash tests/echo/run.sh || { echo "ECHO FILTER GATE FAILED"; exit 1; }
 bash tests/hygiene/run.sh || { echo "HYGIENE GATE FAILED"; exit 1; }
+bash tests/language/run.sh || { echo "LANGUAGE GATE FAILED"; exit 1; }
 
 echo "--- [3/4] nudges"
 bash tests/nudges/run.sh || { echo "NUDGE GATE FAILED"; exit 1; }

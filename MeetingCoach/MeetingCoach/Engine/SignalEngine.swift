@@ -25,6 +25,13 @@ protocol SignalMonitor {
     mutating func reset()
 }
 
+/// Deterministic text detectors are tuned for English. Non-English meetings
+/// retain only signals derived from timing and speaker-attributed word volume.
+enum SignalLanguageMode: Sendable, Equatable {
+    case fullEnglish
+    case multilingualSafe
+}
+
 /// Orchestrator for deterministic signals. Runs all monitors on each tick
 /// and collects nudges for the live session and post-call review.
 struct SignalEngine {
@@ -37,8 +44,10 @@ struct SignalEngine {
     private var lastProcessedID: UUID?
 
     var turns: [Turn] { turnBuilder.turns }
+    var enabledNudgeTypes: [NudgeType] { monitors.map(\.nudgeType) }
 
-    init(context: PreCallContext, tuning: RubricTuning = [:]) {
+    init(context: PreCallContext, tuning: RubricTuning = [:],
+         languageMode: SignalLanguageMode = .fullEnglish) {
         // Three threshold layers: the meeting type sets the baseline (long
         // turns are the FORMAT of a 1:1 but a red flag on a sales call),
         // the active rubric applies the user's chosen tuning, and adaptive
@@ -123,7 +132,13 @@ struct SignalEngine {
             reflected,
         ]
         // Rubric-disabled signals never run (absent from the map = enabled).
-        monitors = all.filter { tuning[$0.nudgeType.rawValue]?.enabled ?? true }
+        // Multilingual V1 admits only signals whose evidence is independent of
+        // English punctuation, keywords, stop words, or backchannel lexicons.
+        let multilingualSafe: Set<NudgeType> = [.talkTime, .voiceShare, .overrun]
+        monitors = all.filter {
+            (languageMode == .fullEnglish || multilingualSafe.contains($0.nudgeType))
+                && (tuning[$0.nudgeType.rawValue]?.enabled ?? true)
+        }
     }
 
     /// Force the next evaluate() to rebuild turns from scratch — used when

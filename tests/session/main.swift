@@ -83,6 +83,8 @@ func runTests() async {
            let body = try? String(contentsOfFile: scratch.appendingPathComponent(file).path,
                                   encoding: .utf8) {
             check(body.contains("still pending"), "saved session includes the pending tail")
+            check(body.contains("**Language:** en"),
+                  "saved session persists resolved ISO language")
         } else {
             check(false, "session file written to the scratch folder")
         }
@@ -763,6 +765,55 @@ func runTests() async {
         try? await Task.sleep(for: .milliseconds(500))
         check(unloaded.contains("qwen3.5:4b"),
               "empty session unloads its model", "unloaded: \(unloaded)")
+        vm.deleteSession()
+    }
+
+    // Multilingual review content keeps the parser's five English headers,
+    // while legacy files (no Language header) ask for dominant-language output.
+    let spanishPrompt = PromptBuilder.buildPostCallReviewPrompt(
+        nudges: [], transcript: "Them: El presupuesto está aprobado.",
+        context: PreCallContext(), durationMinutes: 10, languageName: "Spanish")
+    check(spanishPrompt.system.contains("Write all section content in Spanish"),
+          "review prompt pins Spanish content")
+    check(spanishPrompt.system.contains("five literal header lines")
+          && spanishPrompt.user.hasSuffix("starting with TITLE:."),
+          "review prompt preserves five-header parser contract")
+    let legacyPrompt = PromptBuilder.buildPostCallReviewPrompt(
+        nudges: [], transcript: "Them: Bonjour.", context: PreCallContext(),
+        durationMinutes: 5)
+    check(legacyPrompt.system.contains("transcript's dominant language"),
+          "legacy review infers dominant transcript language")
+
+    let parsedSpanish = MeetingReview.parse(llmText: """
+        TITLE:
+        Presupuesto aprobado
+        SUMMARY:
+        El equipo aprobó el presupuesto.
+        KEY TAKEAWAYS:
+        - El lanzamiento sigue previsto.
+        NEXT STEPS:
+        - Ana — enviar el contrato — viernes
+        NEXT MEETING FOCUS:
+        Confirmar la fecha final.
+        """)
+    check(parsedSpanish.summary == "El equipo aprobó el presupuesto."
+          && parsedSpanish.takeaways.count == 1
+          && parsedSpanish.actionItems.count == 1,
+          "Spanish content parses under English headers")
+
+    do {
+        let settings = SettingsViewModel()
+        settings.meetingLanguage = .spanish
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext(), settings: settings)
+        try? await Task.sleep(for: .milliseconds(300))
+        AudioCaptureManager.last?.onPartialText?("You", "Confirmamos el presupuesto.")
+        vm.stopLive()
+        let saved = vm.savedPath.flatMap {
+            try? String(contentsOfFile: $0, encoding: .utf8)
+        } ?? ""
+        check(vm.sessionLanguage?.code == "es" && saved.contains("**Language:** es"),
+              "explicit Spanish is snapshotted and persisted")
         vm.deleteSession()
     }
 
