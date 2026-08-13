@@ -897,3 +897,17 @@ HANDOFF Outstanding: Conductor clones don't inherit `core.hooksPath`, so
 diffs `@{u}..HEAD`, so once the code commits are pushed, a follow-up
 changelog commit false-skips the full suite — unset the upstream to force
 a real run before tagging.
+
+## 2026-08-13 — Remote identity count requires transcript evidence
+
+The one-on-one display alias now prefers remote labels that actually claimed
+transcript utterances over every label in LS-EEND's audio timeline. Why: in a
+real Noah/Chad 1:1, a stray second diarizer slot with no transcribed words made
+the call look like a group, disabled the Chad alias, and rendered an unaligned
+"Yeah." as raw `Them` beside correctly named Chad turns. A second label still
+drops the alias as soon as it owns transcript speech, preserving honest group
+calls; the full diarizer label set remains the fallback before any utterance
+has been attributed. One veto survives from the old order: when transcript
+evidence has only a numbered label but the diarizer heard ≥2 voices, the
+rename/pre-call fallbacks are skipped — otherwise a group call whose
+attribution lags the diarizer would display under the pre-call guess.

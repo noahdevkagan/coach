@@ -7,6 +7,12 @@ The durable "why" behind choices goes in `decisions.md`, not here.
 
 ## Current state (2026-08-13)
 
+- **One-on-one short-utterance speaker fallback fixed (unreleased):** remote
+  identities now count toward group detection only after claiming transcript
+  speech, so an audio-only phantom diarizer slot no longer makes "Yeah." show
+  as `Them` beside named Chad turns. Genuine second speakers still retire the
+  alias once attributed. Regression added; `tests/session` and Debug build pass.
+
 - **v0.19.0 SHIPPED — Simplified Multilingual V1** (25 languages; scope in
   CHANGELOG + decisions.md 2026-08-12 entries). Full push gate green
   (French v3 canary 0% WER; the old conv chunk-band worry did not
