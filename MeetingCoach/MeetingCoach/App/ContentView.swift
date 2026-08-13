@@ -81,7 +81,7 @@ struct ContentView: View {
                     }
                     .frame(minWidth: 400)
                 } else if liveSession.isLive || liveSession.hasSession {
-                    LiveTimelineView(liveSession: liveSession)
+                    LiveTimelineView(liveSession: liveSession, settings: settings)
                         .frame(minWidth: 400)
                 } else {
                     ProgressDashboardView(liveSession: liveSession, settings: settings)
@@ -204,6 +204,8 @@ struct ContentView: View {
 
 struct LiveTimelineView: View {
     @Bindable var liveSession: LiveSessionViewModel
+    // For the basic-mode banner's fallback-model download.
+    @Bindable var settings: SettingsViewModel
 
     var body: some View {
         HSplitView {
@@ -418,6 +420,53 @@ struct LiveTimelineView: View {
                 .padding(8)
                 .background((PlatformSupport.neuralModelsSupported ? Color.blue : Color.orange)
                     .opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+
+            // Basic-mode coaching is otherwise invisible: nudges just never
+            // arrive and the user reads six quiet minutes as "broken".
+            // Only degraded causes show here — chosen modes stay silent.
+            if liveSession.isLive, let notice = liveSession.basicModeNotice {
+                let suggestion = notice.lowMemory ? settings.fallbackModelSuggestion : nil
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "bolt.slash.circle")
+                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Coaching is in basic mode — \(notice.cause)")
+                            .font(.caption.bold())
+                        Text(notice.detail)
+                            .font(.caption2).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let suggestion {
+                            if settings.downloadingModel == suggestion.fullName {
+                                HStack(spacing: 6) {
+                                    ProgressView(value: settings.downloadProgress)
+                                        .controlSize(.small)
+                                        .frame(width: 120)
+                                    Text(settings.downloadStatus)
+                                        .font(.caption2).foregroundStyle(.tertiary)
+                                }
+                            } else if let error = settings.downloadError {
+                                Text(error)
+                                    .font(.caption2).foregroundStyle(.red)
+                                    .lineLimit(2)
+                            } else {
+                                Text("A lighter model (\(suggestion.diskSize)) would fit busy days like this. It downloads in the background and kicks in from your next session.")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                    Spacer()
+                    if let suggestion, settings.downloadingModel == nil {
+                        Button("Get \(suggestion.parameterSize) model") {
+                            settings.downloadModel(suggestion, forSessionFallback: true)
+                        }
+                        .font(.caption)
+                    }
+                }
+                .padding(8)
+                .background(Color.orange.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 

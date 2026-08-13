@@ -558,6 +558,31 @@ func runTests() async {
                                                 installed: [installed("mystery:model", 0)],
                                                 availableGB: 64) == nil,
               "unknown size is unsafe, not assumed small")
+        // Candidate order: the selection first, then strictly smaller
+        // installed rungs as preload fallbacks — never a larger one, which
+        // would fail harder than the model that just OOMed.
+        check(ModelMemory.candidatesForCurrentMemory(chosen: "qwen3.5:9b",
+                                                     installed: pool, availableGB: 24)
+              == ["qwen3.5:9b", "qwen3.5:4b", "granite4:3b"],
+              "candidates step down in size below the selection",
+              "got: \(ModelMemory.candidatesForCurrentMemory(chosen: "qwen3.5:9b", installed: pool, availableGB: 24))")
+        check(ModelMemory.candidatesForCurrentMemory(chosen: "qwen3.5:4b",
+                                                     installed: pool, availableGB: 24)
+              == ["qwen3.5:4b", "granite4:3b"],
+              "a larger rung is never a fallback for a smaller selection",
+              "got: \(ModelMemory.candidatesForCurrentMemory(chosen: "qwen3.5:4b", installed: pool, availableGB: 24))")
+        check(ModelMemory.candidatesForCurrentMemory(chosen: "qwen3.5:9b",
+                                                     installed: pool, availableGB: 3).isEmpty,
+              "nothing fits -> no candidates")
+        // The low-memory banner's download offer: the smallest ladder rung,
+        // only while it isn't installed. Installed-and-still-didn't-fit means
+        // no download can help — offer nothing.
+        check(ModelMemory.fallbackSuggestion(installed: [installed("qwen3.5:9b", 6.6),
+                                                         installed("qwen3.5:4b", 3.4)])?.fullName
+              == "granite4:3b",
+              "missing smallest rung is offered as a download")
+        check(ModelMemory.fallbackSuggestion(installed: pool) == nil,
+              "smallest rung installed -> nothing to offer")
     }
 
     // Happy path: refresh -> preload -> pin, in that order, and the SAME
@@ -596,7 +621,7 @@ func runTests() async {
         vm.deleteSession()
     }
 
-    // Preload failure cannot produce a heartbeat.
+    // Preload failure cannot produce a heartbeat, and it tells the user.
     do {
         resetSeams()
         LiveSessionViewModel.availableMemoryGB = { 24 }
@@ -611,6 +636,38 @@ func runTests() async {
               "state: \(String(describing: vm.sessionModelState))")
         check(vm.sessionModelState?.pinnedModel == nil,
               "preload failure cannot produce a heartbeat — nothing is pinned")
+        check(vm.basicModeNotice?.cause == "low memory",
+              "exhausted preloads surface a basic-mode notice",
+              "notice: \(String(describing: vm.basicModeNotice))")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // A failed preload steps down to the next smaller installed rung instead
+    // of giving up — the heuristic is a snapshot, the OOM verdict is the
+    // engine's. The step-down happens at session start, never mid-meeting.
+    do {
+        resetSeams()
+        var preloaded: [String] = []
+        LiveSessionViewModel.availableMemoryGB = { 24 }
+        LiveSessionViewModel.preloadModel = { model in
+            preloaded.append(model)
+            return model == "qwen3.5:9b" ? "out of memory" : nil
+        }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings("qwen3.5:9b")
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+        check(vm.sessionModelState?.pinnedModel == "qwen3.5:4b",
+              "failed preload steps down to the smaller installed rung",
+              "state: \(String(describing: vm.sessionModelState)), preloaded: \(preloaded)")
+        check(preloaded == ["qwen3.5:9b", "qwen3.5:4b"],
+              "rungs are tried largest-selected first, in order",
+              "preloaded: \(preloaded)")
+        check(vm.basicModeNotice == nil,
+              "a session that pinned a model shows no basic-mode notice",
+              "notice: \(String(describing: vm.basicModeNotice))")
         vm.stopLive()
         vm.deleteSession()
     }
@@ -646,6 +703,9 @@ func runTests() async {
         check(vm.sessionModelState?.pinnedModel == nil,
               "no fitting model -> deterministic",
               "state: \(String(describing: vm.sessionModelState))")
+        check(vm.basicModeNotice?.cause == "low memory",
+              "nothing-fits surfaces a low-memory basic-mode notice",
+              "notice: \(String(describing: vm.basicModeNotice))")
         if let cap = AudioCaptureManager.last {
             cap.onUtterance?(Utterance(t: 1, speaker: "You", text: "Words for a recap.", endT: 3))
         }
@@ -676,6 +736,9 @@ func runTests() async {
               "state: \(String(describing: vm.sessionModelState))")
         check(preloaded.isEmpty, "mock mode never constructs an LLM client",
               "preloaded: \(preloaded)")
+        check(vm.basicModeNotice == nil,
+              "mock mode is a choice, not a degradation — no notice",
+              "notice: \(String(describing: vm.basicModeNotice))")
         vm.stopLive()
         vm.deleteSession()
     }

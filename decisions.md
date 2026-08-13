@@ -911,3 +911,35 @@ has been attributed. One veto survives from the old order: when transcript
 evidence has only a numbered label but the diarizer heard ≥2 voices, the
 rename/pre-call fallbacks are skipped — otherwise a group call whose
 attribution lags the diarizer would display under the pre-call guess.
+
+## 2026-08-13 — Basic mode is named, and a failed preload steps down
+Reverses one clause of the silent-progressive-enhancement stance: a Mac
+that *chose* no LLM (mock mode, kill-switch) still gets no ritual, but a
+session that *degraded* into deterministic coaching now says so — an
+orange "Coaching is in basic mode — low memory" banner in the transcript
+pane and a compact orange line in the overlay's ambient state. Driven by
+a real meeting on 2026-08-13: Noah sat six minutes with zero nudges on a
+busy 32 GB Mac (7.4 GB free, nothing installed fit) with no way to tell
+"working, nothing to say" from "coach never loaded". The notice lives in
+`basicModeNotice` and is set only on degraded exits (memory, engine,
+exhausted preloads), never on chosen ones.
+
+Second change: activation no longer settles deterministic on the first
+failed preload. `ModelMemory.candidatesForCurrentMemory` returns the
+selection plus strictly *smaller* installed ladder rungs (never larger —
+those would fail harder than the model that just OOMed), and activation
+walks them in order. The 2026-08-11 invariant is untouched: all attempts
+happen at session start inside the one activation task, every await
+still re-checks the session UUID, and nothing may cold-load later.
+
+Third (same session, Noah: "can we prompt that"): when the degradation is
+memory and the ladder's smallest rung (granite4:3b, ~2.1 GB) isn't
+installed, the banner offers a one-click download with inline progress.
+The pull uses `downloadModel(_, forSessionFallback: true)`, which skips
+two Settings-flow behaviors that would be wrong here: it does NOT switch
+`selectedModel` (the rung is a fallback, not a preference — the ladder
+finds it on its own), and it skips the post-pull verification load (the
+user is mid-meeting on a machine that just proved it has no memory to
+spare). The downloaded model is only ever picked up at a future session
+start. If the smallest rung is already installed and still didn't fit,
+no button — a download can't help.

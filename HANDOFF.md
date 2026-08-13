@@ -13,6 +13,10 @@ The durable "why" behind choices goes in `decisions.md`, not here.
   as `Them` beside named Chad turns. Genuine second speakers still retire the
   alias once attributed. Regression added; `tests/session` and Debug build pass.
 
+- **PR preparation in progress:** package the basic-mode visibility,
+  smaller-installed-model preload fallback, and lightweight-model download
+  prompt currently implemented on `crxnamja/no-nudges-troubleshooting`;
+  reconcile with `origin/main`, run the push gate, and open a PR to `main`.
 - **v0.19.0 SHIPPED — Simplified Multilingual V1** (25 languages; scope in
   CHANGELOG + decisions.md 2026-08-12 entries). Full push gate green
   (French v3 canary 0% WER; the old conv chunk-band worry did not

@@ -170,6 +170,22 @@ struct CoachingOverlayView: View {
                         feedbackButton(nudge: nudge, feedback: .wrong,
                                        icon: "xmark.circle.fill", color: .red)
                     }
+                } else if let notice = liveSession.basicModeNotice {
+                    // Degraded coaching would otherwise look identical to a
+                    // meeting with nothing to say — name it where the user is
+                    // actually looking. The main window carries the fix.
+                    Image(systemName: "bolt.slash.circle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                    Text("Basic mode — \(notice.cause)")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                    if settings.showOverlayClock {
+                        Text(liveSession.elapsedFormatted)
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                    }
+                    Spacer()
                 } else {
                     // Ambient state
                     Image(systemName: "waveform")
