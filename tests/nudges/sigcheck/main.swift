@@ -96,6 +96,37 @@ if after <= before + 1 {           // relabel may split a merged turn, never dup
     fail = true
 }
 
+// Non-English V1 keeps only evidence that does not depend on English words,
+// punctuation, stop words, or backchannel phrases.
+var safeEngine = SignalEngine(
+    context: PreCallContext(meetingGoal: "", scheduledDurationMinutes: 1),
+    languageMode: .multilingualSafe)
+let safeTypes = Set(safeEngine.enabledNudgeTypes)
+let expectedSafe: Set<NudgeType> = [.talkTime, .voiceShare, .overrun]
+if safeTypes == expectedSafe {
+    print("multilingual signals: only talkTime, voiceShare, overrun enabled -> PASS")
+} else {
+    print("multilingual signals: got \(safeTypes.map(\.rawValue).sorted()) -> FAIL")
+    fail = true
+}
+let spanishFixture = [
+    Utterance(t: 5, speaker: "Them",
+              text: "Necesitamos confirmar el presupuesto antes del viernes.", endT: 8),
+    Utterance(t: 340, speaker: "You",
+              text: Array(repeating: "Podemos revisar el lanzamiento y confirmar cada detalle con el equipo", count: 18)
+                .joined(separator: " "),
+              endT: 395),
+]
+let safeNudges = safeEngine.evaluate(
+    utterances: spanishFixture, elapsed: 400,
+    context: PreCallContext(meetingGoal: "", scheduledDurationMinutes: 1))
+if Set(safeNudges.map(\.type)) == expectedSafe {
+    print("multilingual fixture: all three safe monitors fire, no English-only signal runs -> PASS")
+} else {
+    print("multilingual fixture: got \(safeNudges.map { $0.type.rawValue }.sorted()) -> FAIL")
+    fail = true
+}
+
 // Positive reinforcement: a short open question from You that pulls a long
 // answer from Them fires questionLanded; a long You turn ending in "?" (a
 // monologue, not an open question) must NOT.

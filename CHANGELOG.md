@@ -7,6 +7,14 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## 0.19.0 — 2026-08-13
+
+- MeetingCoach now speaks your language: meetings can be transcribed in 25 languages — English plus 24 European languages, from Spanish and French to Ukrainian and Greek. Pick yours in Settings → General; by default it follows your Mac's language
+- Non-English meetings use a new high-accuracy on-device engine (Apple Silicon, one ~600 MB download the first time). Your audio still never leaves your Mac
+- Post-meeting notes and reviews are written in the meeting's language, and saved sessions remember their language — regenerating an old review keeps it
+- In non-English meetings, live coaching sticks to what works in any language: talk time, voice share, and running over time. English meetings keep the full set
+- The language you pick is locked in when a meeting starts, so changing it mid-call never scrambles a running transcript. Intel Macs stay English-only (explained right in Settings)
+
 ## 0.18.1 — 2026-08-11
 
 - MeetingCoach now checks how much memory is actually free once a call is underway — not just how much your Mac has — and picks a lighter model when your machine is busy. A 32 GB Mac with a lot already open no longer slows to a crawl mid-meeting

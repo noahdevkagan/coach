@@ -32,6 +32,10 @@ protocol TranscriptionPipeline: AnyObject {
 @available(macOS 14.2, *)
 final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
+    /// Immutable per-session language policy. Settings changes never alter a
+    /// running capture or its cleanup/decoder behavior.
+    let language: ResolvedMeetingLanguage
+
     /// Called with a new utterance to append.
     var onUtterance: (@Sendable @MainActor (Utterance) -> Void)?
 
@@ -66,18 +70,22 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     private let vocabLock = NSLock()
     private var _vocabulary: VocabularyNormalizer?
 
-    private let startTime = Date()
+    /// Stamped after engine selection, not at init: the non-English path can
+    /// block on a multi-hundred-MB download, and the clock must start when
+    /// capture actually does.
+    private(set) var startTime = Date()
     private var isRunning = false
 
     // One recognition pipeline per audio source
     private var micPipeline: (any TranscriptionPipeline)?
     private var sysPipeline: (any TranscriptionPipeline)?
-    private var usingParakeet = false
+    private(set) var transcriptionEngine: TranscriptionEngine = .sfSpeech
+    private var usingParakeet: Bool { transcriptionEngine.isParakeet }
     /// Which engine this session actually transcribed with — recorded into
     /// the saved session so accuracy regressions (bench/transcription.sh)
     /// can be attributed to the engine, not guessed at. "SFSpeech" here on
     /// a Parakeet-capable Mac means the session hit the fallback path.
-    private(set) var engineLabel = "unknown"
+    var engineLabel: String { transcriptionEngine.displayLabel(language: language) }
 
     // Audio sources
     private var engine: AVAudioEngine?
@@ -133,6 +141,11 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     // mostly repeat concurrent "Them" speech are stripped before delivery.
     private let echoFilter = EchoFilter()
 
+    init(language: ResolvedMeetingLanguage) {
+        self.language = language
+        super.init()
+    }
+
 
     // MARK: - Public
 
@@ -152,23 +165,55 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         // When the model isn't on disk yet, don't hold the session hostage
         // behind a ~600 MB download: start immediately on SFSpeech (if it can
         // run on-device) and fetch Parakeet in the background for next time.
+        let preferredEngine = language.preferredEngine
         if !PlatformSupport.neuralModelsSupported {
             // Intel: Parakeet would SIGFPE the process (see PlatformSupport).
             // SFSpeech is the only engine; if it can't run on-device,
             // makePipeline below throws and the session refuses to start
             // rather than send audio off-device.
-            usingParakeet = false
+            guard language.isEnglish else {
+                isRunning = false
+                throw CaptureError.multilingualRequiresAppleSilicon(language.englishName)
+            }
+            transcriptionEngine = .sfSpeech
             mclog("[Capture] Intel Mac — Parakeet unsupported, using SFSpeech")
-        } else if ParakeetEngine.isCachedOnDisk || !Self.sfSpeechOnDeviceAvailable {
+        } else if let version = preferredEngine.parakeetVersion,
+                  ParakeetEngine.isCachedOnDisk(version) {
             emitStatus("Preparing transcription engine...")
-            usingParakeet = await ParakeetEngine.shared.ensureLoaded()
-        } else {
-            usingParakeet = false
-            Task { @MainActor in ParakeetDownloadState.shared.startIfNeeded() }
+            if await ParakeetEngine.shared.ensureLoaded(version: version) {
+                transcriptionEngine = preferredEngine
+            } else if language.isEnglish
+                        && Self.sfSpeechOnDeviceAvailable(for: language.sfSpeechLocaleIdentifier) {
+                transcriptionEngine = .sfSpeech
+            } else {
+                isRunning = false
+                throw CaptureError.transcriptionEngineUnavailable(language.englishName)
+            }
+        } else if language.isEnglish
+                    && Self.sfSpeechOnDeviceAvailable(for: language.sfSpeechLocaleIdentifier) {
+            transcriptionEngine = .sfSpeech
+            Task { @MainActor in
+                ParakeetDownloadState.shared.startIfNeeded(for: preferredEngine)
+            }
             emitStatus("Higher-accuracy transcription downloading — ready next session")
-            mclog("[Capture] Parakeet not cached — starting on SFSpeech, downloading in background")
+            mclog("[Capture] Parakeet v2 not cached — starting on SFSpeech, downloading in background")
+        } else {
+            // Non-English has no SFSpeech escape hatch: starting an English
+            // recognizer would silently turn the whole meeting into garbage.
+            emitStatus("Downloading \(language.englishName) transcription…")
+            let ready = await ParakeetDownloadState.shared.prepare(for: preferredEngine)
+            guard !Task.isCancelled else {
+                isRunning = false
+                throw CancellationError()
+            }
+            guard ready, let version = preferredEngine.parakeetVersion,
+                  await ParakeetEngine.shared.ensureLoaded(version: version) else {
+                isRunning = false
+                throw CaptureError.transcriptionEngineUnavailable(language.englishName)
+            }
+            transcriptionEngine = preferredEngine
         }
-        engineLabel = usingParakeet ? "Parakeet" : "SFSpeech"
+        startTime = Date()
         mclog("[Capture] Transcription engine: \(engineLabel)")
 
         // Apple call surfaces (FaceTime, iPhone-relayed calls) render their
@@ -312,17 +357,23 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
                               commitSilence: TimeInterval = 0.9) throws -> any TranscriptionPipeline {
         let pipe: any TranscriptionPipeline
         if usingParakeet {
+            guard let version = transcriptionEngine.parakeetVersion else {
+                throw CaptureError.transcriptionEngineUnavailable(language.englishName)
+            }
             pipe = ParakeetPipeline(speaker: speaker, sessionStart: startTime,
-                                    voiceFloor: voiceFloor, commitSilence: commitSilence)
+                                    voiceFloor: voiceFloor, commitSilence: commitSilence,
+                                    modelVersion: version,
+                                    languageHint: language.parakeetLanguageHint)
         } else {
-            guard let recognizer = SFSpeechRecognizer(locale: .init(identifier: "en-US")),
+            let locale = language.sfSpeechLocaleIdentifier
+            guard let recognizer = SFSpeechRecognizer(locale: .init(identifier: locale)),
                   recognizer.isAvailable else {
-                throw CaptureError.speechNotAvailable
+                throw CaptureError.speechNotAvailable(locale)
             }
             // Hard local-first constraint: audio must never route to Apple's
             // servers. Refuse to start rather than silently falling back.
             guard recognizer.supportsOnDeviceRecognition else {
-                throw CaptureError.onDeviceUnavailable
+                throw CaptureError.onDeviceUnavailable(locale)
             }
             let sf = RecognitionPipeline(speaker: speaker, recognizer: recognizer, sessionStart: startTime)
             sf.contextualHints = contextualHints
@@ -868,8 +919,8 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
     /// Whether the SFSpeech fallback can honor the never-leaves-the-Mac
     /// constraint. If it can't, session start waits for Parakeet instead.
-    private static var sfSpeechOnDeviceAvailable: Bool {
-        guard let recognizer = SFSpeechRecognizer(locale: .init(identifier: "en-US")),
+    private static func sfSpeechOnDeviceAvailable(for locale: String) -> Bool {
+        guard let recognizer = SFSpeechRecognizer(locale: .init(identifier: locale)),
               recognizer.isAvailable else { return false }
         return recognizer.supportsOnDeviceRecognition
     }
@@ -1213,17 +1264,21 @@ extension AudioCaptureManager: SCStreamDelegate {
 // MARK: - Errors
 
 enum CaptureError: Error, LocalizedError {
-    case speechNotAvailable
+    case speechNotAvailable(String)
     case speechNotAuthorized
-    case onDeviceUnavailable
+    case onDeviceUnavailable(String)
+    case multilingualRequiresAppleSilicon(String)
+    case transcriptionEngineUnavailable(String)
     case systemAudioFailed(String)
     case microphoneNotAvailable(String)
 
     var errorDescription: String? {
         switch self {
-        case .speechNotAvailable: "Speech recognition not available. Enable Dictation in System Settings > Keyboard."
+        case .speechNotAvailable(let locale): "Speech recognition is not available for \(locale). Enable Dictation in System Settings > Keyboard."
         case .speechNotAuthorized: "Speech recognition not authorized. Check System Settings > Privacy > Speech Recognition."
-        case .onDeviceUnavailable: "On-device speech recognition is not available for en-US. Refusing to start: audio must never leave this Mac. Download the English dictation model in System Settings > Keyboard > Dictation."
+        case .onDeviceUnavailable(let locale): "On-device speech recognition is not available for \(locale). Refusing to start: audio must never leave this Mac. Download the English dictation model in System Settings > Keyboard > Dictation."
+        case .multilingualRequiresAppleSilicon(let language): "\(language) transcription requires an Apple Silicon Mac. Intel Macs support English through Apple's on-device transcription."
+        case .transcriptionEngineUnavailable(let language): "The on-device \(language) transcription engine isn't ready. Check its download in Settings → General, then retry."
         case .systemAudioFailed(let msg): msg
         case .microphoneNotAvailable(let msg): msg
         }

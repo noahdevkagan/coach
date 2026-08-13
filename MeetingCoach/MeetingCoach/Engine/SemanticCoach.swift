@@ -205,6 +205,7 @@ final class SemanticCoach {
         \(defLines.joined(separator: "\n"))
 
         Rules:
+        - The transcript may be in any language. Reason from that language, but keep JSON keys, signal ids, and the short nudge in English.
         - Report a signal ONLY with strong evidence in the transcript. Silence is the correct output most of the time.
         - Never report a signal for something the speakers already resolved.
         - "nudge" is the short coaching line shown to the user mid-meeting: max 8 words, imperative, concrete.

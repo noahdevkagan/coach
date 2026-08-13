@@ -38,6 +38,7 @@ struct SessionDetailView: View {
     @State private var regenerating = false
     @State private var durationMinutes = 0
     @State private var talkShareValue: Double?
+    @State private var languageCode: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -276,7 +277,10 @@ struct SessionDetailView: View {
         let transcript = lines.map { "\($0.speaker): \($0.text)" }.joined(separator: "\n")
         let (system, user) = PromptBuilder.buildPostCallReviewPrompt(
             nudges: [], transcript: transcript,
-            context: PreCallContext(), durationMinutes: max(1, durationMinutes))
+            context: PreCallContext(), durationMinutes: max(1, durationMinutes),
+            languageName: languageCode.flatMap {
+                MeetingLanguageSelection.resolvedPersistedCode($0)?.englishName
+            })
         guard let text = try? await OllamaClient(model: settings.effectiveModel)
             .complete(system: system, user: user) else { return }
         let parsed = MeetingReview.parse(llmText: text, talkShare: talkShareValue)
@@ -395,6 +399,7 @@ struct SessionDetailView: View {
 
         var duration = ""
         var talkShare = ""
+        languageCode = nil
         var participants = 0
         var newLines: [(String, String, String)] = []
         var newNudges: [String] = []
@@ -425,6 +430,10 @@ struct SessionDetailView: View {
             }
             if rawLine.hasPrefix("**Talk ratio:**") {
                 talkShare = rawLine.dropFirst("**Talk ratio:**".count).trimmingCharacters(in: .whitespaces)
+            }
+            if rawLine.hasPrefix("**Language:**") {
+                languageCode = rawLine.dropFirst("**Language:**".count)
+                    .trimmingCharacters(in: .whitespaces)
             }
             if rawLine.hasPrefix("**Participants:**") {
                 participants = rawLine.split(separator: ",").count

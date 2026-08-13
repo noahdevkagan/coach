@@ -86,6 +86,16 @@ check(VocabularyNormalizer.foldVietnameseArtifacts("Khắc Việt đúng")
       == "Khac Viet dung",
       "Vietnamese marks fold to ASCII")
 
+// Multilingual v3 output is real language, not an English-model artifact.
+let multilingualVocab = VocabularyNormalizer(foldVietnameseArtifacts: false)
+check(multilingualVocab.normalize("Română: bună dimineața")
+      == "Română: bună dimineața",
+      "v3 policy preserves Romanian ă")
+check(multilingualVocab.normalize("Hrvatski đak") == "Hrvatski đak",
+      "v3 policy preserves Croatian đ")
+check(vocab.normalize("Khắc Việt đúng") == "Khac Viet dung",
+      "default v2 folding behavior unchanged")
+
 // "UTC" must never be rewritten by default — it's a real timezone.
 check(vocab.normalize("let's sync at 3pm UTC") == "let's sync at 3pm UTC",
       "UTC untouched by default")

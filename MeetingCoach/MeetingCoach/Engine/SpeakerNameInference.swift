@@ -81,6 +81,8 @@ final class SpeakerNameInference {
         - a speaker introduces themself ("Hi, this is Priya")
         - someone addresses a person by name and that labeled speaker responds
 
+        The transcript may be in any language. Interpret it in that language, but keep the JSON keys and placeholder labels exactly as specified.
+
         Respond with ONLY a JSON array, no other text. Each item:
         {"label": "<placeholder label>", "name": "<first name, properly capitalized>", "confidence": <0.0-1.0>}
 

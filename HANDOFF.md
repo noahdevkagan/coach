@@ -7,12 +7,34 @@ The durable "why" behind choices goes in `decisions.md`, not here.
 
 ## Current state (2026-08-09)
 
-- **Invalid microphone-format crash fixed:** capture validates finite positive
-  sample rate plus at least one channel before installing the AVAudioEngine
-  input tap. Initial setup retries with three fresh engines over 850 ms, then
-  surfaces the existing microphone-unavailable error instead of allowing
-  AVFAudio to abort. Zero-channel regression checks, clean Debug build, and
-  fast real-audio ASR cases pass.
+- **Invalid microphone-format crash fixed (2026-08-13), not released.** Capture
+  validates finite positive sample rate plus at least one channel before
+  installing the AVAudioEngine input tap. Initial setup retries with three
+  fresh engines over 850 ms, then surfaces the existing microphone-unavailable
+  error instead of allowing AVFAudio to abort. Zero-channel regression checks,
+  clean Debug build, and fast real-audio ASR cases pass.
+- **Simplified Multilingual V1 implemented (2026-08-12), not released.** The
+  global Settings picker defaults to Mac language and each session snapshots
+  the resolved supported language. English stays on Parakeet v2 (with its
+  existing SFSpeech fallback); 24 other European languages use Parakeet v3 on
+  Apple Silicon. Downloads are version-aware, serialized, and coalesce passive
+  Settings switches to the latest requested engine. Saved sessions carry the
+  resolved ISO code; regenerated reviews reuse it, while legacy/imported files
+  ask for their transcript's dominant language. Non-English deterministic
+  coaching runs only Talk Time, Voice Share, and Overrun; v3 normalization
+  preserves real diacritics; local-LLM review content uses the meeting language
+  under five exact English parser headers. Settings shows the required engine,
+  progress, Intel limitation, unsupported-Mac-language English fallback, and
+  next-meeting semantics. No detection, code-switching, per-meeting override,
+  CJK, or cache eviction. New coverage: `tests/language`, Spanish persistence /
+  review parser, multilingual signal set, ă/đ hygiene, French v3 ASR canary.
+  App build and all focused suites pass; French v3 and English content both
+  scored 0% WER. Full ASR currently reports only the unchanged conv chunk-count
+  band (3 emitted vs expected 4–8) despite 0% WER; do not regolden blindly.
+  Follow-up complete: both session clocks are stamped only after the selected
+  transcription engine is ready, the resident Parakeet manager is released
+  before switching v2/v3, and `tests/language/.build/` is ignored. Debug build
+  plus session, language, and nudge suites pass.
 - **v0.18.0 SHIPPED 2026-08-11 — Reliable speaker naming** (built on
   branch crxnamja/improve-speaker-naming, fast-forwarded to main, tag
   released via CI, site deployed). Full plan + agreed adjustments in

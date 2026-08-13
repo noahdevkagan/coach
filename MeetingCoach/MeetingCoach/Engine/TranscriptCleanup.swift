@@ -88,10 +88,13 @@ struct VocabularyNormalizer: @unchecked Sendable {
     ]
 
     private let replacements: [(regex: NSRegularExpression, canonical: String)]
+    private let foldsVietnameseArtifacts: Bool
     /// Canonical terms, for SFSpeech contextual hints.
     let canonicals: [String]
 
-    init(customText: String = "", extraTerms: [Term] = []) {
+    init(customText: String = "", extraTerms: [Term] = [],
+         foldVietnameseArtifacts: Bool = true) {
+        self.foldsVietnameseArtifacts = foldVietnameseArtifacts
         var merged: [String: Term] = [:]
         for t in Self.defaultTerms + extraTerms + Self.parse(customText) {
             if let existing = merged[t.canonical.lowercased()] {
@@ -136,7 +139,7 @@ struct VocabularyNormalizer: @unchecked Sendable {
     }
 
     func normalize(_ text: String) -> String {
-        var out = Self.foldVietnameseArtifacts(text)
+        var out = foldsVietnameseArtifacts ? Self.foldVietnameseArtifacts(text) : text
         for (regex, canonical) in replacements {
             let range = NSRange(out.startIndex..., in: out)
             guard regex.firstMatch(in: out, range: range) != nil else { continue }

@@ -26,4 +26,16 @@ if [ "${FAST:-0}" != "1" ]; then
     run_case long normal
 fi
 
+# v3 multilingual canary. It is intentionally informational until enough
+# machines establish a stable synthetic-voice baseline; absence of the French
+# macOS voice skips it cleanly.
+if [ -f audio/fr1.aiff ] && [ -f audio/fr2.aiff ] && \
+   [ -f audio/fr3.aiff ] && [ -f audio/fr4.aiff ]; then
+    RIG_ASR=v3 RIG_LANGUAGE=fr "$RIG" cases/case_fr.json normal \
+        > .out/fr.txt 2>.out/fr.log || true
+    python3 score.py fr .out/fr.txt || true
+else
+    echo "fr: SKIP (Thomas macOS voice is not installed)"
+fi
+
 exit $fail

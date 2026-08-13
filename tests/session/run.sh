@@ -34,6 +34,8 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Models/Utterance.swift" \
   "$SRC/Models/Nudge.swift" \
   "$SRC/Models/MeetingReview.swift" \
+  "$SRC/Models/MeetingLanguage.swift" \
+  "$SRC/Engine/PlatformSupport.swift" \
   "$SRC/Models/PreCallContext.swift" \
   "$SRC/Models/TrainingExample.swift" \
   "$SRC/Models/FocusGoals.swift" \

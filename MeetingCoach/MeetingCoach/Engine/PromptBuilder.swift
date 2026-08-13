@@ -4,7 +4,11 @@ import Foundation
 enum PromptBuilder {
 
     /// Build a post-call review prompt that includes nudges, feedback, pre-call context, and transcript.
-    static func buildPostCallReviewPrompt(nudges: [Nudge], transcript: String, context: PreCallContext, durationMinutes: Int) -> (system: String, user: String) {
+    static func buildPostCallReviewPrompt(nudges: [Nudge], transcript: String,
+                                          context: PreCallContext,
+                                          durationMinutes: Int,
+                                          languageName: String? = nil)
+        -> (system: String, user: String) {
         // Strictly-delimited sections, one item per line — the app parses
         // this into a structured card (MeetingReview.parse). Small local
         // models are unreliable at JSON; labeled sections survive better,
@@ -15,8 +19,17 @@ enum PromptBuilder {
         // banned; the inline example is what actually makes a 4B model
         // hold the section shape. MeetingReview.parse still tolerates the
         // decoration and renamed headers they sprinkle in anyway.
+        let languageInstruction: String
+        if let languageName {
+            languageInstruction = "Write all section content in \(languageName). The five literal header lines TITLE:, SUMMARY:, KEY TAKEAWAYS:, NEXT STEPS:, and NEXT MEETING FOCUS: must stay exactly in English; they are the only language exception."
+        } else {
+            languageInstruction = "Write section content in the transcript's dominant language. The five literal header lines TITLE:, SUMMARY:, KEY TAKEAWAYS:, NEXT STEPS:, and NEXT MEETING FOCUS: must stay exactly in English."
+        }
+
         let system = """
         You write crisp post-meeting notes — the notes the user will send to the other participants. Someone who missed the meeting must learn from them exactly what matters, what was decided, and who owes what by when. You are NOT a communication coach: no advice about speaking style, structure, pausing, or delivery anywhere except the final one-sentence NEXT MEETING FOCUS.
+
+        \(languageInstruction)
 
         Your ENTIRE reply must be exactly these five labeled sections, nothing before or after. Begin your reply with the literal line "TITLE:".
 
@@ -35,7 +48,7 @@ enum PromptBuilder {
         NEXT MEETING FOCUS:
         One sentence on the most valuable thing to do differently next time — the ONLY place coaching signals may appear.
 
-        Example of the exact shape (invented content — never copy it):
+        Example of the exact shape (invented content — never copy its content or language):
         TITLE:
         Caitlin · launch margins
         SUMMARY:
@@ -104,7 +117,7 @@ enum PromptBuilder {
             userLines.append("\nNo coaching signals fired during this meeting.")
         }
 
-        userLines.append("\nWrite the four sections now, starting with SUMMARY:.")
+        userLines.append("\nWrite the five sections now, starting with TITLE:.")
         return (system, userLines.joined(separator: "\n"))
     }
 }

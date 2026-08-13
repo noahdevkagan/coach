@@ -39,6 +39,9 @@ final class AudioCaptureManager {
     /// Mirrors the real manager's engine attribution (recorded into saved
     /// sessions); tests can override to assert the header line.
     var engineLabel = "stub"
+    var transcriptionEngine: TranscriptionEngine = .parakeetV2
+    let language: ResolvedMeetingLanguage
+    private(set) var startTime = Date()
 
     var onUtterance: ((Utterance) -> Void)?
     var onPartialText: ((String, String) -> Void)?
@@ -49,8 +52,11 @@ final class AudioCaptureManager {
     /// the channel diarizers and the voice-profile store.
     private(set) var renames: [(String, String)] = []
 
-    init() { Self.last = self }
-    func start() async throws {}
+    init(language: ResolvedMeetingLanguage) {
+        self.language = language
+        Self.last = self
+    }
+    func start() async throws { startTime = Date() }
     func stop() { stopped = true }
     func renameSpeaker(_ label: String, to name: String) { renames.append((label, name)) }
 }
@@ -72,6 +78,7 @@ final class SettingsViewModel {
     var hasCheckedModels = false
     var ollamaReachable = false
     var availableModels: [OllamaModel] = []
+    var meetingLanguage: MeetingLanguageSelection = .english
     func loadRubricOrDefault() throws -> Rubric { Rubric() }
 
     // Test hooks. The real path reads this machine's free memory and talks to
