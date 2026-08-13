@@ -7,6 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## 0.19.1 — 2026-08-13
+
+- Fixed a crash that could quit MeetingCoach as a meeting started, when a headset or other microphone was still connecting. The app now gives the mic a moment to settle, and if it never becomes usable it says so instead of quitting
+
 ## 0.19.0 — 2026-08-13
 
 - MeetingCoach now speaks your language: meetings can be transcribed in 25 languages — English plus 24 European languages, from Spanish and French to Ukrainian and Greek. Pick yours in Settings → General; by default it follows your Mac's language
