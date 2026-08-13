@@ -7,6 +7,12 @@ The durable "why" behind choices goes in `decisions.md`, not here.
 
 ## Current state (2026-08-09)
 
+- **Invalid microphone-format crash fixed (2026-08-13), not released.** Capture
+  validates finite positive sample rate plus at least one channel before
+  installing the AVAudioEngine input tap. Initial setup retries with three
+  fresh engines over 850 ms, then surfaces the existing microphone-unavailable
+  error instead of allowing AVFAudio to abort. Zero-channel regression checks,
+  clean Debug build, and fast real-audio ASR cases pass.
 - **Simplified Multilingual V1 implemented (2026-08-12), not released.** The
   global Settings picker defaults to Mac language and each session snapshots
   the resolved supported language. English stays on Parakeet v2 (with its
@@ -29,7 +35,6 @@ The durable "why" behind choices goes in `decisions.md`, not here.
   transcription engine is ready, the resident Parakeet manager is released
   before switching v2/v3, and `tests/language/.build/` is ignored. Debug build
   plus session, language, and nudge suites pass.
-
 - **v0.18.0 SHIPPED 2026-08-11 — Reliable speaker naming** (built on
   branch crxnamja/improve-speaker-naming, fast-forwarded to main, tag
   released via CI, site deployed). Full plan + agreed adjustments in

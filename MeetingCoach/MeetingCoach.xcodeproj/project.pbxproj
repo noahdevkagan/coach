@@ -65,6 +65,7 @@
 		965F05D47B12F506C3B6CE55 /* DemoScript.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8143978E87DDB116AC0D3FD8 /* DemoScript.swift */; };
 		97BBFAF4DAC944901C41F097 /* TranscriptSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48F9343259F30B3410C031F9 /* TranscriptSearch.swift */; };
 		98104496237EA3D2AEC65205 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 99FF311B3C3C0B29ECF0C296 /* Assets.xcassets */; };
+		98E5BB4209899EF66A7A1B84 /* MicrophoneFormatPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AED495973BB067AF320CFA5 /* MicrophoneFormatPolicy.swift */; };
 		9CFEB7F1FAAB9B376743DE9E /* MeetingReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35964E2F9634996C0ACEB39C /* MeetingReview.swift */; };
 		A113E174C9E4738E99D17427 /* Dorado.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98DF6673920BD9AAF4C4B8E0 /* Dorado.swift */; };
 		A1D971DC2241B73DC1713D26 /* TranscriptAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FFBE4A37EC6EEE8D7A7516D /* TranscriptAnalysis.swift */; };
@@ -159,6 +160,7 @@
 		68FD97A461F0CDDDFC997439 /* meetingcoach-mcp */ = {isa = PBXFileReference; includeInIndex = 0; path = "meetingcoach-mcp"; sourceTree = BUILT_PRODUCTS_DIR; };
 		69834923A05B2FEECE228263 /* ollama */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ollama; path = MeetingCoach/Resources/ollama; sourceTree = SOURCE_ROOT; };
 		6A1BF8C4DA14D327E81E1832 /* OllamaClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaClient.swift; sourceTree = "<group>"; };
+		6AED495973BB067AF320CFA5 /* MicrophoneFormatPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophoneFormatPolicy.swift; sourceTree = "<group>"; };
 		6BB9F3C621505E5F9C1C74CF /* PlatformSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlatformSupport.swift; sourceTree = "<group>"; };
 		736B9D6AC7AFE9AA6A2D5725 /* Nudge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Nudge.swift; sourceTree = "<group>"; };
 		73E93FA8D25DA2577F2827FF /* ParakeetTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParakeetTranscriber.swift; sourceTree = "<group>"; };
@@ -297,6 +299,7 @@
 				A1A12E30BEB51DFB2F939AE4 /* MeetingDetectionService.swift */,
 				BB6CA4D089C636FF9E653ACF /* MeetingDetector.swift */,
 				0039986CEDE49DF43FF2342E /* MeetingWindowHeuristics.swift */,
+				6AED495973BB067AF320CFA5 /* MicrophoneFormatPolicy.swift */,
 				A5AE5052D754AAC4553B6E69 /* NoteDistiller.swift */,
 				2BBC737499DA851F1E6127E0 /* NudgeBackoff.swift */,
 				6A1BF8C4DA14D327E81E1832 /* OllamaClient.swift */,
@@ -615,6 +618,7 @@
 				9CFEB7F1FAAB9B376743DE9E /* MeetingReview.swift in Sources */,
 				E7FFC6FB0B3CCA7EA40EEFD0 /* MeetingReviewView.swift in Sources */,
 				0170D229D930510652FB627F /* MeetingWindowHeuristics.swift in Sources */,
+				98E5BB4209899EF66A7A1B84 /* MicrophoneFormatPolicy.swift in Sources */,
 				AC2DFEF84296BA4652EA853B /* MissingDiscoverySignal.swift in Sources */,
 				46BB0140FA3D0C6D5953EA48 /* NextStepsSignal.swift in Sources */,
 				55D4DD753779ACBE7E35E8D3 /* NoteDistiller.swift in Sources */,

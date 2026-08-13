@@ -11,6 +11,19 @@ func check(_ ok: Bool, _ label: String, _ detail: String = "") {
     if !ok { fail = true }
 }
 
+// MARK: - Microphone input format
+
+check(MicrophoneFormatPolicy.isUsable(sampleRate: 48_000, channelCount: 1),
+      "accepts ordinary microphone format")
+check(MicrophoneFormatPolicy.isUsable(sampleRate: 48_000, channelCount: 7),
+      "accepts multichannel microphone format")
+check(!MicrophoneFormatPolicy.isUsable(sampleRate: 48_000, channelCount: 0),
+      "rejects zero-channel format before AVAudioEngine tap")
+check(!MicrophoneFormatPolicy.isUsable(sampleRate: 0, channelCount: 1),
+      "rejects zero sample rate before AVAudioEngine tap")
+check(!MicrophoneFormatPolicy.isUsable(sampleRate: .infinity, channelCount: 1),
+      "rejects non-finite sample rate before AVAudioEngine tap")
+
 // MARK: - Wake-word filter
 
 // Pure activations — dropped.
