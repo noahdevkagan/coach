@@ -1,4 +1,5 @@
 import AVFoundation
+import FluidAudio
 import Foundation
 
 // Feeds a playlist of audio files (with silence gaps) through the REAL
@@ -22,7 +23,12 @@ let mode = CommandLine.arguments.count > 2 ? CommandLine.arguments[2] : "normal"
 let items = try JSONDecoder().decode([Item].self, from: Data(contentsOf: URL(fileURLWithPath: playlistPath)))
 
 let sessionStart = Date()
-let pipeline = ParakeetPipeline(speaker: "Meeting", sessionStart: sessionStart)
+let useV3 = ProcessInfo.processInfo.environment["RIG_ASR"] == "v3"
+let modelVersion: AsrModelVersion = useV3 ? .v3 : .v2
+let languageHint = ProcessInfo.processInfo.environment["RIG_LANGUAGE"]
+    .flatMap(Language.init(rawValue:))
+let pipeline = ParakeetPipeline(speaker: "Meeting", sessionStart: sessionStart,
+                                modelVersion: modelVersion, languageHint: languageHint)
 var utteranceCount = 0
 pipeline.onUtterance = { u in
     utteranceCount += 1
@@ -34,7 +40,7 @@ pipeline.onPartial = { p in
     print("PARTIAL\t\(wall)\t\(p)")
 }
 
-guard await ParakeetEngine.shared.ensureLoaded() else {
+guard await ParakeetEngine.shared.ensureLoaded(version: modelVersion) else {
     print("FATAL\tengine failed to load")
     exit(1)
 }

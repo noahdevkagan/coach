@@ -88,6 +88,7 @@
 		D18015A9C5944D5D37845BC9 /* PromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78FD64A28567F115FD3944A4 /* PromptBuilder.swift */; };
 		D3610C9D3F85F755820E10C3 /* TranscriptCleanup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16524492B9725FF3E217054B /* TranscriptCleanup.swift */; };
 		D77C09AA85DC5397A7D1B114 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 2ADB653C496B73D902CC4DFD /* Sparkle */; };
+		D7E82BEB63E8D0037A2EB59E /* MeetingLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41E79DEE155A7764611418A7 /* MeetingLanguage.swift */; };
 		DC339E0767F4891CCD3BAF02 /* ReferralInvites.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947B36BFD468E1C108A1381C /* ReferralInvites.swift */; };
 		E50CF069AE16583B2665E1BE /* AppSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F05A5F9043EE4F2C14B8D5 /* AppSupport.swift */; };
 		E64A1CF9A596EDF1578EA6E0 /* InterruptionSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88673BD63F55A97082E19D05 /* InterruptionSignal.swift */; };
@@ -143,6 +144,7 @@
 		35964E2F9634996C0ACEB39C /* MeetingReview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingReview.swift; sourceTree = "<group>"; };
 		35B1ADEF0B99BDEB25D36FE4 /* FeedbackFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackFormView.swift; sourceTree = "<group>"; };
 		38AF9EC84551A2A07E86DADF /* SearchResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultsView.swift; sourceTree = "<group>"; };
+		41E79DEE155A7764611418A7 /* MeetingLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingLanguage.swift; sourceTree = "<group>"; };
 		48F9343259F30B3410C031F9 /* TranscriptSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptSearch.swift; sourceTree = "<group>"; };
 		59A325315611300C1A9E2C53 /* demo_nudges.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = demo_nudges.json; sourceTree = "<group>"; };
 		5C9A04C9B391284F7BCDBD2E /* TrainingExample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingExample.swift; sourceTree = "<group>"; };
@@ -326,6 +328,7 @@
 			children = (
 				C8F05A5F9043EE4F2C14B8D5 /* AppSupport.swift */,
 				B7CDB212B0E5B6D49D07C0A8 /* FocusGoals.swift */,
+				41E79DEE155A7764611418A7 /* MeetingLanguage.swift */,
 				35964E2F9634996C0ACEB39C /* MeetingReview.swift */,
 				736B9D6AC7AFE9AA6A2D5725 /* Nudge.swift */,
 				208023EBBD04229F5503508A /* ParticipantStore.swift */,
@@ -607,6 +610,7 @@
 				1FD450DC57AD4C53698800D3 /* MeetingCoachApp.swift in Sources */,
 				A36D1448B1484E7ACF6E53D5 /* MeetingDetectionService.swift in Sources */,
 				417ACEAF577CB9DB73C67193 /* MeetingDetector.swift in Sources */,
+				D7E82BEB63E8D0037A2EB59E /* MeetingLanguage.swift in Sources */,
 				125031287F601C3F45385D84 /* MeetingPromptPanel.swift in Sources */,
 				9CFEB7F1FAAB9B376743DE9E /* MeetingReview.swift in Sources */,
 				E7FFC6FB0B3CCA7EA40EEFD0 /* MeetingReviewView.swift in Sources */,

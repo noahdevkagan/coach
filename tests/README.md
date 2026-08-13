@@ -39,6 +39,9 @@ Cases:
   utterance (regression test for the strong-capture flush in `stop()`)
 - **long** — 40s pause-free monologue: exercises the 30s window-cap
   boundary; WER ≤ 5% proves no words are lost at the seam
+- **fr** — four-turn French Parakeet v3 canary with a `fr` language hint;
+  informational while its synthetic-voice baseline is established, and
+  skipped when the Thomas macOS voice is unavailable
 
 Chunk boundaries depend on wall-clock ticks, so runs aren't
 byte-identical — that's why the gate scores WER + count bands, never
@@ -72,7 +75,10 @@ And `tests/hygiene/run.sh`: pure-logic checks compiling the app's real
 activations dropped, sentences that merely mention an assistant kept)
 and the vocabulary normalizer (known-term garbles repaired on both
 engines' output, Vietnamese-script artifacts folded, Western-diacritic
-names left alone, custom-term parsing).
+names left alone, custom-term parsing). `tests/language/run.sh` separately
+checks all 25 ISO mappings, Mac-language fallback, v2/v3 routing, and the
+persisted selection default; hygiene also proves the v3 policy preserves
+Romanian `ă` and Croatian `đ`.
 
 ## Stage 3: nudges (`tests/nudges`)
 

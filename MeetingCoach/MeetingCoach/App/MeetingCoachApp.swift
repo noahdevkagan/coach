@@ -200,7 +200,8 @@ struct MenuBarLabel: View {
                 // (~600 MB, the core product) first, then the recommended
                 // LLM — parallel multi-GB pulls would just halve each other.
                 if PlatformSupport.neuralModelsSupported {
-                    ParakeetDownloadState.shared.startIfNeeded {
+                    ParakeetDownloadState.shared.startIfNeeded(
+                        for: settings.resolvedMeetingLanguage.preferredEngine) {
                         Task { await settings.autoDownloadRecommendedIfNeeded() }
                     }
                 } else {

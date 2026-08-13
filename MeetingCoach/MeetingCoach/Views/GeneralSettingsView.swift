@@ -55,6 +55,7 @@ struct GeneralSettingsView: View {
     }
 
     var body: some View {
+        let resolvedLanguage = settings.resolvedMeetingLanguage
         Form {
             Section("Startup") {
                 Toggle("Start MeetingCoach at login", isOn: $settings.launchAtLogin)
@@ -122,6 +123,43 @@ struct GeneralSettingsView: View {
                 Text("A small clock next to \u{201C}Listening\u{201D} in the floating overlay, so you always know how long the meeting has run.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            Section("Meeting language") {
+                Picker("Transcribe meetings in", selection: $settings.meetingLanguage) {
+                    ForEach(MeetingLanguageSelection.allCases) { language in
+                        Text(language == .system
+                             ? "Mac language (\(MeetingLanguageSelection.system.resolved().englishName))"
+                             : language.pickerName)
+                            .tag(language)
+                    }
+                }
+
+                if let wanted = resolvedLanguage.intelFallbackFrom {
+                    Text("\(wanted.englishName) transcription requires Apple Silicon, so this Intel Mac transcribes meetings in English with Apple's on-device engine.")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                } else if resolvedLanguage.usedUnsupportedSystemFallback {
+                    Text("Your Mac language isn't supported yet, so meetings use English. Choose another supported language here if needed.")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                } else if !PlatformSupport.neuralModelsSupported {
+                    Text("This Intel Mac transcribes English with Apple's built-in engine. The high-accuracy engine and speaker naming need Apple Silicon.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(resolvedLanguage.isEnglish
+                         ? "Required engine: Parakeet v2 for English. It downloads once (~600 MB)."
+                         : "Required engine: Parakeet v3 for \(resolvedLanguage.englishName). It downloads once (~600 MB); live coaching is limited to talk time, voice share, and overrun.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Text("The selection is captured when a meeting starts. Changes take effect next meeting.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if PlatformSupport.neuralModelsSupported {
+                    ParakeetProgressLine(engine: resolvedLanguage.preferredEngine)
+                }
             }
 
             Section("Meeting length") {

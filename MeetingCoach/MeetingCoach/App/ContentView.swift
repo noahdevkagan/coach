@@ -102,7 +102,8 @@ struct ContentView: View {
             // first real session starts on Parakeet instead of the fallback.
             // (Also kicked off from the menu bar label for windowless
             // launches — startIfNeeded coalesces the two.)
-            ParakeetDownloadState.shared.startIfNeeded()
+            ParakeetDownloadState.shared.startIfNeeded(
+                for: settings.resolvedMeetingLanguage.preferredEngine)
             if !hasSeenDemo { showWelcome = true }
             await settings.refreshModels()
         }
@@ -257,7 +258,7 @@ struct LiveTimelineView: View {
                                         .font(.caption2).foregroundStyle(.secondary)
                                         .fixedSize(horizontal: false, vertical: true)
                                     if PlatformSupport.neuralModelsSupported {
-                                        ParakeetProgressLine()
+                                        ParakeetProgressLine(engine: .parakeetV2)
                                     }
                                 }
                             }
@@ -409,7 +410,7 @@ struct LiveTimelineView: View {
                             .font(.caption2).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                         if PlatformSupport.neuralModelsSupported {
-                            ParakeetProgressLine()
+                            ParakeetProgressLine(engine: .parakeetV2)
                         }
                     }
                     Spacer()

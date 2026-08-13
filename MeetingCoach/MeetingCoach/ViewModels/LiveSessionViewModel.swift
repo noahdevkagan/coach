@@ -29,6 +29,10 @@ final class LiveSessionViewModel {
     /// this engine; the UI must say so or users blame settings.
     var usedFallbackEngine = false
 
+    /// Language policy resolved once at start and retained through save/review.
+    /// It intentionally survives Settings changes made during the meeting.
+    private(set) var sessionLanguage: ResolvedMeetingLanguage?
+
     /// Wall-clock moment the session started — exports stamp utterances
     /// with real times of day, like other tools' transcripts.
     private(set) var sessionStartDate: Date?
@@ -79,6 +83,7 @@ final class LiveSessionViewModel {
     private let silenceThreshold: TimeInterval = 180  // 3 minutes
 
     private var captureManager: AudioCaptureManager?
+    private var captureStartTask: Task<Void, Never>?
     private var signalTickTask: Task<Void, Never>?
     private var timerTask: Task<Void, Never>?
     private var signalEngine: SignalEngine?
@@ -241,6 +246,7 @@ final class LiveSessionViewModel {
         guard !isLive else { return }
 
         isDemo = false
+        let resolvedLanguage = (settings?.meetingLanguage ?? MeetingLanguageSelection.current).resolved()
         preCallContext = context
         // Untimed call + a default length in Settings = the user wants the
         // time nudges on every call without filling the form each time.
@@ -290,7 +296,10 @@ final class LiveSessionViewModel {
         if !noteExamples.isEmpty {
             mclog("[Training] Session tuned by coaching notes: \(noteExamples.keys.sorted().joined(separator: ", "))")
         }
-        signalEngine = SignalEngine(context: context, tuning: tuning)
+        signalEngine = SignalEngine(
+            context: context,
+            tuning: tuning,
+            languageMode: resolvedLanguage.isEnglish ? .fullEnglish : .multilingualSafe)
 
         // Tier-2 semantic coaching: silent progressive enhancement, never a
         // user decision. Runs iff a local model is actually available (or
@@ -325,6 +334,7 @@ final class LiveSessionViewModel {
         lastOllamaManager = ollamaManager
 
         resetSessionState()
+        sessionLanguage = resolvedLanguage
         // Exactly one named pre-call participant → they're provisionally
         // the far side; more (or none) and we never guess.
         let participantNames = preCallContext.participants
@@ -332,21 +342,22 @@ final class LiveSessionViewModel {
             .filter { !$0.isEmpty }
         preCallRemoteName = participantNames.count == 1 ? participantNames[0] : nil
         recomputeRemoteAlias()
-        status = "Starting — 10 coaching signals loaded"
+        status = resolvedLanguage.isEnglish
+            ? "Starting — coaching loaded"
+            : "Starting — multilingual coaching loaded"
         isLive = true
 
-        let manager = AudioCaptureManager()
+        let manager = AudioCaptureManager(language: resolvedLanguage)
         // One vocabulary list serves both engines: canonical terms bias
         // SFSpeech recognition; the normalizer repairs the output where the
         // engine takes no hints (Parakeet). Custom terms come from the
         // transcript's "Fix a misheard term" flow and Settings → General.
         let vocabulary = VocabularyNormalizer(
-            customText: UserDefaults.standard.string(forKey: "customVocabularyText") ?? "")
+            customText: UserDefaults.standard.string(forKey: "customVocabularyText") ?? "",
+            foldVietnameseArtifacts: resolvedLanguage.shouldFoldVietnameseArtifacts)
         manager.contextualHints = context.vocabularyHints + vocabulary.canonicals
         manager.vocabulary = vocabulary
         captureManager = manager
-        let sessionStart = Date()
-        sessionStartDate = sessionStart
 
         manager.onUtterance = { [weak self] utterance in
             guard let self else { return }
@@ -380,20 +391,34 @@ final class LiveSessionViewModel {
             self?.micOnly = true
         }
 
-        Task {
+        captureStartTask = Task { [weak self] in
+            guard let self else { return }
             do {
                 try await manager.start()
             } catch {
+                guard self.currentSessionID == sessionID, self.isLive,
+                      !Task.isCancelled else {
+                    manager.stop()
+                    return
+                }
                 self.error = error.localizedDescription
                 self.status = "Failed"
                 self.isLive = false
+                self.captureStartTask = nil
                 return
             }
+            guard self.currentSessionID == sessionID, self.isLive,
+                  !Task.isCancelled else {
+                manager.stop()
+                return
+            }
+            self.captureStartTask = nil
             micOnly = manager.isMicOnly
             appleCallCapture = manager.isAppleCall
-            usedFallbackEngine = manager.engineLabel == "SFSpeech"
+            usedFallbackEngine = manager.transcriptionEngine == .sfSpeech
             startSignalTick()
-            startTimer(from: sessionStart)
+            sessionStartDate = manager.startTime
+            startTimer(from: manager.startTime)
             startSilenceCheck()
             // Capture (and with it Parakeet + the diarizer) is resident now,
             // so free memory finally reflects this meeting's real baseline.
@@ -506,6 +531,8 @@ final class LiveSessionViewModel {
         currentSessionID = nil
         activationTask?.cancel()
         activationTask = nil
+        captureStartTask?.cancel()
+        captureStartTask = nil
         sessionEngineLabel = captureManager?.engineLabel
         captureManager?.stop()
         // Kept (not nil'd into oblivion) so a rename from the post-session
@@ -691,6 +718,7 @@ final class LiveSessionViewModel {
         micOnly = false
         appleCallCapture = false
         usedFallbackEngine = false
+        sessionLanguage = nil
         sessionStartDate = nil
         nudges = []
         activeNudge = nil
@@ -941,7 +969,9 @@ final class LiveSessionViewModel {
         let line = "\(canonical) = \(wrote)"
         UserDefaults.standard.set(existing.isEmpty ? line : existing + "\n" + line, forKey: key)
 
-        let fixer = VocabularyNormalizer(customText: line)
+        let foldVietnamese = sessionLanguage?.shouldFoldVietnameseArtifacts ?? true
+        let fixer = VocabularyNormalizer(
+            customText: line, foldVietnameseArtifacts: foldVietnamese)
         var changed = false
         for i in utterances.indices {
             let fixed = fixer.normalize(utterances[i].text)
@@ -961,7 +991,8 @@ final class LiveSessionViewModel {
             }
         }
         captureManager?.vocabulary = VocabularyNormalizer(
-            customText: UserDefaults.standard.string(forKey: key) ?? "")
+            customText: UserDefaults.standard.string(forKey: key) ?? "",
+            foldVietnameseArtifacts: foldVietnamese)
         mclog("[VM] Vocabulary fix: \"\(wrote)\" → \"\(canonical)\" (rewrote \(changed ? "transcript" : "nothing"))")
     }
 
@@ -1139,7 +1170,8 @@ final class LiveSessionViewModel {
             nudges: nudges,
             transcript: labeledTranscript,
             context: preCallContext,
-            durationMinutes: durationMin
+            durationMinutes: durationMin,
+            languageName: sessionLanguage?.englishName
         )
 
         if ollamaManager.status == .stopped {
@@ -1535,6 +1567,9 @@ final class LiveSessionViewModel {
         lines.append("**Utterances:** \(utterances.count)")
         lines.append("**Nudges:** \(nudges.count)")
         lines.append("**Engine:** \(sessionEngineLabel ?? "unknown")")
+        if let sessionLanguage {
+            lines.append("**Language:** \(sessionLanguage.code)")
+        }
         if let share = talkStats.sessionShare {
             lines.append("**Talk ratio:** \(Int(share * 100))% you")
         }

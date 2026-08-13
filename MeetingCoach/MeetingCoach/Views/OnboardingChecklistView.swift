@@ -16,6 +16,9 @@ struct OnboardingChecklistView: View {
     private let permissionPoll = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
 
     private var download: ParakeetDownloadState { .shared }
+    private var resolvedLanguage: ResolvedMeetingLanguage {
+        settings?.resolvedMeetingLanguage ?? MeetingLanguageSelection.current.resolved()
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -115,17 +118,19 @@ struct OnboardingChecklistView: View {
     }
 
     private var transcriptionRow: some View {
+        let engine = resolvedLanguage.preferredEngine
         // Intel: no download will ever run — show the row as settled with an
         // honest caption instead of an eternally-unchecked download.
-        checklistRow(done: download.isReady || !PlatformSupport.neuralModelsSupported,
-                     active: download.isActive,
+        return checklistRow(done: download.isReady(for: engine)
+                         || !PlatformSupport.neuralModelsSupported,
+                     active: download.isActive(for: engine),
                      title: "Transcription engine",
                      caption: PlatformSupport.neuralModelsSupported
-                         ? "High-accuracy, on-device (~600 MB). Downloads automatically."
-                         : "Intel Mac: uses Apple's built-in transcription. The high-accuracy engine and speaker naming need Apple Silicon.") {
+                         ? "\(engine == .parakeetV2 ? "Parakeet v2" : "Parakeet v3") for \(resolvedLanguage.englishName), on-device (~600 MB). Downloads automatically."
+                         : "Intel Mac: uses Apple's built-in English transcription. The high-accuracy engine and speaker naming need Apple Silicon.") {
             EmptyView()
         } detail: {
-            ParakeetProgressLine()
+            ParakeetProgressLine(engine: engine)
         }
     }
 
@@ -159,7 +164,8 @@ struct OnboardingChecklistView: View {
                     Text(error)
                         .font(.caption2).foregroundStyle(.red)
                         .fixedSize(horizontal: false, vertical: true)
-                } else if !download.isReady && PlatformSupport.neuralModelsSupported {
+                } else if !download.isReady(for: resolvedLanguage.preferredEngine)
+                            && PlatformSupport.neuralModelsSupported {
                     Text("Queued — starts after the transcription engine.")
                         .font(.caption2).foregroundStyle(.tertiary)
                 }
@@ -229,32 +235,45 @@ struct OnboardingChecklistView: View {
 /// checklist and the reduced-accuracy session banners. Renders nothing when
 /// there is nothing to say (idle or already downloaded).
 struct ParakeetProgressLine: View {
+    let engine: TranscriptionEngine
     private var download: ParakeetDownloadState { .shared }
 
+    init(engine: TranscriptionEngine = MeetingLanguageSelection.current.resolved().preferredEngine) {
+        self.engine = engine
+    }
+
+    @ViewBuilder
     var body: some View {
-        switch download.phase {
-        case .downloading(let fraction, let detail):
-            VStack(alignment: .leading, spacing: 2) {
-                ProgressView(value: fraction)
-                    .controlSize(.small)
-                Text("\(Int(fraction * 100))%\(detail.isEmpty ? "" : " · \(detail)")")
-                    .font(.caption2).foregroundStyle(.tertiary)
+        if download.isPending(for: engine) {
+            Text("Queued — another transcription engine is downloading first.")
+                .font(.caption2).foregroundStyle(.tertiary)
+        } else if download.activeEngine == engine {
+            switch download.phase {
+            case .downloading(let fraction, let detail):
+                VStack(alignment: .leading, spacing: 2) {
+                    ProgressView(value: fraction)
+                        .controlSize(.small)
+                    Text("\(Int(fraction * 100))%\(detail.isEmpty ? "" : " · \(detail)")")
+                        .font(.caption2).foregroundStyle(.tertiary)
+                }
+            case .compiling:
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.mini)
+                    Text("Optimizing for this Mac…")
+                        .font(.caption2).foregroundStyle(.tertiary)
+                }
+            case .idle, .ready, .failed:
+                EmptyView()
             }
-        case .compiling:
-            HStack(spacing: 6) {
-                ProgressView().controlSize(.mini)
-                Text("Optimizing for this Mac…")
-                    .font(.caption2).foregroundStyle(.tertiary)
-            }
-        case .failed(let message):
+        } else if let message = download.failureMessage(for: engine) {
             HStack(spacing: 6) {
                 Text("Download failed: \(message)")
                     .font(.caption2).foregroundStyle(.red)
                     .lineLimit(2)
-                Button("Retry") { download.retry() }
+                Button("Retry") { download.retry(for: engine) }
                     .font(.caption2)
             }
-        case .idle, .ready:
+        } else {
             EmptyView()
         }
     }

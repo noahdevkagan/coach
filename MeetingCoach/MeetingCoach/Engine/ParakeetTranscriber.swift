@@ -13,46 +13,74 @@ actor ParakeetEngine {
     static let shared = ParakeetEngine()
 
     private var manager: AsrManager?
+    private var loadedVersion: ModelKey?
+
+    private enum ModelKey: String, Sendable {
+        case v2, v3
+    }
+
+    private nonisolated static func key(for version: AsrModelVersion) -> ModelKey? {
+        switch version {
+        case .v2: .v2
+        case .v3: .v3
+        default: nil
+        }
+    }
 
     /// True when the Parakeet model files are already on disk, so loading
     /// needs no network. Mirrors the exact check downloadAndLoad performs
     /// before deciding to fetch. Checked at session start so a fresh install
     /// is never blocked behind the ~600 MB download — it starts on the
     /// SFSpeech fallback instead while the model fetches in the background.
-    nonisolated static var isCachedOnDisk: Bool {
+    nonisolated static func isCachedOnDisk(_ version: AsrModelVersion = .v2) -> Bool {
         guard PlatformSupport.neuralModelsSupported else { return false }
-        return AsrModels.modelsExist(at: AsrModels.defaultCacheDirectory(for: .v2), version: .v2)
+        return AsrModels.modelsExist(at: AsrModels.defaultCacheDirectory(for: version), version: version)
     }
 
     /// Load the engine, downloading models on first run (~600 MB, cached in
     /// Application Support/FluidAudio). Returns false if unavailable — the
     /// caller falls back to SFSpeechRecognizer.
-    func ensureLoaded() async -> Bool {
+    func ensureLoaded(version: AsrModelVersion = .v2) async -> Bool {
         guard PlatformSupport.neuralModelsSupported else {
             mclog("[Parakeet] Skipped — model crashes on Intel (see PlatformSupport)")
             return false
         }
-        if manager != nil { return true }
+        guard let requested = Self.key(for: version) else {
+            mclog("[Parakeet] Unsupported model requested")
+            return false
+        }
+        if manager != nil, loadedVersion == requested { return true }
+        // The old manager can't serve this session anyway (transcribe gates on
+        // loadedVersion), so release it before loading the other version rather
+        // than peaking at two full model sets.
+        if manager != nil {
+            await manager?.cleanup()
+            manager = nil
+            loadedVersion = nil
+        }
         do {
-            let models = try await AsrModels.downloadAndLoad(version: .v2)
+            let models = try await AsrModels.downloadAndLoad(version: version)
             let m = AsrManager(config: .default)
             try await m.loadModels(models)
             manager = m
-            mclog("[Parakeet] Engine ready")
+            loadedVersion = requested
+            mclog("[Parakeet] \(requested.rawValue) engine ready")
             return true
         } catch {
-            mclog("[Parakeet] Engine unavailable: \(error.localizedDescription)")
+            mclog("[Parakeet] \(requested.rawValue) engine unavailable: \(error.localizedDescription)")
             return false
         }
     }
 
     /// Transcribe 16 kHz mono samples. Fresh decoder state per call — each
     /// call re-reads one growing utterance window, not a continuation.
-    func transcribe(_ samples: [Float]) async -> String? {
-        guard let manager else { return nil }
+    func transcribe(_ samples: [Float], version: AsrModelVersion = .v2,
+                    language: Language? = nil) async -> String? {
+        guard let manager, loadedVersion == Self.key(for: version) else { return nil }
         do {
             var state = try TdtDecoderState()
-            let result = try await manager.transcribe(samples, decoderState: &state)
+            let result = try await manager.transcribe(
+                samples, decoderState: &state, language: language)
             return result.text
         } catch {
             mclog("[Parakeet] transcribe failed: \(error.localizedDescription)")
@@ -92,6 +120,8 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
 
     private let voiceFloor: Float
     private let commitSilence: TimeInterval
+    private let modelVersion: AsrModelVersion
+    private let languageHint: Language?
     private let maxChunkSeconds = 30.0
     private let preRollSamples = 8_000         // 0.5s kept while waiting for voice
 
@@ -101,11 +131,14 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
     /// silence gap — otherwise sentences fragment into 2-3 word chunks that
     /// transcribe with no context.
     init(speaker: String, sessionStart: Date,
-         voiceFloor: Float = 0.006, commitSilence: TimeInterval = 0.9) {
+         voiceFloor: Float = 0.006, commitSilence: TimeInterval = 0.9,
+         modelVersion: AsrModelVersion = .v2, languageHint: Language? = nil) {
         self.speaker = speaker
         self.sessionStart = sessionStart
         self.voiceFloor = voiceFloor
         self.commitSilence = commitSilence
+        self.modelVersion = modelVersion
+        self.languageHint = languageHint
     }
 
     func start() {
@@ -221,7 +254,8 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
                 voicedSinceLastPartial = false
                 return samples
             }
-            guard let text = await ParakeetEngine.shared.transcribe(snapshot) else { return }
+            guard let text = await ParakeetEngine.shared.transcribe(
+                snapshot, version: modelVersion, language: languageHint) else { return }
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
             if isRunning, !trimmed.isEmpty, trimmed != lastPartial {
                 lastPartial = trimmed
@@ -273,7 +307,8 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
             // typical call this halves commit-path inference.
             text = priorPartial
         } else {
-            guard let fresh = await ParakeetEngine.shared.transcribe(snapshot) else { return }
+            guard let fresh = await ParakeetEngine.shared.transcribe(
+                snapshot, version: modelVersion, language: languageHint) else { return }
             text = fresh
         }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)

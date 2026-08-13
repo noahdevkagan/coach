@@ -2,7 +2,7 @@
 """Score rig output against cases/refs.json and enforce the transcript gate.
 
 Usage: score.py <case> <rig-output-file>
-  case: conv | silence | cut | long | hard
+  case: conv | silence | cut | long | fr | hard
 
 Chunk boundaries shift run to run (wall-clock ticks), so the gate scores
 word error rate over the concatenated transcript plus utterance-count
@@ -86,6 +86,15 @@ def main():
         ref = refs["long"]["text"]
         count_ok = 1 <= len(utts) <= 4
         band = "1-4"
+    elif case == "fr":
+        keys = sorted((k for k in refs if re.fullmatch(r"fr\d+", k)),
+                      key=lambda k: int(k[2:]))
+        ref = " ".join(refs[k]["text"] for k in keys)
+        errors, n = wer(ref, hyp)
+        rate = errors / n if n else 1.0
+        print(f"fr: {len(utts)} utterances ({len(keys)} scripted turns), "
+              f"WER {errors}/{n} = {rate:.1%} (v3 smoke, non-blocking)")
+        sys.exit(0)
     elif case == "hard":
         keys = sorted((k for k in refs if re.fullmatch(r"hard\d+", k)),
                       key=lambda k: int(k[4:]))
