@@ -871,3 +871,29 @@ Audio commonly exposes zero channels transiently while a headset connects or
 changes profiles; after that it surfaces the existing microphone-unavailable
 error rather than waiting indefinitely or crashing. Mid-session recovery keeps
 its existing independently backed-off rebuild loop.
+
+## 2026-08-13 — v0.19.0 shipped with the known onReady/retry regression
+Pre-ship review found that the multiversion rewrite of
+`ParakeetDownloadState` walked back a documented contract: the old
+`startIfNeeded` kept its `onReady` callbacks across a download failure so
+that a Retry that succeeded still fired them; the new code consumes
+completions on failure, so MenuBarLabel's chained recommended-LLM
+auto-download silently never runs for the rest of the app session after
+one transient network failure. Noah chose to ship anyway: the trigger is
+narrow (first model download must fail), transcription is unaffected, and
+it self-heals on the next launch because the chain re-arms at startup.
+The fix (re-register surviving completions on failure, or have retry
+re-enqueue them) is deliberately deferred to the next batch, not hotfixed.
+
+## 2026-08-13 — Release mechanics: squash merge + cherry-picked changelog
+0.19.0 went out through GitHub's squash-merge of PR #1 (Noah merged it in
+the UI mid-session) rather than the usual fast-forward. The changelog and
+gate benchmark-record commits landed after the squash, so they were
+cherry-picked onto origin/main from a temp worktree and the tag was cut
+there — never from the feature branch, whose pre-squash history no longer
+matches main. Two gate gotchas discovered on the way, recorded in
+HANDOFF Outstanding: Conductor clones don't inherit `core.hooksPath`, so
+`git push` runs no gate at all; and the gate's docs-only short-circuit
+diffs `@{u}..HEAD`, so once the code commits are pushed, a follow-up
+changelog commit false-skips the full suite — unset the upstream to force
+a real run before tagging.
