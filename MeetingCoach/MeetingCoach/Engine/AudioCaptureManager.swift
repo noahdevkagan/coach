@@ -213,7 +213,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         micPipeline = micPipe
         micPipe.start()
         do {
-            try startMicrophone()
+            try await startMicrophone()
         } catch {
             isRunning = false
             stop()
@@ -408,11 +408,30 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
     // MARK: - Microphone
 
-    private func startMicrophone() throws {
-        try startMicEngine()
-        micStateLock.lock()
-        lastMicBufferAt = Date()
-        micStateLock.unlock()
+    private func startMicrophone() async throws {
+        // Core Audio can briefly expose 0 channels while an input device is
+        // connecting or changing profiles. Installing a tap in that state
+        // raises an Objective-C exception, which Swift cannot catch. Retry
+        // with a fresh engine for a bounded period before failing cleanly.
+        let retryDelays: [UInt64] = [100_000_000, 250_000_000, 500_000_000]
+        var retry = 0
+        while true {
+            guard isRunning else { throw CancellationError() }
+            do {
+                try startMicEngine()
+                break
+            } catch let error as CaptureError {
+                guard case .microphoneNotAvailable = error,
+                      retry < retryDelays.count else { throw error }
+                let delay = retryDelays[retry]
+                retry += 1
+                mclog("[Mic] Input format unavailable — retrying setup (\(retry)/\(retryDelays.count))")
+                try await Task.sleep(nanoseconds: delay)
+            }
+        }
+        micStateLock.withLock {
+            lastMicBufferAt = Date()
+        }
         observeMicConfigChanges()
         startMicWatchdog()
     }
@@ -452,7 +471,11 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
         let recordingFormat = inputNode.outputFormat(forBus: 0)
 
-        guard recordingFormat.sampleRate > 0 else {
+        guard MicrophoneFormatPolicy.isUsable(
+            sampleRate: recordingFormat.sampleRate,
+            channelCount: recordingFormat.channelCount
+        ) else {
+            mclog("[Mic] Invalid input format: \(recordingFormat.sampleRate)Hz, \(recordingFormat.channelCount)ch")
             throw CaptureError.microphoneNotAvailable(
                 "No microphone available. Check System Settings > Privacy & Security > Microphone."
             )

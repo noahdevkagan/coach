@@ -7,6 +7,12 @@ The durable "why" behind choices goes in `decisions.md`, not here.
 
 ## Current state (2026-08-09)
 
+- **Invalid microphone-format crash fixed:** capture validates finite positive
+  sample rate plus at least one channel before installing the AVAudioEngine
+  input tap. Initial setup retries with three fresh engines over 850 ms, then
+  surfaces the existing microphone-unavailable error instead of allowing
+  AVFAudio to abort. Zero-channel regression checks, clean Debug build, and
+  fast real-audio ASR cases pass.
 - **v0.18.0 SHIPPED 2026-08-11 — Reliable speaker naming** (built on
   branch crxnamja/improve-speaker-naming, fast-forwarded to main, tag
   released via CI, site deployed). Full plan + agreed adjustments in

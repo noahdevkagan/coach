@@ -794,3 +794,15 @@ Four seams (memory read, preload, unload, review completion) default to the
 live implementations and are substituted by the harness, so the races are
 tested exactly rather than depending on the test machine's memory or a running
 engine. The 3 GB reserve remains provisional and unmeasured.
+
+## 2026-08-13 — Invalid microphone formats retry briefly, then fail cleanly
+
+A 0.17.0 customer crash reached `AVAudioNode.installTap` while starting the
+microphone. AVFAudio raises an Objective-C exception for a zero-channel input
+format, so Swift `do/catch` cannot recover after the call. The capture boundary
+now validates finite positive sample rate plus at least one channel before the
+tap. Initial setup recreates the engine three times over 850 ms because Core
+Audio commonly exposes zero channels transiently while a headset connects or
+changes profiles; after that it surfaces the existing microphone-unavailable
+error rather than waiting indefinitely or crashing. Mid-session recovery keeps
+its existing independently backed-off rebuild loop.
