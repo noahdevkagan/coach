@@ -120,8 +120,10 @@ final class LiveSessionViewModel {
     /// stored utterance labels stay raw, so a second remote voice showing
     /// up just drops the alias and the numbered labels are back instantly.
     private(set) var remoteAlias: String?
-    /// Distinct remote voices in the system channel's latest publish —
-    /// the authoritative "how many people are on the other side" count.
+    /// Distinct remote voices in the system channel's latest publish. This
+    /// is fallback evidence only: diarization can create a stray speaker
+    /// segment that never claims any transcript speech, so transcript-backed
+    /// labels take precedence when deciding whether a call is one-on-one.
     private var latestRemoteLabels: Set<String> = []
     /// Exactly one pre-call participant seeds the provisional remote name.
     private var preCallRemoteName: String?
@@ -758,12 +760,12 @@ final class LiveSessionViewModel {
         for s in segments { channelLabels[channel, default: []].insert(s.speaker) }
         let owned = channelLabels[channel] ?? []
 
-        // The latest publish is the full finalized list, so its distinct
-        // speakers ARE the remote voice count (unlike channelLabels, which
-        // accumulates pre-rename labels forever).
+        // Keep the latest full publish as fallback evidence. Once labels have
+        // actually claimed transcript utterances, recomputeRemoteAlias uses
+        // those instead — a stray audio-only slot must not make a 1:1 look
+        // like a group call and leave short acknowledgements as raw "Them".
         if channel == .system {
             latestRemoteLabels = Set(segments.map(\.speaker))
-            recomputeRemoteAlias()
         }
 
         // Each utterance only needs the segments that can overlap it. Both
@@ -795,8 +797,9 @@ final class LiveSessionViewModel {
                 rebuilt.append(u)
             }
         }
+        if changed { utterances = rebuilt }
+        if channel == .system { recomputeRemoteAlias() }
         guard changed else { return }
-        utterances = rebuilt
         if var engine = signalEngine {
             engine.invalidateTurnCache()
             signalEngine = engine
@@ -895,18 +898,36 @@ final class LiveSessionViewModel {
         return alias
     }
 
-    /// Sole-remote-name resolution, strongest evidence first: the one
-    /// diarized remote voice carrying a real name (enrolled or renamed),
-    /// then an explicit rename of the undiarized "Them" base label, then
-    /// the single pre-call participant as a provisional guess. Two or more
-    /// distinct remote voices kill the alias — numbered labels are the
-    /// truth on a group call.
+    /// Sole-remote-name resolution, strongest evidence first: labels that
+    /// actually own transcript utterances, then the latest diarizer publish,
+    /// then an explicit base-label rename and the single pre-call participant.
+    ///
+    /// Transcript evidence outranks the raw diarizer count because LS-EEND can
+    /// emit a short false speaker segment in an otherwise clean 1:1. That slot
+    /// should not disable the known person's alias unless it claims words in
+    /// the transcript. Once two labels do claim words, this immediately drops
+    /// the alias and preserves honest group-call attribution.
     private func recomputeRemoteAlias() {
-        if latestRemoteLabels.count >= 2 {
+        let owned = channelLabels[.system] ?? []
+        let transcriptLabels = Set(utterances.lazy.compactMap { utterance -> String? in
+            let label = utterance.speaker
+            guard label != "Them",
+                  label.hasPrefix("Them ") || owned.contains(label)
+                    || self.baseLabelRenames["Them"] == label else { return nil }
+            return label
+        })
+        let evidence = transcriptLabels.isEmpty ? latestRemoteLabels : transcriptLabels
+
+        if evidence.count >= 2 {
             remoteAlias = nil
-        } else if let only = latestRemoteLabels.first,
+        } else if let only = evidence.first,
                   only != "Them", !only.hasPrefix("Them ") {
             remoteAlias = only
+        } else if latestRemoteLabels.count >= 2 {
+            // Transcript attribution hasn't separated the voices yet, but the
+            // diarizer clearly hears more than one — never fall through to the
+            // rename/pre-call guesses on what is likely a group call.
+            remoteAlias = nil
         } else if let renamed = baseLabelRenames["Them"] {
             remoteAlias = renamed
         } else {

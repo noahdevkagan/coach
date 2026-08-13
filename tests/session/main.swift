@@ -261,6 +261,22 @@ func runTests() async {
               "stored label stays raw (display-layer alias only)",
               "got \(vm.utterances.last?.speaker ?? "nil")")
 
+        // Real-session regression (2026-08-13): LS-EEND briefly emitted a
+        // second remote slot that never owned any transcript words. That
+        // disabled the 1:1 alias, so a short unaligned "Yeah." rendered as
+        // Them between correctly named Chad turns.
+        capture.onSpeakerSegments?(.system, [
+            SpeakerSegment(speaker: "Lyndsay", start: 0.9, end: 3.1),
+            SpeakerSegment(speaker: "Them 2", start: 8.0, end: 8.2),
+        ])
+        try? await Task.sleep(for: .milliseconds(50))
+        capture.onUtterance?(Utterance(t: 9, speaker: "Them",
+            text: "Yeah.", endT: 9.2))
+        try? await Task.sleep(for: .milliseconds(50))
+        check(vm.displaySpeaker("Them") == "Lyndsay",
+              "audio-only phantom slot does not disable one-on-one alias",
+              "got \(vm.displaySpeaker("Them"))")
+
         vm.stopLive()
         var body = ""
         if let saved = try? FileManager.default.contentsOfDirectory(atPath: scratch.path) {
@@ -271,7 +287,7 @@ func runTests() async {
                 if content.contains("hear me alright") { body = content }
             }
         }
-        check(body.contains("Lyndsay: Hi there, can you hear me alright today? Great, let us get going then."),
+        check(body.contains("Lyndsay: Hi there, can you hear me alright today? Great, let us get going then. Yeah."),
               "saved file coalesces Them/Them-1 fragments under the real name",
               "transcript: \(body.components(separatedBy: "## Transcript").last?.prefix(200) ?? "")")
         check(!body.contains("] Them:") && !body.contains("] Them 1:"),
@@ -357,6 +373,21 @@ func runTests() async {
         try? await Task.sleep(for: .milliseconds(50))
         check(vm.displaySpeaker("Them") == "Them",
               "multiple voices revert to numbered labels")
+
+        // Attribution lag: one ASR utterance spans both remote voices and
+        // lands wholly on Them 1, so transcript evidence sees one label —
+        // the diarizer's two-voice count must still veto the pre-call guess.
+        capture.onUtterance?(Utterance(t: 1, speaker: "Them",
+            text: "Long stretch of far side speech spanning both people.", endT: 9))
+        try? await Task.sleep(for: .milliseconds(50))
+        capture.onSpeakerSegments?(.system, [
+            SpeakerSegment(speaker: "Them 1", start: 1.0, end: 8.2),
+            SpeakerSegment(speaker: "Them 2", start: 8.3, end: 8.9),
+        ])
+        try? await Task.sleep(for: .milliseconds(50))
+        check(vm.displaySpeaker("Them") == "Them",
+              "group call with lagging attribution never shows the pre-call guess",
+              "got \(vm.displaySpeaker("Them"))")
         vm.stopLive()
         vm.deleteSession()
     }
