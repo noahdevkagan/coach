@@ -180,12 +180,14 @@ enum ModelMemory {
     /// The download to offer when a session degrades for memory: the ladder's
     /// smallest rung, iff it isn't installed and can run on this Mac at all.
     /// When that rung is installed and still didn't fit, no download can
-    /// help — offer nothing.
-    static func fallbackSuggestion(installed: [OllamaModel]) -> CatalogModel? {
+    /// help — offer nothing. RAM is injectable so the policy is testable
+    /// at exact sizes (CI runners have less RAM than any supported Mac).
+    static func fallbackSuggestion(installed: [OllamaModel],
+                                   ramGB: Int = physicalRAMGB) -> CatalogModel? {
         guard let name = recommendationLadder.last,
               !installed.contains(where: { $0.name == name }),
               let entry = modelCatalog.first(where: { $0.fullName == name }),
-              entry.fitsThisMac else { return nil }
+              entry.minRAMGB <= ramGB else { return nil }
         return entry
     }
 }

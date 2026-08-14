@@ -578,11 +578,15 @@ func runTests() async {
         // only while it isn't installed. Installed-and-still-didn't-fit means
         // no download can help — offer nothing.
         check(ModelMemory.fallbackSuggestion(installed: [installed("qwen3.5:9b", 6.6),
-                                                         installed("qwen3.5:4b", 3.4)])?.fullName
+                                                         installed("qwen3.5:4b", 3.4)],
+                                             ramGB: 16)?.fullName
               == "granite4:3b",
               "missing smallest rung is offered as a download")
-        check(ModelMemory.fallbackSuggestion(installed: pool) == nil,
+        check(ModelMemory.fallbackSuggestion(installed: pool, ramGB: 16) == nil,
               "smallest rung installed -> nothing to offer")
+        check(ModelMemory.fallbackSuggestion(installed: [installed("qwen3.5:9b", 6.6)],
+                                             ramGB: 4) == nil,
+              "a Mac too small for the smallest rung is offered nothing")
     }
 
     // Happy path: refresh -> preload -> pin, in that order, and the SAME
