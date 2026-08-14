@@ -7,6 +7,13 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## 0.20.0 — 2026-08-14
+
+- When the full AI coach cannot load because your Mac is busy or low on memory, the main window and floating overlay now say “Basic mode” instead of leaving you wondering why no AI nudges appear; built-in coaching keeps working
+- MeetingCoach now tries smaller AI models you already downloaded before falling back to basic mode
+- If you do not have a lightweight fallback yet, the low-memory banner offers a one-click ~2.1 GB download for future meetings without changing your preferred model
+- Fixed named speakers occasionally losing their name on short replies in a one-on-one call when speaker detection briefly imagined an extra voice that never said anything
+
 ## 0.19.1 — 2026-08-13
 
 - Fixed a crash that could quit MeetingCoach as a meeting started, when a headset or other microphone was still connecting. The app now gives the mic a moment to settle, and if it never becomes usable it says so instead of quitting

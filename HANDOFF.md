@@ -5,18 +5,13 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-08-13)
+## Current state (2026-08-14)
 
-- **One-on-one short-utterance speaker fallback fixed (unreleased):** remote
-  identities now count toward group detection only after claiming transcript
-  speech, so an audio-only phantom diarizer slot no longer makes "Yeah." show
-  as `Them` beside named Chad turns. Genuine second speakers still retire the
-  alias once attributed. Regression added; `tests/session` and Debug build pass.
-
-- **Basic-mode visibility + smaller-model fallback is in PR #4:** degraded
-  sessions show an orange status, preload walks smaller installed models, and
-  low-memory users can download the lightweight fallback from the banner. The
-  full push gate passed with no scorecard regressions.
+- **v0.20.0 release in progress:** ship the merged one-on-one short-utterance
+  alias fix plus PR #4's visible basic mode, smaller-installed-model preload
+  fallback, and lightweight-model download prompt. Add the changelog, regenerate
+  the site page, push the release commit and tag, then verify the signed,
+  notarized DMG, public appcast, and site deployment.
 - **v0.19.0 SHIPPED — Simplified Multilingual V1** (25 languages; scope in
   CHANGELOG + decisions.md 2026-08-12 entries). Full push gate green
   (French v3 canary 0% WER; the old conv chunk-band worry did not
