@@ -260,7 +260,12 @@ final class SettingsViewModel {
         downloadModel(recommended)
     }
 
-    func downloadModel(_ catalogModel: CatalogModel) {
+    /// `forSessionFallback` is the low-memory banner's path: pull the small
+    /// ladder rung so *future* busy sessions have something that fits —
+    /// without hijacking the user's selected model, and without the post-pull
+    /// verification load (the user is mid-meeting on a machine that just
+    /// proved it has no memory to spare).
+    func downloadModel(_ catalogModel: CatalogModel, forSessionFallback: Bool = false) {
         let fullName = catalogModel.fullName
         // The catalog UI already hides models that can't fit; this is the
         // backstop for every other path to a pull.
@@ -294,13 +299,19 @@ final class SettingsViewModel {
                 }
                 if progress.isComplete {
                     self.downloadingModel = nil
-                    self.selectedModel = fullName
-                    self.save()
+                    if !forSessionFallback {
+                        self.selectedModel = fullName
+                        self.save()
+                    }
                     await self.refreshModels()
                     // Freshly pulled = the user is right here in Settings;
                     // a short warm-up window verifies it loads (OOM surfaces
                     // now, not mid-meeting) without pinning RAM for hours.
-                    await self.verifyDownloadedModelLoads()
+                    // Skipped for the fallback pull — the user is mid-meeting
+                    // on a machine that just proved it has none to spare.
+                    if !forSessionFallback {
+                        await self.verifyDownloadedModelLoads()
+                    }
                     return
                 }
                 if progress.status.hasPrefix("error") {
@@ -350,6 +361,13 @@ final class SettingsViewModel {
                          availableGB, resolved ?? "deterministic coaching", effectiveModel))
         }
         return resolved
+    }
+
+    /// Offered by the low-memory banner: the smallest ladder rung, when it
+    /// isn't installed yet. nil once it is (or nothing small enough exists) —
+    /// the banner's button disappears the moment the pull completes.
+    var fallbackModelSuggestion: CatalogModel? {
+        ModelMemory.fallbackSuggestion(installed: availableModels)
     }
 
     /// Verifies a freshly pulled model actually loads, so an OOM surfaces in

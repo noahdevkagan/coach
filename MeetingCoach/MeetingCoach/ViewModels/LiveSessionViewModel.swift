@@ -165,6 +165,22 @@ final class LiveSessionViewModel {
 
     private(set) var sessionModelState: SessionModelState?
 
+    /// Why coaching is running without an LLM this session, in words the
+    /// banner can show. Set only for degraded causes the user didn't choose
+    /// (low memory, engine down, load failure) — mock mode and the internal
+    /// kill-switch stay silent, they're not failures. nil while preparing,
+    /// pinned, or deterministic-by-choice.
+    struct BasicModeNotice: Equatable {
+        /// Short cause for the headline, e.g. "low memory".
+        let cause: String
+        /// One-sentence detail with the fix, for the expanded banner.
+        let detail: String
+        /// True when memory was the blocker — the banner offers to download
+        /// the small fallback model iff it would actually have helped.
+        var lowMemory: Bool = false
+    }
+    private(set) var basicModeNotice: BasicModeNotice?
+
     // Seams for the four things this lifecycle cannot do in a test: read this
     // machine's free memory, and load, unload or query a model in a live engine.
     // Production wiring is the default; the session harness substitutes them
@@ -303,11 +319,14 @@ final class LiveSessionViewModel {
             tuning: tuning,
             languageMode: resolvedLanguage.isEnglish ? .fullEnglish : .multilingualSafe)
 
-        // Tier-2 semantic coaching: silent progressive enhancement, never a
-        // user decision. Runs iff a local model is actually available (or
-        // mock mode); a Mac with no model gets the deterministic coach with
-        // no toggle, no warning, no ritual. semanticCoachEnabled survives
-        // as an internal kill-switch only (defaults true, no UI).
+        // Tier-2 semantic coaching: progressive enhancement, never a user
+        // decision. Runs iff a local model is actually available (or mock
+        // mode); a Mac with no model gets the deterministic coach with no
+        // toggle and no ritual — but a *degraded* fallback (low memory,
+        // engine down) is named in a banner via basicModeNotice, because a
+        // silent one reads as "the app is broken" mid-meeting.
+        // semanticCoachEnabled survives as an internal kill-switch only
+        // (defaults true, no UI).
         // An unchecked model list stays optimistic — the heartbeat degrades
         // gracefully if the engine turns out to be empty.
         // Tier 2 is armed after capture is up — see activateSessionModel.
@@ -328,6 +347,7 @@ final class LiveSessionViewModel {
         let sessionID = UUID()
         currentSessionID = sessionID
         sessionModelState = .preparing(sessionID)
+        basicModeNotice = nil
         pendingCoachSetup = (tuning, rubric.customSemanticSignals, noteExamples)
 
         // Kept for the auto-recap on Stop — every session should end with
@@ -437,11 +457,13 @@ final class LiveSessionViewModel {
     /// `.pinned` — never back in `.preparing`.
     ///
     /// The preload is the authority, not an optimisation: it is the only step
-    /// that knows whether the model actually loaded. Anything short of a
-    /// successful preload — model missing, size unknown, memory short, engine
-    /// down, load failed — settles deterministic, and no coach object is
-    /// created. Nothing may cold-load a model later; a heartbeat pulling
-    /// multiple gigabytes in at minute one is the freeze this exists to stop.
+    /// that knows whether the model actually loaded. A failed preload steps
+    /// down to the next smaller installed rung and tries again; only when
+    /// every candidate is exhausted — or the model is missing, size unknown,
+    /// memory short, engine down — does the session settle deterministic, and
+    /// no coach object is created. Nothing may cold-load a model later; a
+    /// heartbeat pulling multiple gigabytes in at minute one is the freeze
+    /// this exists to stop.
     ///
     /// Every continuation after an await re-checks the session UUID, because
     /// Stop or a replacing session can land in any of these gaps.
@@ -453,11 +475,12 @@ final class LiveSessionViewModel {
 
         func stillCurrent() -> Bool { currentSessionID == sessionID && !Task.isCancelled }
 
-        func settleDeterministic(_ reason: String) {
+        func settleDeterministic(_ reason: String, notice: BasicModeNotice? = nil) {
             guard stillCurrent() else { return }
             sessionModelState = .deterministic(sessionID)
             semanticCoach = nil
             nameInference = nil
+            basicModeNotice = notice
             mclog("[Session] Deterministic coaching — \(reason)")
         }
 
@@ -479,21 +502,50 @@ final class LiveSessionViewModel {
         guard let availableGB = Self.availableMemoryGB() else {
             return settleDeterministic("free memory unreadable")
         }
-        guard let candidate = ModelMemory.modelForCurrentMemory(
-                chosen: settings.effectiveModel,
-                installed: settings.availableModels,
-                availableGB: availableGB) else {
-            return settleDeterministic(String(format: "%.1f GB free fits nothing installed",
-                                              availableGB))
+        let candidates = ModelMemory.candidatesForCurrentMemory(
+            chosen: settings.effectiveModel,
+            installed: settings.availableModels,
+            availableGB: availableGB)
+        guard !candidates.isEmpty else {
+            return settleDeterministic(
+                String(format: "%.1f GB free fits nothing installed", availableGB),
+                notice: .init(
+                    cause: "low memory",
+                    detail: String(format: "Only %.0f GB of memory is free — no installed AI model fits. Close some apps and restart the session for full coaching.",
+                                   availableGB),
+                    lowMemory: true))
         }
 
         guard await ollamaManager.ensureRunning() else {
-            return settleDeterministic("engine unavailable")
+            return settleDeterministic(
+                "engine unavailable",
+                notice: .init(cause: "AI engine unavailable",
+                              detail: "The local AI engine didn't start, so this session uses built-in signals only."))
         }
         guard stillCurrent() else { return }
 
-        if let error = await Self.preloadModel(candidate) {
-            return settleDeterministic("preload of \(candidate) failed: \(error)")
+        // The heuristic is a snapshot and the OOM verdict is the engine's:
+        // when a preload fails, step down to the next smaller installed rung
+        // instead of giving up. Still all at session start — no candidate is
+        // ever cold-loaded mid-meeting.
+        var pinned: String?
+        var lastError = ""
+        for candidate in candidates {
+            if let error = await Self.preloadModel(candidate) {
+                lastError = "preload of \(candidate) failed: \(error)"
+                mclog("[Session] \(lastError)\(candidate == candidates.last ? "" : " — trying smaller")")
+                guard stillCurrent() else { return }
+                continue
+            }
+            pinned = candidate
+            break
+        }
+        guard let candidate = pinned else {
+            return settleDeterministic(
+                lastError,
+                notice: .init(cause: "low memory",
+                              detail: "No installed AI model could load into memory. Close some apps and restart the session for full coaching.",
+                              lowMemory: true))
         }
         // The preload landed but the meeting moved on underneath it. Free the
         // runner rather than leaving it for a session that no longer exists.

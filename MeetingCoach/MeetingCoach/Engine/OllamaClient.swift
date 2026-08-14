@@ -132,6 +132,20 @@ enum ModelMemory {
                                       installed: [OllamaModel],
                                       availableGB: Double,
                                       headroomGB: Double = currentHeadroomGB) -> String? {
+        candidatesForCurrentMemory(chosen: chosen, installed: installed,
+                                   availableGB: availableGB,
+                                   headroomGB: headroomGB).first
+    }
+
+    /// Load order for this session: the selected model first, then strictly
+    /// smaller installed rungs to fall back to when a preload fails anyway
+    /// (the heuristic is a snapshot; the OOM verdict is the engine's). Only
+    /// smaller — a model that out-sizes one that just failed to load would
+    /// fail harder.
+    static func candidatesForCurrentMemory(chosen: String,
+                                           installed: [OllamaModel],
+                                           availableGB: Double,
+                                           headroomGB: Double = currentHeadroomGB) -> [String] {
         // A model with no reported size can't be sized, and one that isn't
         // installed can't be loaded at all — both are unsafe. Treating either
         // as "fine" is how something oversized slips through: the optimistic
@@ -140,16 +154,39 @@ enum ModelMemory {
             guard model.size > 0 else { return false }
             return runtimeNeedGB(installedBytes: model.size) + headroomGB <= availableGB
         }
-        guard let selected = installed.first(where: { $0.name == chosen }),
-              safe(selected) else {
-            for name in recommendationLadder {
-                if let rung = installed.first(where: { $0.name == name }), safe(rung) {
-                    return name
-                }
-            }
-            return nil
+        func rung(_ name: String) -> OllamaModel? {
+            guard let model = installed.first(where: { $0.name == name }),
+                  safe(model) else { return nil }
+            return model
         }
-        return chosen
+
+        var candidates: [OllamaModel] = []
+        if let selected = rung(chosen) {
+            candidates.append(selected)
+        } else {
+            for name in recommendationLadder {
+                if let model = rung(name) { candidates.append(model); break }
+            }
+        }
+        guard let first = candidates.first else { return [] }
+        for name in recommendationLadder where name != first.name {
+            if let model = rung(name), model.size < first.size {
+                candidates.append(model)
+            }
+        }
+        return candidates.map(\.name)
+    }
+
+    /// The download to offer when a session degrades for memory: the ladder's
+    /// smallest rung, iff it isn't installed and can run on this Mac at all.
+    /// When that rung is installed and still didn't fit, no download can
+    /// help — offer nothing.
+    static func fallbackSuggestion(installed: [OllamaModel]) -> CatalogModel? {
+        guard let name = recommendationLadder.last,
+              !installed.contains(where: { $0.name == name }),
+              let entry = modelCatalog.first(where: { $0.fullName == name }),
+              entry.fitsThisMac else { return nil }
+        return entry
     }
 }
 
