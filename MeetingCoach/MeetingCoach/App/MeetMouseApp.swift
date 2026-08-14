@@ -4,7 +4,7 @@ import Sparkle
 import ServiceManagement
 
 @main
-struct MeetingCoachApp: App {
+struct MeetMouseApp: App {
     @State private var ollamaManager = OllamaManager()
     // Session + settings live at app scope so the menu bar scene and the
     // main window drive the same coaching session.
@@ -29,7 +29,7 @@ struct MeetingCoachApp: App {
         let version = info?["CFBundleShortVersionString"] as? String ?? "?"
         let build = info?["CFBundleVersion"] as? String ?? "?"
         let commit = info?["MCBuildCommit"] as? String
-        mclog("[App] MeetingCoach v\(version) (build \(build))"
+        mclog("[App] MeetMouse v\(version) (build \(build))"
               + (commit.map { " @ \($0)" } ?? ""))
 
         let badge = UpdateBadgeModel()
@@ -49,8 +49,8 @@ struct MeetingCoachApp: App {
         #endif
         #if DEBUG
         // Dock icon gets a "D" badge so a dev build is never mistaken for
-        // the installed copy when both are running (menu bar already shows
-        // a hammer; the Dock and app switcher need the same tell).
+        // the installed copy when both are running (the menu-bar mouse gets
+        // an amber dev dot; the Dock and app switcher need the same tell).
         DispatchQueue.main.async { Self.applyDevDockBadge() }
         #endif
     }
@@ -85,7 +85,7 @@ struct MeetingCoachApp: App {
         // Window, not WindowGroup: openWindow(id:) on a WindowGroup mints a
         // fresh window per call (the detection pill + menu bar both open it),
         // while Window raises the one existing instance.
-        Window("Meeting Coach", id: "main") {
+        Window("MeetMouse", id: "main") {
             ContentView(ollamaManager: ollamaManager,
                         liveSession: liveSession,
                         settings: settings)
@@ -105,7 +105,7 @@ struct MeetingCoachApp: App {
         }
 
         // Menu bar: session status, the auto-detect prompt ("Meeting
-        // detected — start coaching?"), and quick start/stop. Detection only
+        // detected — start MeetMouse?"), and quick start/stop. Detection only
         // ever prompts; capture starts exclusively from an explicit click.
         MenuBarExtra {
             MenuBarView(liveSession: liveSession, settings: settings,
@@ -129,8 +129,8 @@ struct MeetingCoachApp: App {
 
         // Give-to-a-friend invite, opened from the menu bar dropdown (the
         // same view runs as a one-time sheet after the first session).
-        Window("Give MeetingCoach", id: "give") {
-            GiveMeetingCoachView()
+        Window("Give MeetMouse", id: "give") {
+            GiveMeetMouseView()
         }
         .windowResizability(.contentSize)
 
@@ -157,7 +157,7 @@ struct MeetingCoachApp: App {
 
 /// The menu bar icon. Lives for the whole app lifetime (unlike the menu
 /// content, which only exists while open), so it also drives the floating
-/// "Meeting Detected — Start Coaching" pill.
+/// "Meeting Detected — Start MeetMouse" pill.
 struct MenuBarLabel: View {
     @Bindable var liveSession: LiveSessionViewModel
     @Bindable var settings: SettingsViewModel
@@ -166,27 +166,21 @@ struct MenuBarLabel: View {
     let updater: SPUUpdater
     @ObservedObject var updateBadge: UpdateBadgeModel
     @Environment(\.openWindow) private var openWindow
-    @Environment(\.colorScheme) private var colorScheme
     @State private var promptPanel: MeetingPromptPanel?
 
     var body: some View {
-        // Normal state uses a plain SF Symbol (template image — the system
-        // recolors it for menu bar appearance). The update badge needs real
-        // color, and the menu bar strips color from template images, so that
-        // state hand-draws a non-template NSImage: glyph tinted to match the
-        // current appearance + a red dot that survives untouched.
-        Group {
-            if updateBadge.updateAvailable {
-                Image(nsImage: Self.badgedIcon(symbol: symbol,
-                                               dark: colorScheme == .dark))
-            } else {
-                Image(systemName: symbol)
-            }
-        }
+        // A custom mouse silhouette is the brand at menu-bar scale. Drawing
+        // it locally keeps the 20px mark crisp and lets live/detected/update
+        // states stay legible without depending on an unrelated SF Symbol.
+        Image(nsImage: Self.mouseIcon(
+            live: liveSession.isLive,
+            detected: detection.meetingDetected,
+            updateAvailable: updateBadge.updateAvailable))
+            .accessibilityLabel("MeetMouse")
             .onAppear {
                 detection.bind(liveSession: liveSession)
                 // Countdown expiry uses the same start path as the pill's
-                // "Start Coaching" button.
+                // "Start MeetMouse" button.
                 detection.onAutoStart = { startFromDetection() }
                 // Real meeting names (window titles seen while live) title
                 // the saved session; weak capture — detection outlives any
@@ -259,38 +253,43 @@ struct MenuBarLabel: View {
                               ollamaManager: ollamaManager)
     }
 
-    private var symbol: String {
-        // Debug builds get a hammer so a dev copy is never confused with
-        // the installed release when both menu bar icons are up.
-        #if DEBUG
-        return liveSession.isLive ? "hammer.circle.fill" : "hammer.circle"
-        #else
-        if liveSession.isLive { return "waveform.circle.fill" }
-        if detection.meetingDetected { return "waveform.badge.exclamationmark" }
-        return "waveform.circle"
-        #endif
-    }
-
-    /// Menu-bar icon with the update dot. Non-template on purpose (see body)
-    /// — which means light/dark adaptation is on us, via `dark`.
-    private static func badgedIcon(symbol: String, dark: Bool) -> NSImage {
-        let size = NSSize(width: 20, height: 17)
+    /// Use the literal animal as the menu-bar brand, matching the app icon's
+    /// character-first direction. Apple's mouse glyph is designed to survive
+    /// menu-bar scale far better than a reduced fur render or an abstract
+    /// outline. Status stays in tiny corner dots so the mouse itself never
+    /// changes identity: coral = live, gold = detected, red = update.
+    private static func mouseIcon(live: Bool, detected: Bool,
+                                  updateAvailable: Bool) -> NSImage {
+        let size = NSSize(width: 24, height: 18)
         let image = NSImage(size: size, flipped: false) { rect in
-            let glyphColor: NSColor = dark ? .white : .black
-            let config = NSImage.SymbolConfiguration(pointSize: 14.5, weight: .regular)
-                .applying(.init(paletteColors: [glyphColor]))
-            if let glyph = NSImage(systemSymbolName: symbol,
-                                   accessibilityDescription: "MeetingCoach")?
-                .withSymbolConfiguration(config) {
-                let g = glyph.size
-                glyph.draw(in: NSRect(x: (rect.width - g.width) / 2,
-                                      y: (rect.height - g.height) / 2,
-                                      width: g.width, height: g.height))
+            let font = NSFont(name: "Apple Color Emoji", size: 15.5)
+                ?? NSFont.systemFont(ofSize: 15.5)
+            let mouse = NSAttributedString(string: "🐁", attributes: [.font: font])
+            let mouseSize = mouse.size()
+            mouse.draw(at: NSPoint(x: 0.5,
+                                   y: (rect.height - mouseSize.height) / 2 - 0.5))
+
+            if updateAvailable {
+                let d: CGFloat = 5.5
+                NSColor.systemRed.setFill()
+                NSBezierPath(ovalIn: NSRect(x: rect.maxX - d,
+                                            y: rect.maxY - d,
+                                            width: d, height: d)).fill()
+            } else if detected {
+                NSColor.systemYellow.setFill()
+                NSBezierPath(ovalIn: NSRect(x: rect.maxX - 5.2,
+                                            y: rect.maxY - 5.2,
+                                            width: 5.2, height: 5.2)).fill()
+            } else if live {
+                NSColor(hex: 0xFF7568).setFill()
+                NSBezierPath(ovalIn: NSRect(x: rect.maxX - 5.2,
+                                            y: rect.maxY - 5.2,
+                                            width: 5.2, height: 5.2)).fill()
             }
-            let d: CGFloat = 6.5
-            NSColor.systemRed.setFill()
-            NSBezierPath(ovalIn: NSRect(x: rect.maxX - d, y: rect.maxY - d,
-                                        width: d, height: d)).fill()
+            #if DEBUG
+            NSColor.systemOrange.setFill()
+            NSBezierPath(ovalIn: NSRect(x: 0, y: 0, width: 4.8, height: 4.8)).fill()
+            #endif
             return true
         }
         image.isTemplate = false
@@ -352,7 +351,7 @@ struct MenuBarView: View {
         }
 
         if detection.meetingDetected && !liveSession.isLive {
-            Button("Meeting detected — Start coaching") {
+            Button("Meeting detected — Start MeetMouse") {
                 startCoaching()
             }
             Button("Not now") {
@@ -368,23 +367,23 @@ struct MenuBarView: View {
                 liveSession.stopLive()
             }
         } else if !detection.meetingDetected {
-            Button("Start coaching") {
+            Button("Start MeetMouse") {
                 startCoaching()
             }
         }
 
         Divider()
         Toggle("Auto-detect meetings", isOn: $detection.isEnabled)
-        Toggle("Auto-start coaching", isOn: $detection.autoStartEnabled)
+        Toggle("Auto-start MeetMouse", isOn: $detection.autoStartEnabled)
             .disabled(!detection.isEnabled)
-        Button("Open Meeting Coach") {
+        Button("Open MeetMouse") {
             openWindow(id: "main")
             NSApp.activate(ignoringOtherApps: true)
         }
         Divider()
         Button(ReferralInvites.invitesLeft > 0
-               ? "Give MeetingCoach to a Friend… (\(ReferralInvites.invitesLeft) left)"
-               : "Give MeetingCoach to a Friend…") {
+               ? "Give MeetMouse to a Friend… (\(ReferralInvites.invitesLeft) left)"
+               : "Give MeetMouse to a Friend…") {
             openWindow(id: "give")
             NSApp.activate(ignoringOtherApps: true)
         }
@@ -396,7 +395,7 @@ struct MenuBarView: View {
         Divider()
         // Stops everything: live session teardown and the embedded AI
         // engine both hook app termination.
-        Button("Quit Meeting Coach") {
+        Button("Quit MeetMouse") {
             NSApp.terminate(nil)
         }
     }
@@ -460,6 +459,7 @@ final class UpdateBadgeModel: NSObject, ObservableObject, SPUUpdaterDelegate {
 
     #if DEBUG
     // GUI verification hook — the dot can't be triggered on demand otherwise:
+    // Bundle ID intentionally remains the compatibility identifier:
     // defaults write com.coach.MeetingCoach ForceUpdateBadge -bool true
     override init() {
         super.init()

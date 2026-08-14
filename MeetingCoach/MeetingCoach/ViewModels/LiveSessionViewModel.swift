@@ -1554,7 +1554,7 @@ final class LiveSessionViewModel {
         let file = dir.appendingPathComponent(filename)
 
         var lines: [String] = []
-        lines.append("# Meeting Coach Session — \(formatter.string(from: Date()))")
+        lines.append("# MeetMouse Session — \(formatter.string(from: Date()))")
         // Title precedence: the real meeting name (from the meeting's
         // window title, via detection) beats the pre-call-derived
         // "person · subject", which beats nothing (the sidebar's transcript

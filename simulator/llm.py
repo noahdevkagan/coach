@@ -20,7 +20,7 @@ from typing import Protocol
 
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
-# Overridable because MeetingCoach.app's bundled ollama occupies the default
+# Overridable because MeetMouse.app's bundled ollama occupies the default
 # port; the loopback assertion below still applies to any override.
 DEFAULT_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
 

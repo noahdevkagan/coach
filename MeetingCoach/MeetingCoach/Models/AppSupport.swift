@@ -1,6 +1,8 @@
 import Foundation
 
-/// Canonical on-disk layout under ~/Library/Application Support/MeetingCoach/.
+/// Canonical MeetMouse on-disk layout. The legacy `MeetingCoach` directory
+/// name is intentionally stable so an app update finds every model and rubric
+/// without moving gigabytes of local data.
 /// Everything user-visible (rubrics, suggestions, goals) lives here so it
 /// survives app updates and never depends on a dev-machine checkout path.
 enum AppSupport {
@@ -30,10 +32,10 @@ enum AppSupport {
 
     // MARK: - Session transcripts
 
-    /// User-visible transcripts default to ~/Documents/MeetingCoach; the
-    /// folder is relocatable from Settings. The app is not sandboxed, so a
-    /// plain stored path is sufficient. Existing files are not migrated on
-    /// change — the user moves them (or not) in Finder.
+    /// User-visible transcripts retain the pre-rebrand default folder for
+    /// upgrade continuity; the folder is relocatable from Settings. The app
+    /// is not sandboxed, so a plain stored path is sufficient. Existing files
+    /// are not migrated on change — the user moves them (or not) in Finder.
     static let sessionFolderKey = "sessionFolderPath"
 
     static var sessionsDir: URL {

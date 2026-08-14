@@ -1,4 +1,4 @@
-# Meeting Coach — bundled demo meeting (synthetic, no real people).
+# MeetMouse — bundled demo meeting (synthetic, no real people).
 # Replayed through the real signal pipeline at first launch. Timings are
 # tuned so the deterministic signals fire on schedule:
 #   talkTime ~0:41 · interruption ~1:09 · stackedQuestions ~1:20

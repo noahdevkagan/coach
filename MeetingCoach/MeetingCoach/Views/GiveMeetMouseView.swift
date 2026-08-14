@@ -1,12 +1,12 @@
 import SwiftUI
 import AppKit
 
-/// "Give MeetingCoach to a friend" — the viral loop. One click copies a
+/// "Give MeetMouse to a friend" — the viral loop. One click copies a
 /// ready-to-paste invite (AppSumo code + link); a local 3-invite count
 /// adds urgency without ever blocking generosity. Shown two ways: its own
 /// window from the menu bar, and a one-time sheet after the user's second
 /// real coached meeting (`asSheet`).
-struct GiveMeetingCoachView: View {
+struct GiveMeetMouseView: View {
     /// Sheet mode adds the "aha"-moment framing and a Maybe Later button.
     var asSheet = false
 
@@ -18,10 +18,10 @@ struct GiveMeetingCoachView: View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(asSheet ? "Two coached meetings down 🎉"
-                             : "Give MeetingCoach to a friend for FREE")
+                             : "Give MeetMouse to a friend for FREE")
                     .font(.title3.bold())
                 Text(asSheet
-                     ? "Know someone who talks too much in meetings? You have \(invitesLeft) free \(invitesLeft == 1 ? "copy" : "copies") of MeetingCoach to give away."
+                     ? "Know someone who talks too much in meetings? You have \(invitesLeft) free \(invitesLeft == 1 ? "copy" : "copies") of MeetMouse to give away."
                      : "Free for them, redeemed on AppSumo. No forms, no signup — just send the invite.")
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

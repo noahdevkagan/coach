@@ -58,8 +58,8 @@ struct GeneralSettingsView: View {
         let resolvedLanguage = settings.resolvedMeetingLanguage
         Form {
             Section("Startup") {
-                Toggle("Start MeetingCoach at login", isOn: $settings.launchAtLogin)
-                Text("Opens MeetingCoach automatically after a restart or log-in, so meeting detection is ready before your first call. Also manageable under System Settings \u{2192} General \u{2192} Login Items.")
+                Toggle("Start MeetMouse at login", isOn: $settings.launchAtLogin)
+                Text("Opens MeetMouse automatically after a restart or log-in, so meeting detection is ready before your first call. Also manageable under System Settings \u{2192} General \u{2192} Login Items.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -108,14 +108,14 @@ struct GeneralSettingsView: View {
                         .font(.caption)
                         .foregroundStyle(importResultIsError ? .red : .secondary)
                 }
-                Text("In Granola, enable data export and download your meetings as a CSV, then pick that file here. Your notes become MeetingCoach sessions — searchable, on this Mac, in your transcripts folder.")
+                Text("In Granola, enable data export and download your meetings as a CSV, then pick that file here. Your notes become MeetMouse sessions — searchable, on this Mac, in your transcripts folder.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Section("Coaching overlay") {
                 Toggle("Show floating overlay during meetings", isOn: $settings.showCoachOverlay)
-                Text("The small \u{201C}Listening\u{201D} pill that floats above your call. Turn it off and nudges appear only in the Meeting Coach window. Wherever you drag it, it stays.")
+                Text("The small \u{201C}Listening\u{201D} pill that floats above your call. Turn it off and nudges appear only in the MeetMouse window. Wherever you drag it, it stays.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Toggle("Show session timer", isOn: $settings.showOverlayClock)
@@ -220,7 +220,7 @@ struct GeneralSettingsView: View {
 
             Section("Meeting detection") {
                 Toggle("Auto-detect meetings", isOn: $detection.isEnabled)
-                Toggle("Auto-start coaching", isOn: $detection.autoStartEnabled)
+                Toggle("Auto-start MeetMouse", isOn: $detection.autoStartEnabled)
                     .disabled(!detection.isEnabled)
                 Text("With auto-start on, coaching begins 10 seconds after a meeting is detected — the pill shows a countdown and one click cancels. Everything stays on this Mac.")
                     .font(.caption)
@@ -232,7 +232,7 @@ struct GeneralSettingsView: View {
                     Button(mcpCopied ? "Copied ✓" : "Copy setup command") {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(
-                            "claude mcp add meetingcoach -- \"\(path)\"",
+                            "claude mcp add meetmouse -- \"\(path)\"",
                             forType: .string)
                         mcpCopied = true
                     }
@@ -315,7 +315,7 @@ struct GeneralSettingsView: View {
     @State private var mcpCopied = false
 
     private var mcpHelperPath: String? {
-        Bundle.main.url(forAuxiliaryExecutable: "meetingcoach-mcp")?.path
+        Bundle.main.url(forAuxiliaryExecutable: "meetmouse-mcp")?.path
     }
 
     // MARK: - Granola import

@@ -26,7 +26,7 @@ targets:
     info:
       path: MeetingCoach/Info.plist
       properties:
-        NSScreenCaptureUsageDescription: "Meeting Coach captures system audio to transcribe what other meeting participants say."
+        NSScreenCaptureUsageDescription: "MeetMouse captures system audio to transcribe what other meeting participants say."
         # Bundled Dorado-redesign fonts (Barlow/Roboto/Roboto Mono) — CoreText
         # loads every font in this bundle subdirectory at launch.
         ATSApplicationFontsPath: "Fonts"
@@ -91,11 +91,16 @@ targets:
       # helper target signs its own product, so the app seal covers it.
       - name: "Embed MCP helper"
         script: |
-          if [ -f "${BUILT_PRODUCTS_DIR}/meetingcoach-mcp" ]; then
-            cp "${BUILT_PRODUCTS_DIR}/meetingcoach-mcp" \
+          if [ -f "${BUILT_PRODUCTS_DIR}/meetmouse-mcp" ]; then
+            cp "${BUILT_PRODUCTS_DIR}/meetmouse-mcp" \
+               "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/meetmouse-mcp"
+            # Keep the legacy helper name so existing local agent configs
+            # continue to work after an in-place Sparkle update.
+            cp "${BUILT_PRODUCTS_DIR}/meetmouse-mcp" \
                "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/meetingcoach-mcp"
           fi
         outputFiles:
+          - "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/meetmouse-mcp"
           - "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/meetingcoach-mcp"
       # Stamp Debug builds with the git commit they were built from. The
       # MARKETING_VERSION here is a placeholder (CI stamps the real one at
@@ -113,15 +118,19 @@ targets:
         basedOnDependencyAnalysis: false
     settings:
       base:
+        # Keep the target/scheme and bundle ID stable for Sparkle,
+        # permissions, UserDefaults, and existing installations; only the
+        # shipped product name changes for the MeetMouse rebrand.
+        PRODUCT_NAME: MeetMouse
         PRODUCT_BUNDLE_IDENTIFIER: com.coach.MeetingCoach
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         GENERATE_INFOPLIST_FILE: "YES"
         ASSETCATALOG_COMPILER_APPICON_NAME: "AppIcon"
         INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.productivity"
-        INFOPLIST_KEY_CFBundleDisplayName: "Meeting Coach"
-        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "Meeting Coach uses on-device speech recognition to provide real-time coaching."
-        INFOPLIST_KEY_NSMicrophoneUsageDescription: "Meeting Coach uses your microphone to transcribe meeting audio for real-time coaching."
+        INFOPLIST_KEY_CFBundleDisplayName: "MeetMouse"
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "MeetMouse uses on-device speech recognition to provide real-time coaching."
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "MeetMouse uses your microphone to transcribe meeting audio for real-time coaching."
         # NB: NSScreenCaptureUsageDescription lives in the target's `info:` block —
         # Xcode's INFOPLIST_KEY_* allowlist doesn't map it, so as a build setting
         # it silently never reaches the built Info.plist.
@@ -157,7 +166,7 @@ targets:
       - path: MeetingCoach/Models/AppSupport.swift
     settings:
       base:
-        PRODUCT_NAME: meetingcoach-mcp
+        PRODUCT_NAME: meetmouse-mcp
         SWIFT_VERSION: "6.0"
         MACOSX_DEPLOYMENT_TARGET: "14.2"
         # Xcode 26 sandboxes user script phases by default, which blocks the

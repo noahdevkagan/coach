@@ -18,7 +18,7 @@ struct SignalExample: Codable, Sendable {
     let nudge: String
 }
 
-/// Reads/writes training examples to ~/Library/Application Support/MeetingCoach/
+/// Reads/writes training examples to MeetMouse's compatibility support folder
 enum TrainingStore {
 
     private static var fileURL: URL {

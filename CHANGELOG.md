@@ -7,9 +7,13 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- The app has a new name and face: MeetMouse, with a literal gray mouse on coral throughout the app and the same recognizable animal in the menu bar. Your settings, models, transcripts, and updates continue exactly where they left off
+
 ## 0.18.1 — 2026-08-11
 
-- MeetingCoach now checks how much memory is actually free once a call is underway — not just how much your Mac has — and picks a lighter model when your machine is busy. A 32 GB Mac with a lot already open no longer slows to a crawl mid-meeting
+- MeetMouse now checks how much memory is actually free once a call is underway — not just how much your Mac has — and picks a lighter model when your machine is busy. A 32 GB Mac with a lot already open no longer slows to a crawl mid-meeting
 - If nothing can run safely, coaching continues without the AI parts instead of freezing your call, and it stays that way for the whole meeting rather than loading a model at the end
 - A meeting now uses exactly one model from start to finish, and always releases it when the call is over — including when you stop before saying anything
 - Models are no longer loaded speculatively when a meeting is detected: your Mac only holds one while a call is actually running
@@ -77,7 +81,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 - Much lower CPU during meetings: a bug ran two transcription engines at once every session (Apple's engine on the other side's audio even when the fast Parakeet model was loaded), and transcription re-processed audio far more often than needed — both fixed, along with meeting detection scanning your windows every 2 seconds mid-meeting
 - Sessions are now named after the real meeting when possible — the Meet tab or Zoom topic ("Weekly Sync") instead of a guessed "person · topic" — and search finds chats by name, not just by what was said
 - The floating overlay behaves: it stays where you drag it (forever), closing it keeps it closed for the rest of the meeting, and Settings → General has a switch to turn it off entirely — nudges still show in the main window
-- The meeting-detected pill stopped repeating itself ("& open Meeting Coach" line removed), and a start that fails no longer silences the pill for the rest of that meeting
+- The meeting-detected pill stopped repeating itself ("& open MeetMouse" line removed), and a start that fails no longer silences the pill for the rest of that meeting
 - Renaming a chat back to its date now sticks instead of a topic name reappearing
 
 ## 0.11.1 — 2026-08-04
@@ -88,14 +92,14 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 ## 0.11.0 — 2026-08-03
 
 - New first-run checklist: the main pane walks you to your first coached meeting — two permissions with Grant buttons, both models downloading with real progress bars (they start on their own, no clicks), then "join a meeting"
-- Coming from Granola? Export your meetings as a CSV in Granola, pick the file in Settings → General, and your notes become searchable MeetingCoach sessions — on your Mac, like everything else
-- The give-MeetingCoach-to-a-friend prompt now waits for your second coached meeting instead of interrupting the glow of the first
+- Coming from Granola? Export your meetings as a CSV in Granola, pick the file in Settings → General, and your notes become searchable MeetMouse sessions — on your Mac, like everything else
+- The give-MeetMouse-to-a-friend prompt now waits for your second coached meeting instead of interrupting the glow of the first
 - Fixed: at narrow widths the coach panel could clip its cards on both edges, cutting text mid-word — the panel now refuses to shrink past readable
 - The sidebar's Advanced section starts open so Questions to Ask and Coaching Notes are visible, and the whole header row is clickable
 
 ## 0.10.1 — 2026-08-03
 
-- MeetingCoach now starts automatically when you log in (so it's ready after a restart) — turn it off any time in Settings → General → Startup
+- MeetMouse now starts automatically when you log in (so it's ready after a restart) — turn it off any time in Settings → General → Startup
 
 ## 0.10.0 — 2026-07-31
 
@@ -111,8 +115,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## 0.9.1 — 2026-07-29
 
-- Give MeetingCoach to a friend for FREE: grab an invite from the menu bar (you have 3) — one click copies a ready-to-send message with a code your friend redeems free on AppSumo
-- After your first coached meeting, MeetingCoach asks if you know someone who'd want it too
+- Give MeetMouse to a friend for FREE: grab an invite from the menu bar (you have 3) — one click copies a ready-to-send message with a code your friend redeems free on AppSumo
+- After your first coached meeting, MeetMouse asks if you know someone who'd want it too
 
 ## 0.9.0 — 2026-07-28
 
@@ -157,12 +161,12 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## 0.7.0 — 2026-07-21
 
-- A calmer, simpler MeetingCoach: the live transcript is now the main event, with your talk-time split and elapsed time shown as quiet ambient info — not warnings
+- A calmer, simpler MeetMouse: the live transcript is now the main event, with your talk-time split and elapsed time shown as quiet ambient info — not warnings
 - Far fewer interruptions: only a handful of high-value nudges fire by default (talk time, one question at a time, action items, locking a real date, one genuine win). Everything else moved to Coaching Style, off by default — re-enable any signal you miss
 - Zero setup to start: no goal step, no AI-nudges toggle, no focus picker. Goal setup and coaching customization live under Advanced; AI nudges and the meeting summary switch on automatically when a local model is installed
 - Your recap now generates itself when you stop — summary, action items, and talk split, no button
 - Search your chats: one search box over every saved conversation, grouped by meeting with the moment highlighted
-- Connect Claude and other AI agents to your meetings: a built-in MCP server lets agents list, search, and read your saved transcripts — fully local, over stdio, nothing leaves your Mac. Setup: open Advanced → Agent access → copy the `claude mcp add` command (or point your agent at `MeetingCoach.app/Contents/MacOS/meetingcoach-mcp`)
+- Connect Claude and other AI agents to your meetings: a built-in MCP server lets agents list, search, and read your saved transcripts — fully local, over stdio, nothing leaves your Mac. Setup: open Advanced → Agent access → copy the `claude mcp add` command (or point your agent at `MeetMouse.app/Contents/MacOS/meetmouse-mcp`)
 
 ## 0.6.3 — 2026-07-20
 
@@ -207,7 +211,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 ## 0.5.6 — 2026-07-17
 
 - Meetings are detected on any microphone, not just the default input
-- New: launch Meeting Coach at login
+- New: launch MeetMouse at login
 - Quit straight from the menu bar dropdown
 
 ## 0.5.5 — 2026-07-17
@@ -238,7 +242,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## 0.5.0 — 2026-07-17
 
-- New to Meeting Coach? A short demo replays a sample meeting with real nudges on first launch — no mic, no permissions, no downloads
+- New to MeetMouse? A short demo replays a sample meeting with real nudges on first launch — no mic, no permissions, no downloads
 - Live talk meter: a thin You/Them bar in the overlay and transcript shows your share of the conversation as it happens (orange past 65%)
 - Reviews work without an AI model: an instant on-device review appears after every session; the AI review remains when a model is installed
 - Share your recap: copy or share the post-meeting review (summary, talk ratio, commitments) straight to Slack or email

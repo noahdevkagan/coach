@@ -50,7 +50,7 @@ final class MeetingDetectionService {
     private(set) var autoStartCountdown: Int?
 
     /// Fired when the countdown completes — wired to the same start path
-    /// as the pill's "Start Coaching" button.
+    /// as the pill's "Start MeetMouse" button.
     @ObservationIgnored var onAutoStart: (() -> Void)?
     @ObservationIgnored private var autoStartTask: Task<Void, Never>?
 
@@ -673,7 +673,7 @@ final class MeetingDetectionService {
         content.title = "Meeting detected"
         content.body = autoStarting
             ? "Coaching starts in 10 seconds — click the pill to cancel."
-            : "Start coaching? Open the Meeting Coach menu bar icon."
+            : "Start MeetMouse? Open the MeetMouse menu bar icon."
         let request = UNNotificationRequest(identifier: "meeting-detected-\(UUID().uuidString)",
                                             content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)

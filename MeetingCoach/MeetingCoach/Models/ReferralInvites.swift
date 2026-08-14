@@ -1,6 +1,6 @@
 import Foundation
 
-/// The give-MeetingCoach-to-a-friend loop: every user gets 3 invites to
+/// The give-MeetMouse-to-a-friend loop: every user gets 3 invites to
 /// hand out. One shared AppSumo redemption code — the count is a local
 /// honor-system nudge (scarcity drives sharing), not an enforcement.
 /// Nothing here touches the network; the invite is copied text.
@@ -22,7 +22,7 @@ enum ReferralInvites {
     /// into Slack, iMessage, or email unedited.
     static var inviteMessage: String {
         """
-        I've been using MeetingCoach — an AI meeting coach that runs 100% on your Mac (nothing leaves your machine). It nudges you live when you're rambling, interrupting, or missing a buying signal.
+        I've been using MeetMouse — an AI meeting coach that runs 100% on your Mac (nothing leaves your machine). It nudges you live when you're rambling, interrupting, or missing a buying signal.
 
         I get a few free copies to give away and thought of you. Redeem yours free on AppSumo with code \(code): \(redeemURL)
         """

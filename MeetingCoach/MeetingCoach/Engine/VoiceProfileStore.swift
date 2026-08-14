@@ -19,7 +19,7 @@ struct VoiceProfile: Codable {
 }
 
 /// Disk store for voice profiles: one JSON file per person under
-/// Application Support/MeetingCoach/voices/.
+/// MeetMouse's compatibility Application Support folder under voices/.
 enum VoiceProfileStore {
     /// Longest clip worth keeping — enrollment quality plateaus, and
     /// session startup pays for every enrolled second.

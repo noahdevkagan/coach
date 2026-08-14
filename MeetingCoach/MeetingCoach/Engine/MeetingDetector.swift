@@ -20,7 +20,7 @@ struct MeetingSignals: Equatable, Sendable {
     var meetingWindowPresent: Bool? = nil
 }
 
-/// Decides when to ask "Meeting detected — start coaching?". Detection
+/// Decides when to ask "Meeting detected — start MeetMouse?". Detection
 /// never starts capture — it only raises one prompt per sustained meeting,
 /// with a cooldown after a dismissal so it can't nag.
 struct MeetingDetector: Sendable {

@@ -13,10 +13,10 @@ enum Dorado {
     // system appearance (Noah, 2026-08-05: "similar to computer on light
     // or dark or auto"). The handoff only specified the light values; the
     // dark side is the same hierarchy inverted onto near-black surfaces.
-    static let dorado300 = Color(hex: 0xFFBC00)   // Go live, accents (both modes)
-    static let dorado100 = Color(hex: 0xFFEE4E)   // hover, active highlight
-    static let dorado500 = Color(hex: 0xF58A00)   // pressed
-    static let doradoTint = dynamic(0xFFF3CC, 0x4A3F1E)  // soft highlight
+    static let dorado300 = Color(hex: 0xFF7568)   // MeetMouse coral, primary action
+    static let dorado100 = Color(hex: 0xFF9A8F)   // hover, active highlight
+    static let dorado500 = Color(hex: 0xE95E52)   // pressed
+    static let doradoTint = dynamic(0xFFE1DC, 0x49302D)  // soft coral highlight
     static let bolt = dynamic(0x0044C0, 0x5B9BFF)        // "You", links
     static let dollar = Color(hex: 0x00C838)      // success / loaded dot
     static let midnight = dynamic(0x021414, 0xF2F4F6)    // headings
@@ -77,8 +77,7 @@ extension NSColor {
     }
 }
 
-/// The app's single primary action pill (Go live). Hover #FFEE4E, press
-/// #F58A00, no scale transform.
+/// The app's single primary action pill (Go live), using MeetMouse coral.
 struct DoradoPillButtonStyle: ButtonStyle {
     var stop = false
     @State private var hovering = false

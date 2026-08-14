@@ -52,7 +52,7 @@ jobs:
               exit 1
             }
           grep -m1 "BUILD SUCCEEDED" build.log
-          test -x build/Build/Products/Debug/MeetingCoach.app/Contents/MacOS/MeetingCoach
+          test -x build/Build/Products/Debug/MeetMouse.app/Contents/MacOS/MeetMouse
 
       - name: Upload build log on failure
         if: failure()

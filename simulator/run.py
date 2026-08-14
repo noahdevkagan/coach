@@ -33,7 +33,7 @@ def ts(t: float) -> str:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Meeting Coach offline simulator (Phase 1)")
+    ap = argparse.ArgumentParser(description="MeetMouse offline simulator (Phase 1)")
     ap.add_argument("--transcript", required=True)
     ap.add_argument("--rubric", required=True)
     ap.add_argument("--notes", help="ground-truth post-meeting notes (YAML) for the backtest")

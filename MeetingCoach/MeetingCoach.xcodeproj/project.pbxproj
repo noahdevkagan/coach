@@ -22,7 +22,6 @@
 		1C1FD0E1B619D8BD0BDE9FF4 /* PreCallContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0302009AC6EADB2189C6E775 /* PreCallContext.swift */; };
 		1D7451CFA623A70BBDE9DBBC /* PermissionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 225E2615B3AE8C52C84A54FD /* PermissionStatus.swift */; };
 		1F9054E3DCAD7089CBA0CBA2 /* Utterance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81D33EEE89EF224DC87FCF6E /* Utterance.swift */; };
-		1FD450DC57AD4C53698800D3 /* MeetingCoachApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAF9E10DE86916E79704CA2C /* MeetingCoachApp.swift */; };
 		2265774E4ECFBF672ACE5D79 /* PendingProfileSaves.swift in Sources */ = {isa = PBXBuildFile; fileRef = A754A24BB56F62D6EE2963EA /* PendingProfileSaves.swift */; };
 		230953F58905C232A72F61EF /* SearchResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38AF9EC84551A2A07E86DADF /* SearchResultsView.swift */; };
 		27B1368F1ECD54E49385BA3E /* GoingQuietSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4A0318F6463431087594DA0 /* GoingQuietSignal.swift */; };
@@ -50,7 +49,6 @@
 		6DDB4B7AD7A30F488D641CD9 /* GeneralSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35350EAFCF72EF5D24FA7AA1 /* GeneralSettingsView.swift */; };
 		752E7C3A09F3FFE9824E2003 /* ParticipantStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 208023EBBD04229F5503508A /* ParticipantStore.swift */; };
 		75C0D28E8BF07978D20349B6 /* SpeakerDiarizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB68720A316FEE2207F54E4B /* SpeakerDiarizer.swift */; };
-		7695EE35AC12FBA6F262F79C /* GiveMeetingCoachView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51D181953D6BD49C3F54771 /* GiveMeetingCoachView.swift */; };
 		7738C639EFAA02BEF8DD5765 /* FeedbackFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35B1ADEF0B99BDEB25D36FE4 /* FeedbackFormView.swift */; };
 		7F992768252A6BB47097CD59 /* NudgeBackoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BBC737499DA851F1E6127E0 /* NudgeBackoff.swift */; };
 		80330BBFB7DC43B0392C9628 /* OnboardingChecklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34B2E80ECDD1EC3FD9556335 /* OnboardingChecklistView.swift */; };
@@ -66,6 +64,7 @@
 		97BBFAF4DAC944901C41F097 /* TranscriptSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48F9343259F30B3410C031F9 /* TranscriptSearch.swift */; };
 		98104496237EA3D2AEC65205 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 99FF311B3C3C0B29ECF0C296 /* Assets.xcassets */; };
 		9CFEB7F1FAAB9B376743DE9E /* MeetingReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35964E2F9634996C0ACEB39C /* MeetingReview.swift */; };
+		9FC953EE954ED076AF94C4E9 /* GiveMeetMouseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21E0D0FECB8A88B3565D1140 /* GiveMeetMouseView.swift */; };
 		A113E174C9E4738E99D17427 /* Dorado.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98DF6673920BD9AAF4C4B8E0 /* Dorado.swift */; };
 		A1D971DC2241B73DC1713D26 /* TranscriptAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FFBE4A37EC6EEE8D7A7516D /* TranscriptAnalysis.swift */; };
 		A36D1448B1484E7ACF6E53D5 /* MeetingDetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A12E30BEB51DFB2F939AE4 /* MeetingDetectionService.swift */; };
@@ -101,6 +100,7 @@
 		F94B6C352B5D69158C43E11C /* SpeakerNameInference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02B06A3C2CEC6987AF46994E /* SpeakerNameInference.swift */; };
 		FBBB2B4DB3372B0DD8A7CEE8 /* TranscriptParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1F99166785B46F89B17133 /* TranscriptParser.swift */; };
 		FE81E3B044352DA913F1A58B /* RepetitionLoopSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A77874939901EA598BC1814 /* RepetitionLoopSignal.swift */; };
+		FEECFE76BBBBC7DE72D89FE6 /* MeetMouseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF9C912979FF9EFB91A45FF1 /* MeetMouseApp.swift */; };
 		FF20EDCA009AC9F00BC2968E /* OllamaClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A1BF8C4DA14D327E81E1832 /* OllamaClient.swift */; };
 		FFB7FE0F2B5AAC40276DA50F /* SessionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFDDC5E15E6CA9D8E03D659 /* SessionDetailView.swift */; };
 /* End PBXBuildFile section */
@@ -132,6 +132,7 @@
 		1AD95CCA3F1885640ECB50DE /* demo_meeting.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = demo_meeting.txt; sourceTree = "<group>"; };
 		1E8658BF35A80CECD00D0FBE /* VoiceProfileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceProfileStore.swift; sourceTree = "<group>"; };
 		208023EBBD04229F5503508A /* ParticipantStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParticipantStore.swift; sourceTree = "<group>"; };
+		21E0D0FECB8A88B3565D1140 /* GiveMeetMouseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GiveMeetMouseView.swift; sourceTree = "<group>"; };
 		225E2615B3AE8C52C84A54FD /* PermissionStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionStatus.swift; sourceTree = "<group>"; };
 		226945101416D23B896436E1 /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
 		23D1C856F0DF834FA86ED8B8 /* default_rubric.yaml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = default_rubric.yaml; sourceTree = "<group>"; };
@@ -199,14 +200,13 @@
 		CDAB5DD9D8D87802B15EAF68 /* ParakeetDownloadState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParakeetDownloadState.swift; sourceTree = "<group>"; };
 		D2B794F3FFF35F998081042B /* TalkCharts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkCharts.swift; sourceTree = "<group>"; };
 		D42F23C4E546293201AFCA59 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		D51D181953D6BD49C3F54771 /* GiveMeetingCoachView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GiveMeetingCoachView.swift; sourceTree = "<group>"; };
 		D5560738095EF73A5816E554 /* Mclog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mclog.swift; sourceTree = "<group>"; };
 		D6012F4265B831203CEF29D7 /* PositiveSignals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositiveSignals.swift; sourceTree = "<group>"; };
+		DF9C912979FF9EFB91A45FF1 /* MeetMouseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetMouseApp.swift; sourceTree = "<group>"; };
 		E2D977B35E70510FAAE58159 /* AdaptiveThresholds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveThresholds.swift; sourceTree = "<group>"; };
 		E80054B1508EFBBFD8D840F3 /* CoachingOverlayPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachingOverlayPanel.swift; sourceTree = "<group>"; };
 		E9892670227218AFE8677E69 /* QuestionParkedSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionParkedSignal.swift; sourceTree = "<group>"; };
 		EAC07F7931A467E07514A5B8 /* Rubric.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Rubric.swift; sourceTree = "<group>"; };
-		EAF9E10DE86916E79704CA2C /* MeetingCoachApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingCoachApp.swift; sourceTree = "<group>"; };
 		EB68720A316FEE2207F54E4B /* SpeakerDiarizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeakerDiarizer.swift; sourceTree = "<group>"; };
 		F56C800A06EA0F3F19E249A9 /* OverrunSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverrunSignal.swift; sourceTree = "<group>"; };
 		FA0A3778DC493524AA4D6FE0 /* TalkTimeSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkTimeSignal.swift; sourceTree = "<group>"; };
@@ -233,7 +233,7 @@
 				98DF6673920BD9AAF4C4B8E0 /* Dorado.swift */,
 				35B1ADEF0B99BDEB25D36FE4 /* FeedbackFormView.swift */,
 				35350EAFCF72EF5D24FA7AA1 /* GeneralSettingsView.swift */,
-				D51D181953D6BD49C3F54771 /* GiveMeetingCoachView.swift */,
+				21E0D0FECB8A88B3565D1140 /* GiveMeetMouseView.swift */,
 				96F44479B82669A57E95C7E4 /* MeetingPromptPanel.swift */,
 				656450659BC1ACF5F68F709C /* MeetingReviewView.swift */,
 				34B2E80ECDD1EC3FD9556335 /* OnboardingChecklistView.swift */,
@@ -252,7 +252,7 @@
 			isa = PBXGroup;
 			children = (
 				B601F828AB17A262298DF0AE /* ContentView.swift */,
-				EAF9E10DE86916E79704CA2C /* MeetingCoachApp.swift */,
+				DF9C912979FF9EFB91A45FF1 /* MeetMouseApp.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -528,11 +528,12 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
+				"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/meetmouse-mcp",
 				"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/meetingcoach-mcp",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ -f \"${BUILT_PRODUCTS_DIR}/meetingcoach-mcp\" ]; then\n  cp \"${BUILT_PRODUCTS_DIR}/meetingcoach-mcp\" \\\n     \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/meetingcoach-mcp\"\nfi\n";
+			shellScript = "if [ -f \"${BUILT_PRODUCTS_DIR}/meetmouse-mcp\" ]; then\n  cp \"${BUILT_PRODUCTS_DIR}/meetmouse-mcp\" \\\n     \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/meetmouse-mcp\"\n  # Keep the legacy helper name so existing local agent configs\n  # continue to work after an in-place Sparkle update.\n  cp \"${BUILT_PRODUCTS_DIR}/meetmouse-mcp\" \\\n     \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_FOLDER_PATH}/meetingcoach-mcp\"\nfi\n";
 		};
 		58CD54DE9EE83E8C0C8C703D /* Ensure ollama resource dir exists */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -600,14 +601,14 @@
 				7738C639EFAA02BEF8DD5765 /* FeedbackFormView.swift in Sources */,
 				0C80F4E7CBCBC9D2C7FA9664 /* FocusGoals.swift in Sources */,
 				6DDB4B7AD7A30F488D641CD9 /* GeneralSettingsView.swift in Sources */,
-				7695EE35AC12FBA6F262F79C /* GiveMeetingCoachView.swift in Sources */,
+				9FC953EE954ED076AF94C4E9 /* GiveMeetMouseView.swift in Sources */,
 				27B1368F1ECD54E49385BA3E /* GoingQuietSignal.swift in Sources */,
 				1A7CB48B06661E230AB0EC66 /* GranolaImporter.swift in Sources */,
 				C7D931047233C23F27CBE934 /* HighStakesSignal.swift in Sources */,
 				E64A1CF9A596EDF1578EA6E0 /* InterruptionSignal.swift in Sources */,
 				B2AC75147E4394FD58C99445 /* LiveSessionViewModel.swift in Sources */,
 				6C768BCDCE0CDE33A7F70567 /* Mclog.swift in Sources */,
-				1FD450DC57AD4C53698800D3 /* MeetingCoachApp.swift in Sources */,
+				FEECFE76BBBBC7DE72D89FE6 /* MeetMouseApp.swift in Sources */,
 				A36D1448B1484E7ACF6E53D5 /* MeetingDetectionService.swift in Sources */,
 				417ACEAF577CB9DB73C67193 /* MeetingDetector.swift in Sources */,
 				D7E82BEB63E8D0037A2EB59E /* MeetingLanguage.swift in Sources */,
@@ -698,10 +699,10 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MeetingCoach/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Meeting Coach";
+				INFOPLIST_KEY_CFBundleDisplayName = MeetMouse;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Meeting Coach uses your microphone to transcribe meeting audio for real-time coaching.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Meeting Coach uses on-device speech recognition to provide real-time coaching.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "MeetMouse uses your microphone to transcribe meeting audio for real-time coaching.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "MeetMouse uses on-device speech recognition to provide real-time coaching.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -709,6 +710,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.coach.MeetingCoach;
+				PRODUCT_NAME = MeetMouse;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 6.0;
 			};
@@ -847,10 +849,10 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MeetingCoach/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Meeting Coach";
+				INFOPLIST_KEY_CFBundleDisplayName = MeetMouse;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Meeting Coach uses your microphone to transcribe meeting audio for real-time coaching.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Meeting Coach uses on-device speech recognition to provide real-time coaching.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "MeetMouse uses your microphone to transcribe meeting audio for real-time coaching.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "MeetMouse uses on-device speech recognition to provide real-time coaching.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -858,6 +860,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.coach.MeetingCoach;
+				PRODUCT_NAME = MeetMouse;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 6.0;
 			};
@@ -877,7 +880,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.coach.meetingcoach-mcp";
-				PRODUCT_NAME = "meetingcoach-mcp";
+				PRODUCT_NAME = "meetmouse-mcp";
 				SDKROOT = macosx;
 				SWIFT_VERSION = 6.0;
 			};
@@ -897,7 +900,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.coach.meetingcoach-mcp";
-				PRODUCT_NAME = "meetingcoach-mcp";
+				PRODUCT_NAME = "meetmouse-mcp";
 				SDKROOT = macosx;
 				SWIFT_VERSION = 6.0;
 			};

@@ -52,7 +52,7 @@ final class SettingsViewModel {
         didSet { UserDefaults.standard.set(defaultMeetingMinutes, forKey: "defaultMeetingMinutes") }
     }
 
-    /// Open MeetingCoach automatically at login. Default on — meeting
+    /// Open MeetMouse automatically at login. Default on — meeting
     /// detection only helps if the app is running after a restart.
     var launchAtLogin: Bool {
         didSet {

@@ -5,7 +5,7 @@ name: Release
 # Or run manually from the Actions tab (workflow_dispatch) with an explicit
 # version — the run creates tag v<version> and its Release.
 # Either path builds, signs (Developer ID), notarizes, and attaches
-# MeetingCoach-<ver>.dmg to a GitHub Release.
+# MeetMouse-<ver>.dmg to a GitHub Release.
 
 on:
   push:
@@ -133,11 +133,11 @@ jobs:
           if [ -f dist/RELEASE_NOTES.md ]; then
             NOTES_ARGS=(--notes-file dist/RELEASE_NOTES.md)
           else
-            NOTES_ARGS=(--notes "Meeting Coach $VERSION")
+            NOTES_ARGS=(--notes "MeetMouse $VERSION")
           fi
           gh release create "v$VERSION" dist/*.dmg \
             --repo "$RELEASES_REPO" \
-            --title "Meeting Coach $VERSION" \
+            --title "MeetMouse $VERSION" \
             "${NOTES_ARGS[@]}" \
             || gh release upload "v$VERSION" dist/*.dmg --repo "$RELEASES_REPO" --clobber
           # Commit appcast.xml to the releases repo's main branch (contents API
@@ -148,7 +148,7 @@ jobs:
             -f content="$(base64 -i dist/appcast.xml)" \
             ${SHA:+-f sha="$SHA"}
 
-      # The site (getmeetingcoach.com, including the changelog page that
+      # The site (meetmouse.com, including the changelog page that
       # build-changelog.py keeps in lockstep with CHANGELOG.md) deploys
       # automatically with each release. Skips with a note — never fails
       # the release — when the Cloudflare secrets aren't configured:

@@ -1,4 +1,4 @@
-# Distributing Meeting Coach
+# Distributing MeetMouse
 
 How a shared build reaches other Macs: a **signed + notarized `.dmg`** attached to
 a **GitHub Release**, built automatically by CI when you push a version tag.
@@ -49,7 +49,7 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 CI (`.github/workflows/release.yml`) builds, signs, notarizes, and uploads
-`MeetingCoach-0.1.0.dmg` to the GitHub Release. Users download it, drag to
+`MeetMouse-0.1.0.dmg` to the GitHub Release. Users download it, drag to
 Applications, and double-click — no Gatekeeper warning.
 
 You can also run it manually from the Actions tab (workflow_dispatch); it asks
@@ -72,7 +72,7 @@ export APPLE_ID="you@example.com"
 export APPLE_PASSWORD="abcd-efgh-ijkl-mnop"   # app-specific password
 export VERSION="0.1.0"
 ./scripts/package-release.sh
-# → dist/MeetingCoach-0.1.0.dmg
+# → dist/MeetMouse-0.1.0.dmg
 ```
 
 ---
@@ -135,7 +135,7 @@ brew install --cask noahdevkagan/tap/meeting-coach
 Create a `homebrew-tap` repo with a cask pointing at the Release `.dmg` + its
 SHA256. Ask and I'll scaffold it.
 
-## Website (getmeetingcoach.com, Cloudflare Pages)
+## Website (meetmouse.com, Cloudflare Pages)
 The landing page + purchase funnel lives in `docs/` (index.html → PayPal →
 thanks.html → DMG download). Hosted on Cloudflare Pages, not GitHub Pages.
 
@@ -143,8 +143,14 @@ Deploy after any change:
 ```bash
 npx wrangler pages deploy docs --project-name meetcoach
 ```
-First time: `npx wrangler login`, and attach the `getmeetingcoach.com` custom domain
-to the project in the Cloudflare dashboard (Pages → meetcoach → Custom domains).
+First time: `npx wrangler login`, and attach `meetmouse.com` to the project in
+the Cloudflare dashboard (Pages → meetcoach → Custom domains).
+
+Keep `getmeetingcoach.com` proxied in Cloudflare DNS, then create a Cloudflare
+Bulk Redirect from `https://getmeetingcoach.com/` to `https://meetmouse.com/`:
+status 301, preserve path suffix, preserve query string, and include subdomains.
+Pages `_redirects` cannot match by incoming domain, so it must not be used for
+this domain migration.
 
 When cutting a release, update the DMG version in `docs/thanks.html`.
 

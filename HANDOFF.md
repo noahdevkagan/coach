@@ -5,7 +5,44 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-08-09)
+## Current state (2026-08-13)
+
+- **MeetMouse icon story exploration awaiting choice (2026-08-13).** User finds the approved
+  mouse by itself kitschy and wants the mark to communicate meeting capture /
+  discussion, suggesting a playful phone-to-ear “call me” pose. Plan: keep the
+  current gray mouse, coral tile, 3D character, and small-size silhouette as
+  invariants. Three contextual concepts were generated without celebrity
+  likeness or a copied music-video scene: an energetic phone/dance pose, a
+  seated listening/recap pose, and a side-profile meeting-headset pose. No app
+  assets were replaced; wait for the user's choice or hybrid direction. The
+  current source and all three concept sources are tracked with notes in
+  `design/meetmouse/`, so the exploration can continue from another checkout.
+
+- **MeetMouse visual direction selected and implemented (2026-08-13).** User
+  chose Concept 1: a literal charcoal-gray side-profile mouse on a coral
+  rounded-square tile, inspired by RhinoVoice's character-first energy. It now
+  drives all app/site icon sizes and the coral primary-action palette. The menu
+  bar uses Apple's literal side-profile mouse glyph with small live/detected /
+  update/dev dots, which retains the same animal identity at 16 px. Signed
+  Debug build succeeded and is running for user review; the 32 px icon and
+  native app/menu-bar surfaces were visually checked. User's screenshot then
+  identified the remaining green meeting-detected pill; its waveform, fallback
+  icon, countdown, and border are now coral, and every user-facing “Start
+  coaching” action reads “Start MeetMouse.”
+
+- **MeetMouse rebrand implemented (2026-08-13), not deployed or released.**
+  Product/display name, `MeetMouse.app`, user copy, permission prompts, MCP
+  helper, release packaging, docs, SEO metadata, PayPal flow, and all site URLs
+  now use MeetMouse/meetmouse.com. New generated mouse artwork supplies every
+  app/site icon size; the menu bar draws a dedicated outline/filled mouse with
+  detected/update/dev dots. Compatibility is intentional: target/scheme,
+  `com.coach.MeetingCoach`, legacy data/model/session paths, Sparkle feed repo,
+  and a `meetingcoach-mcp` alias remain. Xcode build and all deterministic
+  suites pass; icon visually checked. The browser surface was unavailable, so
+  no rendered-site screenshot was captured. Next external work: register and
+  attach meetmouse.com, deploy `docs`, configure a Cloudflare Bulk Redirect
+  from getmeetingcoach.com (Pages `_redirects` cannot do domain-level rules),
+  then cut a release only when requested.
 
 - **Simplified Multilingual V1 implemented (2026-08-12), not released.** The
   global Settings picker defaults to Mac language and each session snapshots

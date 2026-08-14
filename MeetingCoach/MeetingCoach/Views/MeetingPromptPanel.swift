@@ -62,9 +62,9 @@ struct MeetingPromptView: View {
         HStack(spacing: 10) {
             // Pulsing waveform accent — alive, not alarming.
             HStack(spacing: 3) {
-                Capsule().fill(.green)
+                Capsule().fill(Dorado.dorado300)
                     .frame(width: 4, height: pulse ? 26 : 14)
-                Capsule().fill(.green.opacity(0.5))
+                Capsule().fill(Dorado.dorado300.opacity(0.5))
                     .frame(width: 4, height: pulse ? 13 : 22)
             }
             .frame(height: 28)
@@ -83,7 +83,8 @@ struct MeetingPromptView: View {
                     .frame(width: 34, height: 34)
                     .background(
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(LinearGradient(colors: [.green, .green.opacity(0.75)],
+                            .fill(LinearGradient(colors: [Dorado.dorado300,
+                                                          Dorado.dorado500],
                                                  startPoint: .top, endPoint: .bottom))
                     )
             }
@@ -103,7 +104,7 @@ struct MeetingPromptView: View {
             HStack(spacing: 0) {
                 Button(action: onStart) {
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("Start Coaching")
+                        Text("Start MeetMouse")
                             .font(.callout.weight(.semibold))
                             .fixedSize()
                         // No subtitle outside a countdown: "& open Meeting
@@ -113,7 +114,7 @@ struct MeetingPromptView: View {
                         if let remaining = detection.autoStartCountdown {
                             Text("auto-starts in \(remaining)s")
                                 .font(.caption2)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Dorado.dorado500)
                                 .fixedSize()
                                 .contentTransition(.numericText(countsDown: true))
                         }
@@ -160,13 +161,15 @@ struct MeetingPromptView: View {
         .frame(width: 390)
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        // A soft green gradient ring — matches the pulsing accent and reads
+        // A soft coral gradient ring — matches the pulsing accent and reads
         // "friendly nudge," not system alert.
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .strokeBorder(
                     LinearGradient(
-                        colors: [.green.opacity(0.55), .mint.opacity(0.35), .green.opacity(0.55)],
+                        colors: [Dorado.dorado300.opacity(0.6),
+                                 Dorado.dorado100.opacity(0.4),
+                                 Dorado.dorado300.opacity(0.6)],
                         startPoint: .topLeading, endPoint: .bottomTrailing),
                     lineWidth: 1.5)
         )

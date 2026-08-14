@@ -30,9 +30,15 @@ struct ContentView: View {
             // native traffic lights overlay the left edge).
             HStack {
                 Spacer()
-                Text("Meeting Coach")
-                    .font(Dorado.barlowBold(14))
-                    .foregroundStyle(Dorado.grey500)
+                HStack(spacing: 6) {
+                    Image(nsImage: NSApp.applicationIconImage)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 18, height: 18)
+                    Text("MeetMouse")
+                        .font(Dorado.barlowBold(14))
+                        .foregroundStyle(Dorado.grey500)
+                }
                 Spacer()
             }
             .overlay(alignment: .trailing) {
@@ -139,7 +145,7 @@ struct ContentView: View {
             showGiveSheet = true
         }
         .sheet(isPresented: $showGiveSheet) {
-            GiveMeetingCoachView(asSheet: true)
+            GiveMeetMouseView(asSheet: true)
         }
         // Typing a new search closes an open session so results show.
         .onChange(of: searchQuery) { _, _ in
@@ -369,7 +375,7 @@ struct LiveTimelineView: View {
                             .font(.caption.bold())
                         Text(liveSession.appleCallCapture
                              ? "FaceTime and phone calls taken on a Mac are off-limits to every app — even the microphone goes silent for them. To get coached: answer on your iPhone on speakerphone near the Mac, or use Zoom, Meet, or another meeting app."
-                             : "MeetingCoach can't hear the other participants, so it can't tell who's speaking. Grant Screen Recording, then restart the session.")
+                             : "MeetMouse can't hear the other participants, so it can't tell who's speaking. Grant Screen Recording, then restart the session.")
                             .font(.caption2).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -961,7 +967,7 @@ private struct LiveTranscriptPane: View {
                             HStack(spacing: 8) {
                                 Image(systemName: "pencil.circle")
                                     .foregroundStyle(.secondary)
-                                Text("Click a speaker name to rename them — Meeting Coach remembers them for next time.")
+                                Text("Click a speaker name to rename them — MeetMouse remembers them for next time.")
                                     .font(.caption)
                                     .fixedSize(horizontal: false, vertical: true)
                                 Spacer(minLength: 4)
@@ -2398,16 +2404,11 @@ struct WelcomeSheet: View {
 
     var body: some View {
         VStack(spacing: 18) {
-            Image(systemName: "waveform.badge.mic")
-                .font(.system(size: 34, weight: .medium))
-                .foregroundStyle(.white)
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .scaledToFit()
                 .frame(width: 72, height: 72)
-                .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(LinearGradient(colors: [.green, .green.opacity(0.75)],
-                                             startPoint: .top, endPoint: .bottom))
-                )
-            Text("Welcome to Meeting Coach")
+            Text("Welcome to MeetMouse")
                 .font(.title2.bold())
             Text("A live transcript and recap for every meeting — zero setup. The coach stays quiet unless something's genuinely worth saying. Everything runs on your Mac; audio never leaves it.")
                 .multilineTextAlignment(.center)

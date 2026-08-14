@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # package-release.sh — build, sign (Developer ID), notarize, staple, and package
-# MeetingCoach.app into a distributable, double-click-anywhere .dmg.
+# MeetMouse.app into a distributable, double-click-anywhere .dmg.
 #
 # Runs locally OR in CI (see .github/workflows/release.yml). Everything is driven
 # by env vars so no secrets are hard-coded.
@@ -25,7 +25,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJ="$REPO_ROOT/MeetingCoach/MeetingCoach.xcodeproj"
 SCHEME="MeetingCoach"
-APP_NAME="MeetingCoach"
+APP_NAME="MeetMouse"
 ENTITLEMENTS="$REPO_ROOT/scripts/entitlements.release.plist"
 BUILD_DIR="$REPO_ROOT/MeetingCoach/build"
 ARCHIVE="$BUILD_DIR/${APP_NAME}.xcarchive"
@@ -38,7 +38,7 @@ DMG="$DIST_DIR/${APP_NAME}-${VERSION}.dmg"
 : "${TEAM_ID:?set TEAM_ID}"
 
 echo "==================================================================="
-echo " MeetingCoach release packaging — v$VERSION"
+echo " MeetMouse release packaging — v$VERSION"
 echo "==================================================================="
 
 # 1) Vendor the Ollama runtime into the app's resources (no model weights).
@@ -115,11 +115,14 @@ fi
 # outer app signature refuses a bundle with any unsigned nested Mach-O —
 # sign it here like every other embedded binary. Hardened runtime, no
 # entitlements: it only reads session files over stdio.
-MCP_HELPER="$APP/Contents/MacOS/meetingcoach-mcp"
-if [ -f "$MCP_HELPER" ]; then
-  echo "==> Signing MCP agent server…"
-  codesign "${SIGN_FLAGS[@]}" "$MCP_HELPER"
-fi
+for MCP_HELPER in \
+  "$APP/Contents/MacOS/meetmouse-mcp" \
+  "$APP/Contents/MacOS/meetingcoach-mcp"; do
+  if [ -f "$MCP_HELPER" ]; then
+    echo "==> Signing $(basename "$MCP_HELPER")…"
+    codesign "${SIGN_FLAGS[@]}" "$MCP_HELPER"
+  fi
+done
 
 # Any other bundled frameworks (e.g. Yams if built dynamically). Frameworks/
 # may not exist (SwiftPM links Yams statically) — guard so `find` on a missing
@@ -211,7 +214,7 @@ fi
 if [ -n "$(printf '%s' "$NOTES_MD" | tr -d '[:space:]')" ]; then
   printf '%s\n' "$NOTES_MD" > "$DIST_DIR/RELEASE_NOTES.md"
   {
-    echo "<h2>Meeting Coach $VERSION</h2>"
+    echo "<h2>MeetMouse $VERSION</h2>"
     echo "<ul>"
     printf '%s\n' "$NOTES_MD" | sed -nE 's/^[-*][[:space:]]+(.*)$/  <li>\1<\/li>/p'
     echo "</ul>"

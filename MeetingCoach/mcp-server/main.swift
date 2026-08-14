@@ -1,6 +1,6 @@
 import Foundation
 
-// meetingcoach-mcp — a minimal stdio MCP server exposing saved MeetingCoach
+// meetmouse-mcp — a minimal stdio MCP server exposing saved MeetMouse
 // sessions to agents (Claude Code, Codex, …). Local-first by construction:
 // stdio only, reads the same session files the app writes, no network, no
 // daemon — it runs only while an agent host is talking to it.
@@ -9,7 +9,7 @@ import Foundation
 // Search is the app's own TranscriptSearch (compiled into this target), so
 // in-app search and agent search can never drift.
 //
-// Register with:  claude mcp add meetingcoach -- <path-to-this-binary>
+// Register with:  claude mcp add meetmouse -- <path-to-this-binary>
 // (the app's Advanced sidebar has a copy button for exactly that command)
 
 enum Server {
@@ -17,11 +17,15 @@ enum Server {
     /// domains — resolve the sessions folder the way the app does, reading
     /// the app's persisted choice when present.
     static func resolveSessionsDir() -> URL {
-        if let override = ProcessInfo.processInfo.environment["MEETINGCOACH_SESSIONS_DIR"],
+        if let override = ProcessInfo.processInfo.environment["MEETMOUSE_SESSIONS_DIR"]
+            ?? ProcessInfo.processInfo.environment["MEETINGCOACH_SESSIONS_DIR"],
            !override.isEmpty {
             return URL(fileURLWithPath: (override as NSString).expandingTildeInPath,
                        isDirectory: true)
         }
+        // The bundle ID and storage directory intentionally retain their
+        // pre-rebrand values so upgrades keep permissions, preferences, and
+        // every existing transcript without a risky multi-GB migration.
         if let domain = UserDefaults.standard.persistentDomain(forName: "com.coach.MeetingCoach"),
            let path = domain[AppSupport.sessionFolderKey] as? String, !path.isEmpty {
             return URL(fileURLWithPath: (path as NSString).expandingTildeInPath,
@@ -55,7 +59,7 @@ enum Server {
     static var toolDefs: [[String: Any]] {
         [
             ["name": "list_sessions",
-             "description": "List saved MeetingCoach meeting sessions, newest first: file name, date, size.",
+             "description": "List saved MeetMouse meeting sessions, newest first: file name, date, size.",
              "inputSchema": ["type": "object",
                              "properties": [String: Any](),
                              "required": [String]()]],
@@ -140,7 +144,7 @@ enum Server {
                 send(result(id, [
                     "protocolVersion": params?["protocolVersion"] as? String ?? "2024-11-05",
                     "capabilities": ["tools": [String: Any]()],
-                    "serverInfo": ["name": "meetingcoach",
+                    "serverInfo": ["name": "meetmouse",
                                    "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"],
                 ]))
             case "ping":

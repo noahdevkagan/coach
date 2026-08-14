@@ -1,4 +1,4 @@
-# Agent guide — MeetingCoach
+# Agent guide — MeetMouse
 
 Read this first. It is written for AI coding agents (Codex, Claude Code, Cursor, …) and for humans who like commands over prose.
 
@@ -28,10 +28,10 @@ cd MeetingCoach
 xcodegen                                    # regenerate MeetingCoach.xcodeproj (run after adding/removing files)
 xcodebuild -project MeetingCoach.xcodeproj -scheme MeetingCoach \
   -configuration Debug -derivedDataPath build build
-open -n build/Build/Products/Debug/MeetingCoach.app
+open -n build/Build/Products/Debug/MeetMouse.app
 ```
 
-Debug builds show `· dev` in the sidebar footer and a hammer menu-bar icon, so they are never confused with the installed release copy.
+Debug builds show `· dev` in the sidebar footer and an amber dot on the mouse menu-bar icon, so they are never confused with the installed release copy.
 
 ## Tests / push gate
 
@@ -41,7 +41,7 @@ Every `git push` runs `scripts/push-gate.sh` (~4 min; docs/markdown-only pushes 
 
 | Path | What lives there |
 |---|---|
-| `MeetingCoach/MeetingCoach/App/` | App entry, main window UI, menu bar (`MeetingCoachApp.swift`, `ContentView.swift`) |
+| `MeetingCoach/MeetingCoach/App/` | App entry, main window UI, menu bar (`MeetMouseApp.swift`, `ContentView.swift`) |
 | `MeetingCoach/MeetingCoach/Engine/` | Audio capture, transcription, signals, coach, Ollama lifecycle, meeting auto-detect |
 | `MeetingCoach/MeetingCoach/ViewModels/` | Live session, settings |
 | `MeetingCoach/MeetingCoach/Views/` | Overlay panel, detection pill, dashboards, forms |
@@ -56,7 +56,7 @@ Every `git push` runs `scripts/push-gate.sh` (~4 min; docs/markdown-only pushes 
 
 - **SourceKit/LSP diagnostics in this repo are noise** (no module context). Trust `xcodebuild` only.
 - **`Resources/ollama/` is gitignored and empty in a fresh clone** — the ~80 MB runtime is vendored by CI at release time. Dev builds without it fall back to a system Ollama on `127.0.0.1:11434`; to embed locally run `./scripts/vendor-ollama.sh`.
-- **The installed `/Applications/MeetingCoach.app` shares UserDefaults and the model store with dev builds.** Never kill its processes. To clean up a dev engine use the Debug-scoped pattern: `pkill -f "Debug/MeetingCoach.app.*ollama serve"` — the broad `Resources/ollama` pattern kills the user's live session.
+- **The installed `/Applications/MeetMouse.app` shares UserDefaults and the model store with dev builds.** Never kill its processes. To clean up a dev engine use the Debug-scoped pattern: `pkill -f "Debug/MeetMouse.app.*ollama serve"` — the broad `Resources/ollama` pattern kills the user's live session.
 - **First launch shows a welcome sheet** gated by `defaults read com.coach.MeetingCoach hasSeenDemo`; set it to `true` to skip, delete it to re-test onboarding.
 - Live capture needs mic + **Screen Recording** permission (system audio). Without Screen Recording the app runs mic-only with a warning banner. The bundled demo (`Watch a 15-second demo`) needs no permissions at all.
 - Models/log dir: `~/Library/Application Support/MeetingCoach/ollama/` (engine log: `ollama.log`). Debug app log: `/tmp/mc_debug.log`.

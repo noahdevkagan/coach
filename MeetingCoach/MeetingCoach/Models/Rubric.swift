@@ -243,7 +243,7 @@ extension Rubric {
     /// stock rubric round-trips to a clean file.
     func toYAML() -> String {
         var lines: [String] = []
-        lines.append("# Meeting Coach rubric — edited by the in-app builder.")
+        lines.append("# MeetMouse rubric — edited by the in-app builder.")
         lines.append("version: \(version)")
         lines.append("name: \(yamlQuote(name))")
         lines.append("")

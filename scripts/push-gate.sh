@@ -44,7 +44,7 @@ start=$(date +%s)
 
 echo "--- [0/4] changelog"
 # The site changelog page is generated from CHANGELOG.md; refuse to push a
-# stale copy so getmeetingcoach.com/changelog.html never drifts from the md.
+# stale copy so meetmouse.com/changelog.html never drifts from the md.
 python3 scripts/build-changelog.py --check || { echo "CHANGELOG GATE FAILED"; exit 1; }
 
 echo "--- [1/4] build"

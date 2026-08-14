@@ -89,7 +89,7 @@ struct OnboardingChecklistView: View {
         checklistRow(done: micState == .granted,
                      title: "Microphone access",
                      caption: micState == .denied
-                         ? "Denied — enable MeetingCoach in System Settings."
+                         ? "Denied — enable MeetMouse in System Settings."
                          : "So the coach can hear your side of the call.") {
             if micState != .granted {
                 Button(micState == .denied ? "Open Settings" : "Grant") {

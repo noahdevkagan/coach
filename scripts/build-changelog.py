@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render CHANGELOG.md into docs/changelog.html for getmeetingcoach.com.
+"""Render CHANGELOG.md into docs/changelog.html for meetmouse.com.
 
 The page is a pure function of CHANGELOG.md so the two can never drift:
 the push gate regenerates it and fails if the committed copy is stale.
@@ -73,9 +73,9 @@ def render(releases) -> str:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Changelog — MeetingCoach for Mac</title>
-<meta name="description" content="What's new in MeetingCoach — every release, in plain language.">
-<link rel="canonical" href="https://getmeetingcoach.com/changelog">
+<title>Changelog — MeetMouse for Mac</title>
+<meta name="description" content="What's new in MeetMouse — every release, in plain language.">
+<link rel="canonical" href="https://meetmouse.com/changelog">
 <link rel="icon" type="image/png" href="/icon.png">
 <style>
   * {{ margin: 0; padding: 0; box-sizing: border-box; }}
@@ -129,14 +129,14 @@ def render(releases) -> str:
 </head>
 <body>
 <main>
-  <a class="home" href="/">&larr; MeetingCoach</a>
+  <a class="home" href="/">&larr; MeetMouse</a>
   <h1>Changelog</h1>
-  <p class="sub">What's new in MeetingCoach — every release, in plain language. The app updates itself automatically.</p>
+  <p class="sub">What's new in MeetMouse — every release, in plain language. The app updates itself automatically.</p>
 
 {body}
 
   <footer>
-    <p>MeetingCoach · <a href="mailto:noahkagan@gmail.com">noahkagan@gmail.com</a> · <a href="https://github.com/noahdevkagan/meeting-coach-releases/releases">Releases on GitHub</a></p>
+    <p>MeetMouse · <a href="mailto:noahkagan@gmail.com">noahkagan@gmail.com</a> · <a href="https://github.com/noahdevkagan/meeting-coach-releases/releases">Releases on GitHub</a></p>
   </footer>
 </main>
 </body>

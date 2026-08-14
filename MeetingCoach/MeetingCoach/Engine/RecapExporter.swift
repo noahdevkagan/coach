@@ -35,7 +35,7 @@ enum RecapExporter {
         lines.append("")
         lines.append(summary.trimmingCharacters(in: .whitespacesAndNewlines))
         lines.append("")
-        lines.append("— coached locally by Meeting Coach")
+        lines.append("— coached locally by MeetMouse")
         return lines.joined(separator: "\n")
     }
 

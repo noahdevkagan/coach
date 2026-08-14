@@ -16,7 +16,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 DOCS = REPO / "docs"
 OUT = DOCS / "sitemap.xml"
-BASE = "https://getmeetingcoach.com"
+BASE = "https://meetmouse.com"
 
 NOINDEX = re.compile(r'<meta[^>]+robots[^>]+noindex', re.IGNORECASE)
 
