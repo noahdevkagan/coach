@@ -40,10 +40,19 @@ final class ParakeetDownloadState {
     private(set) var failedEngine: TranscriptionEngine?
     private(set) var failureMessages: [TranscriptionEngine: String] = [:]
 
+    /// A waiter on an engine becoming available. `prepare`'s continuation
+    /// must resolve exactly once, so it fails fast; `startIfNeeded`'s
+    /// fire-when-ready chain instead survives a failed download, so a
+    /// successful Retry still fires it (the promised retry-then-fire).
+    private struct Completion {
+        let survivesFailure: Bool
+        let run: @MainActor (Bool) -> Void
+    }
+
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var pendingEngines: [TranscriptionEngine] = []
     @ObservationIgnored private var completions:
-        [TranscriptionEngine: [@MainActor (Bool) -> Void]] = [:]
+        [TranscriptionEngine: [Completion]] = [:]
 
     func isReady(for engine: TranscriptionEngine) -> Bool {
         guard let version = engine.parakeetVersion else { return true }
@@ -67,13 +76,10 @@ final class ParakeetDownloadState {
     /// the other version.
     func startIfNeeded(for engine: TranscriptionEngine,
                        onReady: (@MainActor () -> Void)? = nil) {
-        let completion: (@MainActor (Bool) -> Void)?
-        if let onReady {
-            completion = { success in
+        let completion = onReady.map { onReady in
+            Completion(survivesFailure: true) { success in
                 if success { onReady() }
             }
-        } else {
-            completion = nil
         }
         enqueue(engine, completion: completion, coalescePassiveRequests: true)
     }
@@ -83,9 +89,11 @@ final class ParakeetDownloadState {
     func prepare(for engine: TranscriptionEngine) async -> Bool {
         if isReady(for: engine) { return true }
         return await withCheckedContinuation { continuation in
-            enqueue(engine, completion: { success in
-                continuation.resume(returning: success)
-            }, coalescePassiveRequests: false)
+            enqueue(engine,
+                    completion: Completion(survivesFailure: false) { success in
+                        continuation.resume(returning: success)
+                    },
+                    coalescePassiveRequests: false)
         }
     }
 
@@ -99,16 +107,21 @@ final class ParakeetDownloadState {
     }
 
     private func enqueue(_ engine: TranscriptionEngine,
-                         completion: (@MainActor (Bool) -> Void)?,
+                         completion: Completion?,
                          coalescePassiveRequests: Bool) {
         guard PlatformSupport.neuralModelsSupported,
               let version = engine.parakeetVersion else {
-            completion?(false)
+            completion?.run(false)
             return
         }
         if ParakeetEngine.isCachedOnDisk(version) {
             if task == nil { phase = .ready }
-            completion?(true)
+            // Waiters that survived an earlier failure resolve here too —
+            // a Retry (which enqueues with no completion of its own) may
+            // find the model already cached.
+            let callbacks = completions.removeValue(forKey: engine) ?? []
+            callbacks.forEach { $0.run(true) }
+            completion?.run(true)
             return
         }
         if let completion { completions[engine, default: []].append(completion) }
@@ -178,10 +191,15 @@ final class ParakeetDownloadState {
             failedEngine = engine
             failureMessages[engine] = error.localizedDescription
             phase = .failed(error.localizedDescription)
-            callbacks.forEach { $0(false) }
+            // Fail-fast waiters (prepare) resolve now; retry-surviving ones
+            // (the launch chain's onReady) stay registered so a successful
+            // Retry still fires them.
+            let survivors = callbacks.filter(\.survivesFailure)
+            if !survivors.isEmpty { completions[engine] = survivors }
+            callbacks.filter { !$0.survivesFailure }.forEach { $0.run(false) }
         } else {
             phase = .ready
-            callbacks.forEach { $0(true) }
+            callbacks.forEach { $0.run(true) }
         }
         startNextQueuedDownload()
     }
@@ -192,7 +210,7 @@ final class ParakeetDownloadState {
             guard let version = next.parakeetVersion else { continue }
             if ParakeetEngine.isCachedOnDisk(version) {
                 let callbacks = completions.removeValue(forKey: next) ?? []
-                callbacks.forEach { $0(true) }
+                callbacks.forEach { $0.run(true) }
                 continue
             }
             begin(next)
