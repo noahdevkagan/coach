@@ -437,6 +437,19 @@ struct LiveTimelineView: View {
                         Text(notice.detail)
                             .font(.caption2).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
+                        if suggestion == nil, notice.lowMemory,
+                           // Smallest installed ladder rung: the model a
+                           // restart would actually reach. Present exactly
+                           // when the download button isn't (installed ⇒ no
+                           // suggestion), including right after the banner's
+                           // own pull completes mid-meeting.
+                           let ready = recommendationLadder.reversed().first(where: { name in
+                               settings.availableModels.contains { $0.name == name }
+                           }) {
+                            Text("\(ready) is installed and ready — a new session picks it up automatically when memory allows.")
+                                .font(.caption2).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                         if let suggestion {
                             if settings.downloadingModel == suggestion.fullName {
                                 HStack(spacing: 6) {
@@ -1348,7 +1361,7 @@ struct SidebarView: View {
                         FeedbackSection(liveSession: liveSession,
                                         settings: settings, ollamaManager: ollamaManager)
                         Divider()
-                        ModelSection(settings: settings)
+                        ModelSection(settings: settings, liveSession: liveSession)
                         Text("AI nudges and the meeting summary switch on automatically when a model is installed.")
                             .font(.caption2).foregroundStyle(.tertiary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -1659,8 +1672,26 @@ struct HelpDot: View {
 
 struct ModelSection: View {
     @Bindable var settings: SettingsViewModel
+    var liveSession: LiveSessionViewModel
 
     private var hasModels: Bool { !settings.availableModels.isEmpty }
+
+    /// A live session pins its model exactly once, at start (see
+    /// activateSessionModel) — a picker change mid-meeting silently applies
+    /// to the *next* session, which reads as "ignored" unless said here.
+    private var liveSelectionHint: String? {
+        guard liveSession.isLive, !liveSession.isDemo, !settings.useMock,
+              let state = liveSession.sessionModelState else { return nil }
+        switch state {
+        case .preparing:
+            return nil
+        case .deterministic:
+            return "This session is coaching without AI — \(settings.selectedModel) starts with your next session."
+        case .pinned(_, let model):
+            guard model != settings.selectedModel else { return nil }
+            return "This session keeps using \(model) — \(settings.selectedModel) starts with your next session."
+        }
+    }
 
     @State private var isExpanded = false
 
@@ -1683,6 +1714,12 @@ struct ModelSection: View {
                         .labelsHidden()
                         .onChange(of: settings.selectedModel) { _, _ in
                             settings.save()
+                        }
+
+                        if let hint = liveSelectionHint {
+                            Text(hint)
+                                .font(.caption2).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
 
                         Toggle("Use sample coach (no download)", isOn: $settings.useMock)
