@@ -7,6 +7,11 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## 0.20.1 — 2026-08-18
+
+- Picking a different AI model during a live session now says what actually happens: the session keeps the model it started with, and your new pick takes over from your next session — before, the change looked ignored
+- The low-memory banner now tells you when a small model is installed and ready for your next session, instead of going quiet right after its download finishes
+
 ## 0.20.0 — 2026-08-14
 
 - When the full AI coach cannot load because your Mac is busy or low on memory, the main window and floating overlay now say “Basic mode” instead of leaving you wondering why no AI nudges appear; built-in coaching keeps working
