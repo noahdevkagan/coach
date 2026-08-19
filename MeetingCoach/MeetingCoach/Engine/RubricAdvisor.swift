@@ -56,6 +56,10 @@ enum RubricAdvisor {
     /// The adaptive clamp ceiling — pinned here for 3+ sessions and still
     /// firing means bounded auto-tuning has given up on this signal.
     static let adaptiveCeiling = 2.0
+    /// Rubric cooldownMultiplier cap — applying() clamps here, so a
+    /// raise-cooldown proposal for an already-capped signal is a no-op
+    /// and must never surface.
+    static let cooldownCap = 2.0
 
     /// Aggregated per-signal evidence across sessions. Plain data so the
     /// rules stay a pure, testable function.
@@ -68,12 +72,15 @@ enum RubricAdvisor {
         var ignored = 0
         var sessionsWithSignal = 0
         var adaptiveMultiplier = 1.0
+        /// The active rubric's cooldown multiplier for this signal.
+        var rubricCooldownMultiplier = 1.0
         var firedInRecentSessions = false
     }
 
     // MARK: - Evidence
 
-    static func evidence(from sessions: [SessionSummary]) -> [SignalEvidence] {
+    static func evidence(from sessions: [SessionSummary],
+                         rubricCooldowns: [String: Double] = [:]) -> [SignalEvidence] {
         var byKey: [String: SignalEvidence] = [:]
         let recent = sessions.suffix(3)
 
@@ -93,6 +100,7 @@ enum RubricAdvisor {
         }
         for key in byKey.keys {
             byKey[key]!.adaptiveMultiplier = AdaptiveThresholds.multiplier(forKey: key)
+            byKey[key]!.rubricCooldownMultiplier = rubricCooldowns[key] ?? 1.0
             byKey[key]!.firedInRecentSessions = recent.contains { ($0.nudgeKeyCounts[key] ?? 0) > 0 }
         }
         return byKey.values.sorted { $0.key < $1.key }
@@ -114,11 +122,18 @@ enum RubricAdvisor {
             }
             if Double(e.annoying) / total >= annoyingRate {
                 // Customs have no cooldown knob in the rubric — disable them.
-                return (isCustom ? .disable : .raiseCooldown,
-                        isCustom
-                        ? "This custom signal reads as noise more often than help."
-                        : "Right idea, too often — a longer cooldown keeps it useful.",
-                        "You rated \(e.annoying) of \(e.rated) \"Meh\" across \(e.sessionsWithSignal) sessions.")
+                if isCustom {
+                    return (.disable,
+                            "This custom signal reads as noise more often than help.",
+                            "You rated \(e.annoying) of \(e.rated) \"Meh\" across \(e.sessionsWithSignal) sessions.")
+                }
+                if e.rubricCooldownMultiplier < cooldownCap - 0.01 {
+                    return (.raiseCooldown,
+                            "Right idea, too often — a longer cooldown keeps it useful.",
+                            "You rated \(e.annoying) of \(e.rated) \"Meh\" across \(e.sessionsWithSignal) sessions.")
+                }
+                // Cooldown already at its cap — a longer wait is a no-op;
+                // stay silent and let the pinned-adaptive rule escalate.
             }
             if Double(e.useful) / total >= usefulRate, !isCustom {
                 return (.moreSensitive,
@@ -132,7 +147,8 @@ enum RubricAdvisor {
         // Customs are skipped (their only structural knob is disable, too
         // harsh for a passive signal).
         if e.rated < minRated, e.ignored >= minIgnored,
-           e.sessionsWithSignal >= minSessions, !isCustom {
+           e.sessionsWithSignal >= minSessions, !isCustom,
+           e.rubricCooldownMultiplier < cooldownCap - 0.01 {
             return (.raiseCooldown,
                     "You rarely engage with this nudge — a longer cooldown keeps it out of the way.",
                     "\(e.ignored) of these came and went without a tap across \(e.sessionsWithSignal) sessions.")
@@ -151,11 +167,12 @@ enum RubricAdvisor {
     // MARK: - Refresh (merge rules with stored state)
 
     @discardableResult
-    static func refresh(sessions: [SessionSummary]) -> [RubricSuggestion] {
+    static func refresh(sessions: [SessionSummary],
+                        rubricCooldowns: [String: Double] = [:]) -> [RubricSuggestion] {
         var stored = loadAll()
         var changed = false
 
-        for e in evidence(from: sessions) {
+        for e in evidence(from: sessions, rubricCooldowns: rubricCooldowns) {
             guard let (kind, rationale, evidenceText) = proposal(for: e) else { continue }
 
             if let idx = stored.firstIndex(where: { $0.signalKey == e.key && $0.kind == kind }) {
