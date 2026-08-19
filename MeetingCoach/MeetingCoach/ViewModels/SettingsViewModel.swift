@@ -31,8 +31,20 @@ final class SettingsViewModel {
     @ObservationIgnored weak var ollamaManager: OllamaManager?
 
     /// Tier-2 semantic coaching: local-LLM heartbeat during live sessions.
+    /// Surfaced in Settings as "AI coaching". Off = transcript-first mode:
+    /// no model preload or engine launch at session start; on-demand AI
+    /// review of saved sessions still works.
     var semanticCoachEnabled: Bool {
-        didSet { UserDefaults.standard.set(semanticCoachEnabled, forKey: "semanticCoachEnabled") }
+        didSet {
+            UserDefaults.standard.set(semanticCoachEnabled, forKey: "semanticCoachEnabled")
+            // Re-enabling restores the zero-click setup that disabling
+            // deferred — otherwise the pull only happens on the next launch.
+            // The method's own guards make this a no-op when a model is
+            // already installed or the pull already ran.
+            if semanticCoachEnabled, !oldValue {
+                Task { await self.autoDownloadRecommendedIfNeeded() }
+            }
+        }
     }
 
     /// Master switch for the floating coaching overlay. Off = nudges only
@@ -237,6 +249,13 @@ final class SettingsViewModel {
     func autoDownloadRecommendedIfNeeded() async {
         guard !UserDefaults.standard.bool(forKey: Self.autoModelPullAttemptedKey),
               !useMock, downloadingModel == nil else { return }
+        // Transcript-first users opted out of the LLM — no surprise ~6.6 GB
+        // pull. Flag stays unset so re-enabling AI coaching restores the
+        // one-time zero-click setup.
+        guard semanticCoachEnabled else {
+            mclog("[Settings] Auto-pull skipped: AI coaching is off")
+            return
+        }
         await refreshModels()
         guard availableModels.isEmpty else {
             // Already set up (any model counts) — never auto-pull over it.

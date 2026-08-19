@@ -943,3 +943,36 @@ user is mid-meeting on a machine that just proved it has no memory to
 spare). The downloaded model is only ever picked up at a future session
 start. If the smallest rung is already installed and still didn't fit,
 no button — a download can't help.
+
+## 2026-08-18 — AI coaching is a user choice, and a pressured Mac gets a 🐢 tip
+
+Field complaint: "the app slows my computer." The measured cost is the LLM
+(~7.2 GB resident; 62 heartbeat passes over a 72-min call producing zero
+nudges — see 2026-08-06 entry), while transcription and tier-1 signals are
+comparatively cheap. Noah's framing: transcript-first users should be able
+to turn the AI off, run fast, and get the review after the call.
+
+`semanticCoachEnabled` — until now an internal kill-switch — is surfaced in
+the Model card as an "AI coaching" toggle (same defaults key, so existing
+installs keep default-on). Off is a *chosen* mode and stays silent per the
+basic-mode convention. It gates only the automatic LLM paths: session
+activation and the one-time recommended-model auto-pull (flag left unset so
+re-enabling restores the zero-click setup). Explicit actions — saved-session
+"Generate AI review", note distillation — deliberately stay available: the
+toggle means "no LLM unless I ask."
+
+Discovery has three tiers, because the people who need it least read
+settings the most: (1) a HelpDot on the toggle; (2) the low-memory basic-mode
+banner gains "Turn off AI coaching" next to the small-model download; and
+(3) a 🐢 memory-pressure tip for the common case neither catches — the model
+*loaded fine* and is now squeezing the Mac. A DispatchSource memory-pressure
+watcher runs only while a model is pinned (the tip claims the LLM's memory,
+so it must only appear when the LLM is resident), plus an at-pin check
+(<2 GB free after load). Post-call was rejected as the primary surface
+(Noah: "post call most times is too late").
+
+Accepting the tip sheds the model MID-CALL: pinned → deterministic, heartbeat
+cancelled, model unloaded — memory back this call, not next session. This is
+safe under the 2026-08-11 one-lifecycle invariant, which forbids cold-*loading*
+mid-meeting, not unloading (recap already unloads mid-flow). "Keep it on" is
+quiet for the session; three declines across sessions mute the tip forever.
