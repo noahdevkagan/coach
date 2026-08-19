@@ -170,6 +170,29 @@ struct CoachingOverlayView: View {
                         feedbackButton(nudge: nudge, feedback: .wrong,
                                        icon: "xmark.circle.fill", color: .red)
                     }
+                } else if liveSession.memoryPressureTipVisible {
+                    // The overlay is where the user actually looks during a
+                    // call — the pressure tip must be actionable here, not
+                    // just in a main window buried behind Zoom. The main
+                    // window carries the full copy.
+                    Text("🐢")
+                        .font(.caption)
+                    Text("Memory pressure — turn off AI?")
+                        .font(.caption)
+                        .lineLimit(1)
+                    Spacer()
+                    Button("Turn off") {
+                        liveSession.shedSessionModel(settings: settings)
+                    }
+                    .font(.caption2)
+                    .controlSize(.small)
+                    Button("Keep") {
+                        liveSession.declineMemoryPressureTip()
+                    }
+                    .font(.caption2)
+                    .controlSize(.small)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
                 } else if let notice = liveSession.basicModeNotice {
                     // Degraded coaching would otherwise look identical to a
                     // meeting with nothing to say — name it where the user is

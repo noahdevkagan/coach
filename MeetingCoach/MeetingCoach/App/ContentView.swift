@@ -469,6 +469,21 @@ struct LiveTimelineView: View {
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
+                        // The lighter way out of a struggling Mac: make the
+                        // degradation a choice. Persisting the setting means
+                        // future sessions are transcript-first and silent.
+                        if notice.lowMemory {
+                            Text("Or turn off AI coaching — sessions start faster and use far less memory. You can still generate the AI review after any call.")
+                                .font(.caption2).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Button("Turn off AI coaching") {
+                                settings.semanticCoachEnabled = false
+                                liveSession.dismissBasicModeNotice()
+                            }
+                            .font(.caption)
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.blue)
+                        }
                     }
                     Spacer()
                     if let suggestion, settings.downloadingModel == nil {
@@ -480,6 +495,39 @@ struct LiveTimelineView: View {
                 }
                 .padding(8)
                 .background(Color.orange.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+
+            // 🐢 The common slow-Mac case the basic-mode banner can't catch:
+            // the model DID load and is now squeezing the machine. Accepting
+            // sheds it immediately — the memory comes back this call, not
+            // next session.
+            if liveSession.isLive, liveSession.memoryPressureTipVisible {
+                HStack(alignment: .top, spacing: 8) {
+                    Text("🐢")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Your Mac is under memory pressure")
+                            .font(.caption.bold())
+                        Text("Turning off AI coaching frees several GB right now — the transcript and built-in nudges keep going, and you can get the AI review after the call.")
+                            .font(.caption2).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Button("Turn off AI coaching") {
+                            liveSession.shedSessionModel(settings: settings)
+                        }
+                        .font(.caption)
+                        Button("Keep it on") {
+                            liveSession.declineMemoryPressureTip()
+                        }
+                        .font(.caption2)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(8)
+                .background(Color.blue.opacity(0.06))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 
@@ -1681,6 +1729,7 @@ struct ModelSection: View {
     /// to the *next* session, which reads as "ignored" unless said here.
     private var liveSelectionHint: String? {
         guard liveSession.isLive, !liveSession.isDemo, !settings.useMock,
+              settings.semanticCoachEnabled,
               let state = liveSession.sessionModelState else { return nil }
         switch state {
         case .preparing:
@@ -1697,6 +1746,28 @@ struct ModelSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            // Transcript-first switch: off means no LLM during live sessions
+            // (no preload, no engine launch) — transcript, speaker labels and
+            // built-in nudges keep working, and any saved session can still
+            // generate its AI review on demand.
+            HStack(spacing: 6) {
+                Label("AI coaching", systemImage: "sparkles")
+                    .font(.subheadline.weight(.semibold))
+                HelpDot(text: "Turning this off makes your Mac faster during calls — the live transcript, speaker labels, and built-in nudges keep working. You can still get the AI review after any meeting, from its Summary tab.")
+                Spacer(minLength: 0)
+                Toggle("", isOn: $settings.semanticCoachEnabled)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    // Off takes effect NOW, not next session: a pinned model
+                    // is shed mid-call (no-op when nothing is pinned). On
+                    // mid-call stays next-session — nothing cold-loads
+                    // mid-meeting — which liveSelectionHint already says.
+                    .onChange(of: settings.semanticCoachEnabled) { _, enabled in
+                        if !enabled { liveSession.shedSessionModel(settings: nil) }
+                    }
+            }
+
             if hasModels {
                 DisclosureGroup(isExpanded: $isExpanded) {
                     VStack(alignment: .leading, spacing: 8) {
@@ -1749,6 +1820,9 @@ struct ModelSection: View {
                         withAnimation { isExpanded.toggle() }
                     }
                 }
+                // Dimmed, not hidden: on-demand AI reviews of saved sessions
+                // still use this model even with live coaching off.
+                .opacity(settings.semanticCoachEnabled ? 1 : 0.55)
             } else if settings.downloadingModel != nil {
                 // Downloading state (shown below)
             } else if !settings.hasCheckedModels {

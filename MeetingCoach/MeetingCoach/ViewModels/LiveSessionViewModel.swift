@@ -167,8 +167,8 @@ final class LiveSessionViewModel {
 
     /// Why coaching is running without an LLM this session, in words the
     /// banner can show. Set only for degraded causes the user didn't choose
-    /// (low memory, engine down, load failure) — mock mode and the internal
-    /// kill-switch stay silent, they're not failures. nil while preparing,
+    /// (low memory, engine down, load failure) — mock mode and the
+    /// AI-coaching toggle stay silent, they're not failures. nil while preparing,
     /// pinned, or deterministic-by-choice.
     struct BasicModeNotice: Equatable {
         /// Short cause for the headline, e.g. "low memory".
@@ -180,6 +180,84 @@ final class LiveSessionViewModel {
         var lowMemory: Bool = false
     }
     private(set) var basicModeNotice: BasicModeNotice?
+
+    /// The low-memory banner's "Turn off AI coaching" action: once the user
+    /// makes the degradation a choice, the notice has nothing left to say —
+    /// the session is already deterministic.
+    func dismissBasicModeNotice() {
+        basicModeNotice = nil
+    }
+
+    // MARK: Memory-pressure tip (🐢)
+
+    /// True while the mid-call "turn off AI coaching" tip should show.
+    /// Armed only while a model is pinned: the tip claims the LLM's memory,
+    /// so it must only appear when the LLM is actually resident.
+    private(set) var memoryPressureTipVisible = false
+    private var pressureSource: DispatchSourceMemoryPressure?
+    private var pressureTipDeclinedThisSession = false
+    /// Three "Keep it on" answers across sessions mean the user has decided;
+    /// stop suggesting forever.
+    static let pressureTipDeclinesKey = "memoryPressureTipDeclines"
+
+    /// Free memory left after the model loads under which the tip shows
+    /// immediately, without waiting for a pressure event — the "this call is
+    /// starting tight" case. Below the activation ladder's ~3 GB headroom on
+    /// purpose: crossing it means the load itself consumed the margin.
+    private static let postPinFreeGBFloor = 2.0
+
+    private func startMemoryPressureWatch() {
+        guard UserDefaults.standard.integer(forKey: Self.pressureTipDeclinesKey) < 3 else { return }
+        if let free = Self.availableMemoryGB(), free < Self.postPinFreeGBFloor {
+            memoryPressureTipVisible = true
+            mclog("[Pressure] Tip shown at pin: only \(String(format: "%.1f", free)) GB free after model load")
+        }
+        let source = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical],
+                                                             queue: .main)
+        source.setEventHandler { [weak self] in
+            guard let self, self.isLive, !self.pressureTipDeclinedThisSession,
+                  case .pinned = self.sessionModelState else { return }
+            if !self.memoryPressureTipVisible {
+                self.memoryPressureTipVisible = true
+                mclog("[Pressure] System memory pressure while model pinned — tip shown")
+            }
+        }
+        source.activate()
+        pressureSource = source
+    }
+
+    private func stopMemoryPressureWatch() {
+        pressureSource?.cancel()
+        pressureSource = nil
+        memoryPressureTipVisible = false
+    }
+
+    /// "Keep it on": quiet for the rest of this session, and forever after
+    /// the third decline.
+    func declineMemoryPressureTip() {
+        pressureTipDeclinedThisSession = true
+        memoryPressureTipVisible = false
+        let declines = UserDefaults.standard.integer(forKey: Self.pressureTipDeclinesKey) + 1
+        UserDefaults.standard.set(declines, forKey: Self.pressureTipDeclinesKey)
+    }
+
+    /// The tip's accept path: persist the choice for future sessions AND
+    /// free the memory now. Unloading mid-meeting is fine — the activation
+    /// invariant only forbids *loading* mid-meeting (decisions.md) — so the
+    /// session steps down to the deterministic coach it already knows.
+    func shedSessionModel(settings: SettingsViewModel?) {
+        settings?.semanticCoachEnabled = false
+        stopMemoryPressureWatch()
+        guard case .pinned(let sessionID, _) = sessionModelState else { return }
+        let ended = sessionModelState
+        sessionModelState = .deterministic(sessionID)
+        semanticTask?.cancel()
+        semanticTask = nil
+        semanticCoach = nil
+        nameInference = nil
+        Task { [weak self] in await self?.releaseSessionModel(ended) }
+        mclog("[Session] Shed AI model mid-call — deterministic for the rest of this session")
+    }
 
     // Seams for the four things this lifecycle cannot do in a test: read this
     // machine's free memory, and load, unload or query a model in a live engine.
@@ -319,14 +397,14 @@ final class LiveSessionViewModel {
             tuning: tuning,
             languageMode: resolvedLanguage.isEnglish ? .fullEnglish : .multilingualSafe)
 
-        // Tier-2 semantic coaching: progressive enhancement, never a user
-        // decision. Runs iff a local model is actually available (or mock
-        // mode); a Mac with no model gets the deterministic coach with no
-        // toggle and no ritual — but a *degraded* fallback (low memory,
-        // engine down) is named in a banner via basicModeNotice, because a
-        // silent one reads as "the app is broken" mid-meeting.
-        // semanticCoachEnabled survives as an internal kill-switch only
-        // (defaults true, no UI).
+        // Tier-2 semantic coaching: progressive enhancement. Runs iff a
+        // local model is actually available (or mock mode); a Mac with no
+        // model gets the deterministic coach with no ritual — but a
+        // *degraded* fallback (low memory, engine down) is named in a banner
+        // via basicModeNotice, because a silent one reads as "the app is
+        // broken" mid-meeting. semanticCoachEnabled is the user-facing
+        // "AI coaching" toggle (defaults true); off is a chosen
+        // transcript-first mode and stays silent like mock mode.
         // An unchecked model list stays optimistic — the heartbeat degrades
         // gracefully if the engine turns out to be empty.
         // Tier 2 is armed after capture is up — see activateSessionModel.
@@ -554,6 +632,14 @@ final class LiveSessionViewModel {
             mclog("[Session] Discarded \(candidate) — session ended during preload")
             return
         }
+        // The AI-coaching toggle can flip off between the guard at the top
+        // and the preload landing — shedSessionModel finds nothing pinned
+        // then, so honor the choice here or the UI shows "off" over a
+        // running model.
+        guard settings.semanticCoachEnabled else {
+            await Self.unloadModel(candidate)
+            return settleDeterministic("AI coaching turned off during activation")
+        }
 
         sessionModelState = .pinned(sessionID, candidate)
         semanticCoach = SemanticCoach(model: candidate,
@@ -564,6 +650,7 @@ final class LiveSessionViewModel {
         // speakers from transcript evidence ("thanks Sarah").
         nameInference = SpeakerNameInference(model: candidate)
         startSemanticHeartbeat(ollamaManager: ollamaManager)
+        startMemoryPressureWatch()
         mclog("[Session] Pinned \(candidate)")
     }
 
@@ -601,6 +688,8 @@ final class LiveSessionViewModel {
         semanticTask = nil
         semanticCoach = nil
         nameInference = nil
+        stopMemoryPressureWatch()
+        pressureTipDeclinedThisSession = false
         timerTask?.cancel()
         timerTask = nil
         silenceCheckTask?.cancel()
