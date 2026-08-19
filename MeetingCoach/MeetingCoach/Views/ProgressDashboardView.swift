@@ -10,6 +10,10 @@ struct ProgressDashboardView: View {
     @State private var sessions: [SessionSummary] = []
     @State private var activeGoalIds: [String] = []
     @State private var suggestions: [RubricSuggestion] = []
+    /// Active rubric cooldown multipliers, keyed by signal — lets the
+    /// advisor skip no-op "space it out" proposals for capped signals and
+    /// lets the card show real seconds instead of "50% longer".
+    @State private var rubricCooldowns: [String: Double] = [:]
 
     private var focusTypes: Set<NudgeType> {
         Set(activeGoalIds.compactMap(FocusGoals.definition(for:)).flatMap(\.types))
@@ -48,7 +52,9 @@ struct ProgressDashboardView: View {
     private func reload() {
         sessions = SessionTrends.loadAll()
         activeGoalIds = FocusGoals.loadActiveIds()
-        RubricAdvisor.refresh(sessions: sessions)
+        let rubric = settings.flatMap { try? $0.loadRubricOrDefault() } ?? .builtInDefault
+        rubricCooldowns = rubric.builtins.mapValues(\.cooldownMultiplier)
+        RubricAdvisor.refresh(sessions: sessions, rubricCooldowns: rubricCooldowns)
         suggestions = RubricAdvisor.pending()
     }
 
@@ -126,16 +132,15 @@ struct ProgressDashboardView: View {
                                     .clipShape(Capsule())
                                 Spacer()
                             }
-                            Text(suggestion.rationale)
-                                .font(Dorado.roboto(13)).foregroundStyle(Dorado.grey800)
                             Text(suggestion.evidence)
                                 .font(Dorado.roboto(12)).foregroundStyle(Dorado.grey500)
-                            // What the Apply button concretely does — the
-                            // rationale says why, this says what changes.
-                            Text(applyEffect(suggestion.kind))
-                                .font(Dorado.roboto(12)).foregroundStyle(Dorado.grey600)
+                            // What accepting concretely changes — leads with
+                            // what stays the same, so "space it out" never
+                            // reads as removal.
+                            Text(applyEffect(suggestion))
+                                .font(Dorado.roboto(13)).foregroundStyle(Dorado.grey800)
                             HStack(spacing: 10) {
-                                Button("Apply") {
+                                Button(applyLabel(suggestion.kind)) {
                                     if let settings {
                                         RubricAdvisor.approve(suggestion, settings: settings)
                                         suggestions = RubricAdvisor.pending()
@@ -144,7 +149,7 @@ struct ProgressDashboardView: View {
                                 .buttonStyle(DoradoOutlineButtonStyle())
                                 .disabled(settings == nil)
 
-                                Button("Dismiss") {
+                                Button(dismissLabel(suggestion.kind)) {
                                     RubricAdvisor.dismiss(suggestion, sessions: sessions)
                                     suggestions = RubricAdvisor.pending()
                                 }
@@ -165,26 +170,63 @@ struct ProgressDashboardView: View {
         }
     }
 
+    // Badge reads as an offer ("suggestion: …"), and the buttons name the
+    // outcome — never generic Apply/Dismiss, which made "fire less often"
+    // read like the nudge might be removed.
     private func kindLabel(_ kind: RubricSuggestion.Kind) -> String {
         switch kind {
-        case .disable: return "turn off"
-        case .raiseCooldown: return "fire less often"
-        case .moreSensitive: return "fire sooner"
-        case .addSignal: return "new signal"
+        case .disable: return "suggestion: turn it off"
+        case .raiseCooldown: return "suggestion: space it out"
+        case .moreSensitive: return "suggestion: fire sooner"
+        case .addSignal: return "suggestion: start watching"
         }
     }
 
-    private func applyEffect(_ kind: RubricSuggestion.Kind) -> String {
+    private func applyLabel(_ kind: RubricSuggestion.Kind) -> String {
         switch kind {
-        case .disable:
-            return "Apply turns this signal off — it stops firing entirely."
-        case .raiseCooldown:
-            return "Apply keeps it just as sensitive but waits 50% longer between nudges — fewer repeats per meeting."
-        case .moreSensitive:
-            return "Apply lowers its threshold a little, so it fires a bit earlier."
-        case .addSignal:
-            return "Apply adds it to what the coach watches live — nudges can fire for it next call."
+        case .disable: return "Turn it off"
+        case .raiseCooldown: return "Space it out"
+        case .moreSensitive: return "Fire sooner"
+        case .addSignal: return "Start watching"
         }
+    }
+
+    private func dismissLabel(_ kind: RubricSuggestion.Kind) -> String {
+        switch kind {
+        case .disable: return "Keep it"
+        case .raiseCooldown, .moreSensitive: return "Keep as is"
+        case .addSignal: return "No thanks"
+        }
+    }
+
+    private func applyEffect(_ suggestion: RubricSuggestion) -> String {
+        switch suggestion.kind {
+        case .disable:
+            return "This would stop the nudge entirely. You can turn it back on anytime in Coaching Style."
+        case .raiseCooldown:
+            if let (now, after) = cooldownChange(for: suggestion.signalKey) {
+                return "The nudge stays on, same sensitivity — it just waits about \(after)s between repeats instead of \(now)s, so fewer per meeting. Nothing is removed."
+            }
+            return "The nudge stays on, same sensitivity — it just waits ~50% longer between repeats, so fewer per meeting. Nothing is removed."
+        case .moreSensitive:
+            return "You clearly want this one — it would trigger a bit earlier, so you catch the moment sooner. Everything else stays the same."
+        case .addSignal:
+            return "This adds a new nudge the coach will watch for starting next call. It starts cautious (only fires when confident) until it earns trust."
+        }
+    }
+
+    /// Current → proposed seconds between repeat fires, from the signal's
+    /// base cooldown and the live adaptive + rubric multipliers. nil when
+    /// the base is unknown (customs) or the change wouldn't move the number.
+    private func cooldownChange(for key: String) -> (now: Int, after: Int)? {
+        guard let type = NudgeType(rawValue: key),
+              let base = SignalEngine.baseCooldown(for: type) else { return nil }
+        let rc = rubricCooldowns[key] ?? 1.0
+        let current = base * AdaptiveThresholds.multiplier(forKey: key) * rc
+        let proposed = current * min(RubricAdvisor.cooldownCap, rc * 1.5) / rc
+        guard proposed > current + 1 else { return nil }
+        func round5(_ v: Double) -> Int { max(5, Int((v / 5).rounded()) * 5) }
+        return (round5(current), round5(proposed))
     }
 
     private var focusSection: some View {

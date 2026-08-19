@@ -219,3 +219,34 @@ struct SignalEngine {
         lastProcessedID = nil
     }
 }
+
+extension SignalEngine {
+    /// Base seconds between repeat fires, before adaptive/rubric/meeting-type
+    /// multipliers — read from the signal structs' defaults so it can't
+    /// drift from the engine. nil for signals with no repeat cooldown
+    /// (schedule-driven or semantic-only); callers fall back to relative
+    /// wording.
+    static func baseCooldown(for type: NudgeType) -> TimeInterval? {
+        switch type {
+        case .talkTime: return TalkTimeSignal().cooldown
+        case .missingDiscovery: return MissingDiscoverySignal().cooldown
+        case .repetitionLoop: return RepetitionLoopSignal().cooldown
+        case .stackedQuestions: return StackedQuestionsSignal().cooldown
+        case .nextSteps: return NextStepsSignal(scheduledMinutes: 30).cooldown
+        case .goingQuiet: return GoingQuietSignal().cooldown
+        case .yesMan: return YesManSignal().cooldown
+        case .unansweredQuestion: return UnansweredQuestionSignal().cooldown
+        case .interruption: return InterruptionSignal().cooldown
+        case .vagueAnswer: return VagueAnswerSignal().cooldown
+        case .voiceShare: return VoiceShareSignal().cooldown
+        case .buriedSignal: return HighStakesSignal().cooldown
+        case .questionParked: return QuestionParkedSignal().cooldown
+        case .questionLanded: return QuestionLandedSignal().cooldown
+        case .ownershipHanded: return PositiveSignals.ownershipHanded().cooldown
+        case .refocused: return PositiveSignals.refocused().cooldown
+        case .commitmentLocked: return PositiveSignals.commitmentLocked().cooldown
+        case .reflectedBack: return PositiveSignals.reflectedBack().cooldown
+        default: return nil
+        }
+    }
+}
