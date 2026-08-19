@@ -82,6 +82,21 @@ ratedAndIgnored.ignored = 20; ratedAndIgnored.sessionsWithSignal = 4
 check(RubricAdvisor.proposal(for: ratedAndIgnored)?.kind == .moreSensitive,
       "explicit ratings outrank ignores")
 
+// 5c. Rubric cooldown already at its cap → raiseCooldown would be a no-op,
+//     so both rules that propose it stay silent (the pinned-adaptive rule
+//     can still escalate to disable on its own evidence).
+var mehCapped = E(key: "talkTime")
+mehCapped.rated = 6; mehCapped.annoying = 4; mehCapped.sessionsWithSignal = 3
+mehCapped.rubricCooldownMultiplier = RubricAdvisor.cooldownCap
+check(RubricAdvisor.proposal(for: mehCapped) == nil,
+      "meh-heavy at cooldown cap -> nil")
+
+var ghostedCapped = E(key: "missingDiscovery")
+ghostedCapped.ignored = 9; ghostedCapped.sessionsWithSignal = 4
+ghostedCapped.rubricCooldownMultiplier = RubricAdvisor.cooldownCap
+check(RubricAdvisor.proposal(for: ghostedCapped) == nil,
+      "ignored at cooldown cap -> nil")
+
 // 6. Evidence aggregation across sessions (per-key rated/wrong counts and
 //    session tally; adaptive fields come from live state, not asserted).
 func session(keyCounts: [String: Int], feedback: [String: [NudgeFeedback: Int]]) -> SessionSummary {
@@ -106,10 +121,11 @@ let sessions = [
     session(keyCounts: ["talkTime": 3], feedback: [:]),
     ignoredSession(keyCounts: ["talkTime": 2], ignored: ["talkTime": 2]),
 ]
-let evidence = RubricAdvisor.evidence(from: sessions)
+let evidence = RubricAdvisor.evidence(from: sessions, rubricCooldowns: ["talkTime": 2.0])
 let talk = evidence.first { $0.key == "talkTime" }
 check(talk?.sessionsWithSignal == 4 && talk?.rated == 4 && talk?.wrong == 3
-      && talk?.useful == 1 && talk?.ignored == 2,
+      && talk?.useful == 1 && talk?.ignored == 2
+      && talk?.rubricCooldownMultiplier == 2.0,
       "evidence aggregation",
       "got \(String(describing: talk))")
 

@@ -34,7 +34,7 @@ extension Rubric {
             case .disable:
                 tuning.enabled = false
             case .raiseCooldown:
-                tuning.cooldownMultiplier = min(2.0, tuning.cooldownMultiplier * 1.5)
+                tuning.cooldownMultiplier = min(RubricAdvisor.cooldownCap, tuning.cooldownMultiplier * 1.5)
             case .moreSensitive:
                 tuning.thresholdMultiplier = max(0.5, tuning.thresholdMultiplier * 0.85)
             case .addSignal:
