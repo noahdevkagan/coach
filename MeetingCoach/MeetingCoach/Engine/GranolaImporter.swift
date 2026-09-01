@@ -6,8 +6,8 @@ import Foundation
 /// Granola versions encrypt that cache, so the one supported path is the
 /// format Granola itself commits to — export, then pick the file here.
 ///
-/// Imported sessions are ordinary `session_yyyy-MM-dd_HH-mm.md` files in
-/// the transcripts folder, stamped with the meeting's ORIGINAL date (the
+/// Imported sessions are ordinary transcript files in the transcripts
+/// folder, named by TranscriptStore with the meeting's ORIGINAL date (the
 /// filename is the only date the dashboard/search parsers read), and carry
 /// an `**Imported-From:**` header line as the re-import dedupe marker.
 enum GranolaImporter {
@@ -103,6 +103,10 @@ enum GranolaImporter {
                 notes = "Attendees: \(attendees)\n\n\(notes)"
                     .trimmingCharacters(in: .whitespacesAndNewlines)
             }
+            let attendeeList = attendees
+                .split(whereSeparator: { ",;".contains($0) })
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
             let transcript = transcriptLines(field(transcriptCol))
             // Nothing to bring over — not worth a file (or a report line).
             guard !title.isEmpty || !notes.isEmpty || !transcript.isEmpty else { continue }
@@ -135,8 +139,9 @@ enum GranolaImporter {
                 continue
             }
 
-            write(marker: marker, title: title, date: date,
-                  duration: duration, notes: notes, transcript: transcript, into: dir)
+            write(marker: marker, title: title, date: date, duration: duration,
+                  notes: notes, transcript: transcript, attendees: attendeeList,
+                  into: dir)
             report.imported += 1
         }
         return report
@@ -229,25 +234,20 @@ enum GranolaImporter {
 
     private static func write(marker: String, title: String, date: Date,
                               duration: TimeInterval?, notes: String,
-                              transcript: [String], into dir: URL) {
+                              transcript: [String], attendees: [String],
+                              into dir: URL) {
         let stampFormatter = DateFormatter()
         stampFormatter.dateFormat = "yyyy-MM-dd_HH-mm"
 
-        // The filename IS the session date for every parser — collisions
-        // bump forward a minute rather than adding a suffix that would make
-        // the file invisible to the dashboard.
-        var slot = date
-        var file = dir.appendingPathComponent("session_\(stampFormatter.string(from: slot)).md")
-        var tries = 0
-        while FileManager.default.fileExists(atPath: file.path), tries < 59 {
-            slot = slot.addingTimeInterval(60)
-            file = dir.appendingPathComponent("session_\(stampFormatter.string(from: slot)).md")
-            tries += 1
-        }
-        guard !FileManager.default.fileExists(atPath: file.path) else { return }
+        // Date-led filename with slugified title/attendees; name collisions
+        // get a numeric suffix (the date prefix — all any parser reads —
+        // stays intact, so suffixed files remain visible everywhere).
+        let file = TranscriptStore.uniqueTranscriptFile(
+            in: dir, date: date, title: title.isEmpty ? nil : title,
+            participants: attendees)
 
         var lines: [String] = []
-        lines.append("# Meeting Coach Session — \(stampFormatter.string(from: slot))")
+        lines.append("# Meeting Coach Session — \(stampFormatter.string(from: date))")
         if !title.isEmpty {
             lines.append("**Title:** \(title)")
         }
@@ -274,8 +274,15 @@ enum GranolaImporter {
             lines.append("")
         }
 
-        try? lines.joined(separator: "\n")
-            .write(to: file, atomically: true, encoding: .utf8)
+        guard (try? lines.joined(separator: "\n")
+            .write(to: file, atomically: true, encoding: .utf8)) != nil else { return }
+        TranscriptStore.record(
+            TranscriptStore.Metadata(title: title.isEmpty ? nil : title,
+                                     startedAt: date,
+                                     durationMin: (duration ?? 0) / 60,
+                                     participants: attendees,
+                                     source: "granola-import"),
+            for: file)
     }
 
     /// Notes bodies get two adjustments so the session parsers can't

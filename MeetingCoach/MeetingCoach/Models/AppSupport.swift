@@ -30,11 +30,21 @@ enum AppSupport {
 
     // MARK: - Session transcripts
 
-    /// User-visible transcripts default to ~/Documents/MeetingCoach; the
-    /// folder is relocatable from Settings. The app is not sandboxed, so a
-    /// plain stored path is sufficient. Existing files are not migrated on
-    /// change — the user moves them (or not) in Finder.
+    /// User-visible transcripts default to ~/Documents/MeetingCoach/transcripts —
+    /// deliberately outside every macOS-protected container path, so external
+    /// AI tools (Claude, ChatGPT, Cursor) can be granted access to the folder.
+    /// Relocatable from Settings. The app is not sandboxed, so a plain stored
+    /// path is sufficient. Changing the folder in Settings does not move
+    /// files — the user moves them (or not) in Finder.
     static let sessionFolderKey = "sessionFolderPath"
+
+    /// Where transcripts lived before the transcripts/ subfolder (≤0.20):
+    /// the Documents/MeetingCoach root. TranscriptStore copies session files
+    /// from here exactly once after updating.
+    static var legacyDefaultSessionsDir: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/MeetingCoach", isDirectory: true)
+    }
 
     static var sessionsDir: URL {
         if let path = UserDefaults.standard.string(forKey: sessionFolderKey),
@@ -42,8 +52,8 @@ enum AppSupport {
             return URL(fileURLWithPath: (path as NSString).expandingTildeInPath,
                        isDirectory: true)
         }
-        return FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Documents/MeetingCoach", isDirectory: true)
+        return legacyDefaultSessionsDir
+            .appendingPathComponent("transcripts", isDirectory: true)
     }
 
     static func setSessionsDir(_ url: URL) {

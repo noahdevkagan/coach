@@ -27,8 +27,15 @@ enum Server {
             return URL(fileURLWithPath: (path as NSString).expandingTildeInPath,
                        isDirectory: true)
         }
-        return FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Documents/MeetingCoach", isDirectory: true)
+        // Default layout: ~/Documents/MeetingCoach/transcripts. The app
+        // creates it (and copies old files in) on first launch after the
+        // 0.21 update — until then the sessions still sit in the old root.
+        let transcripts = AppSupport.legacyDefaultSessionsDir
+            .appendingPathComponent("transcripts", isDirectory: true)
+        if FileManager.default.fileExists(atPath: transcripts.path) {
+            return transcripts
+        }
+        return AppSupport.legacyDefaultSessionsDir
     }
 
     static func send(_ obj: [String: Any]) {
@@ -69,7 +76,7 @@ enum Server {
              "description": "Return the full saved markdown for one session — file name as returned by list_sessions or search_transcripts.",
              "inputSchema": ["type": "object",
                              "properties": ["file": ["type": "string",
-                                                     "description": "Session file name, e.g. session_2026-07-20_14-32.md"]],
+                                                     "description": "Session file name, e.g. 2026-07-20T14-32_roadmap-sync.md"]],
                              "required": ["file"]]],
         ]
     }
@@ -109,7 +116,7 @@ enum Server {
             // Session files only, no traversal: this tool exposes saved
             // transcripts, not the filesystem.
             guard !file.contains("/"), !file.contains(".."),
-                  file.hasPrefix("session_"), file.hasSuffix(".md") else {
+                  TranscriptSearch.isSessionFilename(file) else {
                 return textContent("Not a session file: \(file)", isError: true)
             }
             let url = dir.appendingPathComponent(file)
