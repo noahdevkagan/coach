@@ -125,6 +125,9 @@ final class LiveSessionViewModel {
     /// segment that never claims any transcript speech, so transcript-backed
     /// labels take precedence when deciding whether a call is one-on-one.
     private var latestRemoteLabels: Set<String> = []
+    /// The system channel's latest full segment publish (rename-remapped) —
+    /// the merge suggestion's overlap veto reads speech timing from it.
+    private var latestSystemSegments: [SpeakerSegment] = []
     /// Exactly one pre-call participant seeds the provisional remote name.
     private var preCallRemoteName: String?
 
@@ -338,7 +341,15 @@ final class LiveSessionViewModel {
 
     // MARK: - Start / Stop
 
-    func startLive(context: PreCallContext, settings: SettingsViewModel? = nil, ollamaManager: OllamaManager? = nil) {
+    /// `participantsConfirmed` means the user just filled in (or accepted)
+    /// the pre-call form for THIS call. Only then is the participant list
+    /// treated as the guest list for enrollment scoping — `preCallContext`
+    /// deliberately survives a session ("last-used context"), so the
+    /// formless start paths would otherwise scope every future call to some
+    /// earlier meeting's guests.
+    func startLive(context: PreCallContext, settings: SettingsViewModel? = nil,
+                   ollamaManager: OllamaManager? = nil,
+                   participantsConfirmed: Bool = false) {
         guard !isLive else { return }
 
         isDemo = false
@@ -456,6 +467,10 @@ final class LiveSessionViewModel {
             customText: UserDefaults.standard.string(forKey: "customVocabularyText") ?? "",
             foldVietnameseArtifacts: resolvedLanguage.shouldFoldVietnameseArtifacts)
         manager.contextualHints = context.vocabularyHints + vocabulary.canonicals
+        // Scoping enrollment throws away saved voices, so it needs a guest
+        // list the user stands behind for this call — not the one left over
+        // from the last meeting they bothered to fill the form in for.
+        manager.expectedParticipants = participantsConfirmed ? participantNames : []
         manager.vocabulary = vocabulary
         captureManager = manager
 
@@ -856,6 +871,7 @@ final class LiveSessionViewModel {
         segmentRenames = [:]
         remoteAlias = nil
         latestRemoteLabels = []
+        latestSystemSegments = []
         preCallRemoteName = nil
         endedCaptureManager = nil
         micOnly = false
@@ -907,6 +923,7 @@ final class LiveSessionViewModel {
         // like a group call and leave short acknowledgements as raw "Them".
         if channel == .system {
             latestRemoteLabels = Set(segments.map(\.speaker))
+            latestSystemSegments = segments
         }
 
         // Each utterance only needs the segments that can overlap it. Both
@@ -939,7 +956,10 @@ final class LiveSessionViewModel {
             }
         }
         if changed { utterances = rebuilt }
-        if channel == .system { recomputeRemoteAlias() }
+        if channel == .system {
+            recomputeRemoteAlias()
+            maybeSuggestMerge()
+        }
         guard changed else { return }
         if var engine = signalEngine {
             engine.invalidateTurnCache()
@@ -1015,7 +1035,13 @@ final class LiveSessionViewModel {
             UserDefaults.standard.set(true, forKey: "hasSeenSpeakerNamingHint")
         }
         latestRemoteLabels = Set(latestRemoteLabels.map { $0 == label ? name : $0 })
+        latestSystemSegments = latestSystemSegments.map {
+            $0.speaker == label ? SpeakerSegment(speaker: name, start: $0.start, end: $0.end) : $0
+        }
         recomputeRemoteAlias()
+        // A rename can itself surface the pair ("Them 1" → "anna" while
+        // "Anna Notario" owns other turns).
+        maybeSuggestMerge()
         // Renaming from the post-session view: the file on disk still says
         // the old label — rewrite it or the name is gone on reopen.
         if !isLive {
@@ -1074,6 +1100,93 @@ final class LiveSessionViewModel {
         } else {
             remoteAlias = preCallRemoteName
         }
+    }
+
+    /// Offer a one-tap merge when exactly two remote labels are probably
+    /// one person: their names read as the same person ("anna" /
+    /// "Anna Notario"), or the pre-call form said this call is a 1:1.
+    /// Suggestion only, never auto-applied — confirming routes through
+    /// renameSpeaker, so the transcript, live timeline, and voice profile
+    /// all merge, and the one-on-one alias comes back on its own.
+    ///
+    /// Vetoed when the two labels' diarized speech overlaps in time: one
+    /// voice cannot talk over itself, so real overlap means two people —
+    /// this keeps the card away from an actual second guest the pre-call
+    /// form didn't mention.
+    private func maybeSuggestMerge() {
+        guard !isDemo else { return }
+        // Remote labels that own transcript words, in first-claim order.
+        let owned = channelLabels[.system] ?? []
+        var labels: [String] = []
+        for u in utterances {
+            let label = u.speaker
+            guard label != "Them",
+                  label.hasPrefix("Them ") || owned.contains(label)
+                    || baseLabelRenames["Them"] == label,
+                  !labels.contains(label) else { continue }
+            labels.append(label)
+        }
+        guard labels.count == 2 else { return }
+
+        func isSlot(_ s: String) -> Bool {
+            s.wholeMatch(of: SpeakerNameInference.unnamedPattern) != nil
+        }
+        let samePair = VoiceProfileStore.samePerson(labels[0], labels[1])
+        guard samePair || preCallRemoteName != nil else { return }
+
+        // The surviving label must be a real name — merging INTO "Them 2"
+        // would rename a slot to a slot label and save a profile under it.
+        let survivor: String
+        switch (isSlot(labels[0]), isSlot(labels[1])) {
+        case (true, true): return
+        case (false, true), (true, false):
+            // Only the pre-call form can have brought us here (a slot label
+            // never reads as the same person as a name), so the surviving
+            // name must be the guest the form actually named — otherwise a
+            // second real guest gets merged into the first, and confirming
+            // would save their voice clip under someone else's profile.
+            let named = isSlot(labels[0]) ? labels[1] : labels[0]
+            guard let expected = preCallRemoteName,
+                  VoiceProfileStore.samePerson(named, expected) else { return }
+            survivor = named
+        case (false, false):
+            if let expected = preCallRemoteName,
+               let match = labels.first(where: { VoiceProfileStore.samePerson($0, expected) }) {
+                survivor = match
+            } else if samePair {
+                // The longer name carries more information ("Anna Notario"
+                // over "anna").
+                survivor = labels[0].count >= labels[1].count ? labels[0] : labels[1]
+            } else {
+                // Two full names, neither matching the expected guest —
+                // no evidence which (if either) is right. Stay quiet.
+                return
+            }
+        }
+        let loser = labels[0] == survivor ? labels[1] : labels[0]
+
+        let suggestion = SpeakerNameSuggestion(label: loser, name: survivor,
+                                               confidence: 1, kind: .samePerson)
+        guard !rejectedNameSuggestions.contains(suggestion.key),
+              !speakerNameSuggestions.contains(where: { $0.key == suggestion.key }),
+              !speechOverlaps(loser, survivor) else { return }
+        speakerNameSuggestions.append(suggestion)
+        mclog("[Names] Suggesting merge \(loser) → \(survivor)"
+              + (samePair ? " (same-person names)" : " (expected 1:1)"))
+    }
+
+    /// Whether the two labels' segments in the latest system publish
+    /// overlap by more than half a second in total.
+    private func speechOverlaps(_ a: String, _ b: String) -> Bool {
+        var total: TimeInterval = 0
+        let aSegs = latestSystemSegments.filter { $0.speaker == a }
+        for sb in latestSystemSegments where sb.speaker == b {
+            for sa in aSegs {
+                total += max(0, min(sa.end, sb.end) - max(sa.start, sb.start))
+                if total > 0.5 { return true }
+            }
+        }
+        return false
     }
 
     /// Post-session rename: atomically replace only the saved file's

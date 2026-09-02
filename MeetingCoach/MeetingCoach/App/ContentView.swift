@@ -992,17 +992,22 @@ private struct TranscriptTurnRow: View, Equatable {
 }
 
 /// One-tap confirmation for an LLM-inferred speaker name ("Them 1 sounds
-/// like Sarah"). Never auto-applied — a wrong name would be saved with the
-/// voice and poison future sessions.
+/// like Sarah") or a probable same-person merge ("anna and Anna Notario
+/// sound like the same person"). Never auto-applied — a wrong name (or a
+/// wrong merge) would be saved with the voice and poison future sessions.
 private struct NameSuggestionBar: View {
     var liveSession: LiveSessionViewModel
 
     var body: some View {
         ForEach(liveSession.speakerNameSuggestions) { s in
             HStack(spacing: 8) {
-                Image(systemName: "person.crop.circle.badge.questionmark")
+                Image(systemName: s.kind == .samePerson
+                      ? "person.2.circle" : "person.crop.circle.badge.questionmark")
                     .foregroundStyle(.secondary)
-                (Text(s.label).bold() + Text(" sounds like ") + Text(s.name).bold())
+                (s.kind == .samePerson
+                 ? Text(s.label).bold() + Text(" and ") + Text(s.name).bold()
+                    + Text(" sound like the same person")
+                 : Text(s.label).bold() + Text(" sounds like ") + Text(s.name).bold())
                     .font(.caption)
                 Spacer(minLength: 4)
                 Button {
@@ -1011,7 +1016,9 @@ private struct NameSuggestionBar: View {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
                 }
                 .buttonStyle(.plain)
-                .help("Yes — label \(s.label) as \(s.name)")
+                .help(s.kind == .samePerson
+                      ? "Yes — merge \(s.label) into \(s.name)"
+                      : "Yes — label \(s.label) as \(s.name)")
                 Button {
                     liveSession.dismissNameSuggestion(s)
                 } label: {
@@ -2239,10 +2246,13 @@ struct LiveSection: View {
                 .help("Listens to your meeting audio and coaches you in real time. Instant nudges (talk time, interruptions, unanswered questions) are always on.")
                 .sheet(isPresented: $liveSession.showPreCallForm) {
                     PreCallFormView(context: $liveSession.preCallContext) {
+                        // The guest list was just reviewed for this call —
+                        // enrollment may scope to it.
                         liveSession.startLive(
                             context: liveSession.preCallContext,
                             settings: settings,
-                            ollamaManager: ollamaManager
+                            ollamaManager: ollamaManager,
+                            participantsConfirmed: true
                         )
                     }
                 }

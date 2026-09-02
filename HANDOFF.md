@@ -5,7 +5,28 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-08-14)
+## Current state (2026-08-14; speaker-labeling plan added 2026-09-02)
+
+- **In progress (branch `crxnamja/fix-speaker-labeling-1on1`): speaker
+  labeling accuracy.** Shipped on-branch: same-person voice-profile dedupe
+  at enrollment (field report: "anna" + "Anna Notario" both enrolled →
+  split identity in a 1:1). Plan, approved by Noah ("just do 1 + 2"):
+  1. Scoped enrollment — pre-call participants confirmed *for this call*
+     (the form was actually submitted) ⇒ enroll only matching profiles;
+     otherwise ⇒ cap at the 4 most recently used. New
+     `expectedParticipants` on AudioCaptureManager, selection policy in
+     VoiceProfileStore (pure + testable). The confirmed-only gate matters
+     because `preCallContext` outlives a session by design.
+  2. Merge card — when exactly two remote labels claim transcript words
+     and they're probably one person (same-person names, or the pre-call
+     form said 1:1), surface a one-tap merge via the existing
+     SpeakerNameSuggestion bar (new `.samePerson` kind); vetoed when the
+     labels' speech overlaps in time (one voice can't talk over itself).
+  Deferred by choice: People model (profile UI + multi-clip refresh, Noah
+  likes it), diarizer-variant benchmark (`ami`/`callhome`), backchannel
+  inheritance.
+
+## Prior state (2026-08-14)
 
 - **v0.20.0 SHIPPED — visible Basic mode + lightweight model fallback.**
   The full CI gate passed; the signed/notarized DMG is published in both
