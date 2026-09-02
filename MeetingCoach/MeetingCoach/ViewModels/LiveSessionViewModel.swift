@@ -851,6 +851,12 @@ final class LiveSessionViewModel {
     func deleteSession() {
         if let path = savedPath {
             try? FileManager.default.removeItem(atPath: path)
+            // The metadata sidecar describes the file that just went away.
+            // The index.jsonl line stays — the index is append-only by
+            // contract; readers resolve against files that still exist.
+            try? FileManager.default.removeItem(
+                at: URL(fileURLWithPath: path).deletingPathExtension()
+                    .appendingPathExtension("json"))
             savedPath = nil
         }
         resetSessionState()
@@ -1823,19 +1829,24 @@ final class LiveSessionViewModel {
         let dir = AppSupport.sessionsDir
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd_HH-mm"
-        let filename = "session_\(formatter.string(from: Date())).md"
-        let file = dir.appendingPathComponent(filename)
-
-        var lines: [String] = []
-        lines.append("# Meeting Coach Session — \(formatter.string(from: Date()))")
         // Title precedence: the real meeting name (from the meeting's
         // window title, via detection) beats the pre-call-derived
         // "person · subject", which beats nothing (the sidebar's transcript
-        // heuristic fills that in later). Filename stays date-based — it's
-        // the sort key and is parsed for the session date.
-        if let title = meetingTitleProvider?() ?? Self.sessionTitle(context: preCallContext) {
+        // heuristic fills that in later). The filename leads with the date
+        // — it's the sort key and is parsed for the session date — then
+        // carries the slugified title and participants so external tools
+        // can find a meeting by name.
+        let startedAt = sessionStartDate ?? Date().addingTimeInterval(-elapsedTime)
+        let title = meetingTitleProvider?() ?? Self.sessionTitle(context: preCallContext)
+        let participants = sessionParticipants()
+        let file = TranscriptStore.uniqueTranscriptFile(
+            in: dir, date: startedAt, title: title, participants: participants)
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm"
+        var lines: [String] = []
+        lines.append("# Meeting Coach Session — \(formatter.string(from: startedAt))")
+        if let title {
             lines.append("**Title:** \(title)")
         }
         lines.append("**Duration:** \(elapsedFormatted)")
@@ -1900,7 +1911,38 @@ final class LiveSessionViewModel {
         let content = lines.joined(separator: "\n")
         try? content.write(to: file, atomically: true, encoding: .utf8)
         savedPath = file.path
+        // Machine-readable twin: the .json sidecar + one index.jsonl line
+        // that let external AI tools use the folder without parsing our
+        // markdown header.
+        TranscriptStore.record(
+            TranscriptStore.Metadata(title: title, startedAt: startedAt,
+                                     durationMin: elapsedTime / 60,
+                                     participants: participants,
+                                     source: "meetingcoach"),
+            for: file)
         status = "Session saved to \(dir.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))/"
+    }
+
+    /// Who was in the meeting, for the filename and sidecar metadata:
+    /// pre-call context names when the user filled them in, else the real
+    /// (renamed/recognized) speaker names heard in the transcript. Generic
+    /// labels ("You", "Them 2", "Speaker A") aren't participants.
+    private func sessionParticipants() -> [String] {
+        let fromContext = preCallContext.participants
+            .map { $0.name.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        if !fromContext.isEmpty { return fromContext }
+        var seen = Set<String>()
+        var named: [String] = []
+        for utterance in utterances {
+            let speaker = displaySpeaker(utterance.speaker)
+            guard seen.insert(speaker).inserted else { continue }
+            let generic = speaker == "You" || speaker == "Them"
+                || speaker == "Meeting" || speaker.hasPrefix("Them ")
+                || speaker.hasPrefix("Speaker")
+            if !generic { named.append(speaker) }
+        }
+        return named
     }
 
     /// "Chris · close the deal" from pre-call context (first named

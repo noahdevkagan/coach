@@ -77,17 +77,33 @@ func runTests() async {
         check(vm.utterances.count == 3, "all words in the saved record", "got \(vm.utterances.count)")
 
         // The saved session file contains the tail too — stop must not
-        // drop the last thing someone said.
-        if let saved = try? FileManager.default.contentsOfDirectory(atPath: scratch.path),
-           let file = saved.first(where: { $0.hasPrefix("session_") }),
-           let body = try? String(contentsOfFile: scratch.appendingPathComponent(file).path,
-                                  encoding: .utf8) {
-            check(body.contains("still pending"), "saved session includes the pending tail")
-            check(body.contains("**Language:** en"),
-                  "saved session persists resolved ISO language")
-        } else {
-            check(false, "session file written to the scratch folder")
+        // drop the last thing someone said. Matched by content — same-minute
+        // saves now coexist under suffixed names instead of overwriting.
+        var savedFile = ""
+        var body = ""
+        if let saved = try? FileManager.default.contentsOfDirectory(atPath: scratch.path) {
+            for file in saved where file.hasSuffix(".md") {
+                let content = (try? String(
+                    contentsOfFile: scratch.appendingPathComponent(file).path,
+                    encoding: .utf8)) ?? ""
+                if content.contains("talking again") { savedFile = file; body = content }
+            }
         }
+        check(!savedFile.isEmpty, "session file written to the scratch folder")
+        check(body.contains("still pending"), "saved session includes the pending tail")
+        check(body.contains("**Language:** en"),
+              "saved session persists resolved ISO language")
+        check(savedFile.first?.isNumber == true && savedFile.contains("T"),
+              "date-led AI-toolable filename", "got \(savedFile)")
+        let sidecarPath = scratch
+            .appendingPathComponent(String(savedFile.dropLast(3)) + ".json").path
+        check(FileManager.default.fileExists(atPath: sidecarPath),
+              "metadata sidecar written next to the transcript")
+        let index = (try? String(
+            contentsOfFile: scratch.appendingPathComponent("index.jsonl").path,
+            encoding: .utf8)) ?? ""
+        check(index.contains("\"transcript\":\"\(savedFile)\""),
+              "index.jsonl gained the meeting's line", "index: \(index.prefix(200))")
     }
 
     // 3. Speaker identity: system-channel diarization splits "Them" into
@@ -179,7 +195,7 @@ func runTests() async {
 
         var body = ""
         if let saved = try? FileManager.default.contentsOfDirectory(atPath: scratch.path) {
-            for file in saved where file.hasPrefix("session_") {
+            for file in saved where file.hasSuffix(".md") {
                 let content = (try? String(
                     contentsOfFile: scratch.appendingPathComponent(file).path,
                     encoding: .utf8)) ?? ""
@@ -280,7 +296,7 @@ func runTests() async {
         vm.stopLive()
         var body = ""
         if let saved = try? FileManager.default.contentsOfDirectory(atPath: scratch.path) {
-            for file in saved where file.hasPrefix("session_") {
+            for file in saved where file.hasSuffix(".md") {
                 let content = (try? String(
                     contentsOfFile: scratch.appendingPathComponent(file).path,
                     encoding: .utf8)) ?? ""

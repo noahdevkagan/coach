@@ -105,7 +105,8 @@ bash tests/granola/run.sh || { echo "GRANOLA GATE FAILED"; exit 1; }
 echo "--- [4/4] ship scorecard (informational)"
 # Refresh the nudge-signal record from real saved sessions when this
 # machine has any; the scorecard below compares whatever is recorded.
-if ls "$HOME/Documents/MeetingCoach"/session_*.md >/dev/null 2>&1; then
+if ls "$HOME/Documents/MeetingCoach/transcripts"/*.md >/dev/null 2>&1 \
+    || ls "$HOME/Documents/MeetingCoach"/session_*.md >/dev/null 2>&1; then
     bash bench/run.sh --label "push-gate" 2>/dev/null | tail -2
 else
     echo "(no saved sessions on this machine — nudge record not refreshed)"

@@ -10,47 +10,84 @@ struct TranscriptHit: Identifiable, Sendable {
     let text: String        // the spoken line (bullet and stamp stripped)
 }
 
-/// Case-insensitive full-text search over saved sessions
-/// (AppSupport.sessionsDir, session_*.md). Foundation-only on purpose: the
-/// MCP server target compiles this exact file standalone, so in-app search
-/// and agent search can never drift.
+/// Case-insensitive full-text search over saved sessions in
+/// AppSupport.sessionsDir. Foundation-only on purpose: the MCP server
+/// target compiles this exact file standalone, so in-app search and agent
+/// search can never drift.
 enum TranscriptSearch {
-    /// Saved sessions, newest first — the filename stamp
-    /// (session_yyyy-MM-dd_HH-mm.md) sorts naturally.
+    /// A file the app treats as a saved session: the current
+    /// "yyyy-MM-ddTHH-mm[_title[_participants]].md" shape or the legacy
+    /// "session_yyyy-MM-dd_HH-mm.md" one (pre-0.21 files are never renamed).
+    static func isSessionFilename(_ name: String) -> Bool {
+        guard name.hasSuffix(".md") else { return false }
+        if name.hasPrefix("session_") { return true }
+        return sessionDate(fromStem: String(name.dropLast(3))) != nil
+    }
+
+    /// Canonical session date, parsed from either filename generation.
+    /// The date lives in the filename on purpose — it's the sort key, and
+    /// it survives every in-place rewrite (rename, review, checkbox).
+    static func sessionDate(for file: URL) -> Date? {
+        sessionDate(fromStem: file.deletingPathExtension().lastPathComponent)
+    }
+
+    static func sessionDate(fromStem stem: String) -> Date? {
+        if stem.hasPrefix("session_") {
+            return legacyStampFormatter.date(
+                from: String(stem.dropFirst("session_".count).prefix(16)))
+        }
+        return stampFormatter.date(from: String(stem.prefix(16)))
+    }
+
+    nonisolated(unsafe) private static let stampFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd'T'HH-mm"
+        return f
+    }()
+    nonisolated(unsafe) private static let legacyStampFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd_HH-mm"
+        return f
+    }()
+
+    /// Saved sessions, newest first by the filename's date stamp. A plain
+    /// name sort no longer works — "session_…" and "2026-…" names coexist
+    /// in a migrated folder.
     static func sessionFiles(in dir: URL = AppSupport.sessionsDir) -> [URL] {
         let fm = FileManager.default
         guard let items = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)
         else { return [] }
-        return items
-            .filter { $0.lastPathComponent.hasPrefix("session_") && $0.pathExtension == "md" }
-            .sorted { $0.lastPathComponent > $1.lastPathComponent }
+        let dated = items
+            .filter { isSessionFilename($0.lastPathComponent) }
+            .map { url in (url: url, date: sessionDate(for: url) ?? Date.distantPast) }
+        return dated
+            .sorted { a, b in
+                if a.date != b.date { return a.date > b.date }
+                return a.url.lastPathComponent > b.url.lastPathComponent
+            }
+            .map(\.url)
     }
 
-    /// "session_2026-07-20_14-32.md" → "Jul 20, 2:32 PM". The raw
+    /// "2026-07-20T14-32_roadmap.md" → "Jul 20, 2:32 PM". The raw
     /// "2026-07-20 14:32" fallback read like a filename in the sessions
     /// list (Noah, 2026-08-04); every consumer is a display surface.
     static func title(for file: URL) -> String {
-        let stem = file.deletingPathExtension().lastPathComponent
-            .replacingOccurrences(of: "session_", with: "")
-        let parse = DateFormatter()
-        parse.dateFormat = "yyyy-MM-dd_HH-mm"
-        guard let date = parse.date(from: stem) else {
-            return stem.replacingOccurrences(of: "_", with: " ")
+        guard let date = sessionDate(for: file) else {
+            return file.deletingPathExtension().lastPathComponent
+                .replacingOccurrences(of: "session_", with: "")
+                .replacingOccurrences(of: "_", with: " ")
         }
         let out = DateFormatter()
         out.dateFormat = "MMM d, h:mm a"
         return out.string(from: date)
     }
 
-    /// "session_2026-07-20_14-32.md" → "Jul 20" — the compact date shown
+    /// "2026-07-20T14-32_roadmap.md" → "Jul 20" — the compact date shown
     /// next to a session's title. Nil when the filename isn't date-stamped.
     static func shortDate(for file: URL) -> String? {
-        let stem = file.deletingPathExtension().lastPathComponent
-            .replacingOccurrences(of: "session_", with: "")
-        guard let day = stem.split(separator: "_").first else { return nil }
-        let parse = DateFormatter()
-        parse.dateFormat = "yyyy-MM-dd"
-        guard let date = parse.date(from: String(day)) else { return nil }
+        guard let date = sessionDate(for: file) else { return nil }
         let out = DateFormatter()
         out.dateFormat = "MMM d"
         return out.string(from: date)
@@ -275,6 +312,23 @@ enum TranscriptSearch {
             lines.insert("**Title:** \(cleaned)", at: insertAt)
         }
         try? lines.joined(separator: "\n").write(to: file, atomically: true, encoding: .utf8)
+
+        // Keep the metadata sidecar's title in step — external AI tools
+        // read it instead of the markdown header. (The index.jsonl line is
+        // append-only history and stays as written.)
+        let sidecar = file.deletingPathExtension().appendingPathExtension("json")
+        if let data = try? Data(contentsOf: sidecar),
+           var dict = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+            if cleaned.isEmpty {
+                dict.removeValue(forKey: "title")
+            } else {
+                dict["title"] = cleaned
+            }
+            if let out = try? JSONSerialization.data(withJSONObject: dict,
+                                                     options: [.prettyPrinted, .sortedKeys]) {
+                try? out.write(to: sidecar)
+            }
+        }
     }
 
     /// Search the spoken lines of every saved session. Matches only against

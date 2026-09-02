@@ -50,9 +50,6 @@ struct GeneralSettingsView: View {
     @State private var importResult: String?
     @State private var importResultIsError = false
 
-    private var displayPath: String {
-        sessionsPath.replacingOccurrences(of: NSHomeDirectory(), with: "~")
-    }
 
     var body: some View {
         let resolvedLanguage = settings.resolvedMeetingLanguage
@@ -72,8 +69,10 @@ struct GeneralSettingsView: View {
             }
 
             Section("Transcripts") {
+                // Full path on purpose: it's what gets pasted into an AI
+                // tool's folder-access prompt, where "~" doesn't expand.
                 LabeledContent("Saved to") {
-                    Text(displayPath)
+                    Text(sessionsPath)
                         .font(.callout.monospaced())
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -81,7 +80,7 @@ struct GeneralSettingsView: View {
                         .textSelection(.enabled)
                 }
                 HStack {
-                    Button("Show in Finder") {
+                    Button("Reveal in Finder") {
                         // The folder is created lazily on first save — make
                         // sure there's something to reveal.
                         try? FileManager.default.createDirectory(
@@ -90,7 +89,7 @@ struct GeneralSettingsView: View {
                     }
                     Button("Change…") { chooseFolder() }
                 }
-                Text("New sessions save to this folder. Existing transcripts stay where they are — move the files in Finder if you relocate.")
+                Text("Meetings save here as plain Markdown with a .json metadata sidecar, and index.jsonl lists every meeting — point Claude, ChatGPT, Cursor, or any AI tool at this folder to work with your transcripts. If you change the folder, existing files stay where they are — move them in Finder if you want them along.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

@@ -116,7 +116,8 @@ its Actions page):
 - **Nudge quality** — the latest `bench/run.sh` record vs the previous
   same-session-corpus record: nudges/10min, useful/nag agreement. The
   push gate refreshes the record first when this machine has saved
-  sessions (`~/Documents/MeetingCoach/`).
+  sessions (`~/Documents/MeetingCoach/transcripts/`, or the pre-0.21
+  flat root).
 
 Regressions print `WARN` lines and a "review before shipping" banner.
 Non-blocking because real-session scores move for reasons unrelated to
