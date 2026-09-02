@@ -7,6 +7,16 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## 0.21.0 — 2026-09-02
+
+- New "AI coaching" toggle in Settings → Model: turn it off and MeetingCoach runs transcript-first — live transcript, speaker names, and built-in nudges keep working, but no AI model is loaded. Flip it off mid-call and the memory (~7 GB for the default model) comes back right away, not next session. "Generate AI review" on saved sessions still works on demand
+- If the AI model is slowing your Mac, a 🐢 tip now appears in the main window and floating overlay with a one-click way to turn AI coaching off; the low-memory banner offers the same. Decline it three times and it stays quiet
+- Transcripts now live in `~/Documents/MeetingCoach/transcripts/`, named by date and title (e.g. `2026-08-31T14-30_partner-sync_chad-anna.md`) so a file listing reads as a timeline, with a small `.json` file beside each one and a running `index.jsonl` — point Claude, ChatGPT, or any AI tool at that one folder and it gets transcripts and nothing else. Your existing sessions are copied in (never moved or renamed) the first time you launch
+- Fixed one person showing up as two speakers in a one-on-one when you had saved them under two names (like "anna" and "Anna Notario"): their turns no longer flip between names, and short replies stay attributed. If two labels still look like the same person, a one-tap "sound like the same person" card merges them — transcript, timeline, and saved voice profile included
+- Voice recognition now only looks for the people who are actually on the call (the guests you listed in pre-call setup, or your 4 most recent contacts) instead of everyone you've ever named
+- The Coach suggestions card now says what clicking does — "Space it out" shows the real wait it proposes ("about 90s between repeats instead of 60s"), "Turn it off" / "Keep it" replace the vague Apply/Dismiss — and it no longer proposes spacing out a nudge that is already at its limit
+- Fixed a fresh install occasionally running without AI coaching: if the first transcription-model download failed and you clicked Retry, the AI model download that was supposed to follow never started until the next launch
+
 ## 0.20.1 — 2026-08-18
 
 - Picking a different AI model during a live session now says what actually happens: the session keeps the model it started with, and your new pick takes over from your next session — before, the change looked ignored
