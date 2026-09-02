@@ -36,16 +36,8 @@ struct SessionSummary: Identifiable {
 /// Reads and parses all saved session files for trend analysis.
 enum SessionTrends {
     static func loadAll() -> [SessionSummary] {
-        let dir = AppSupport.sessionsDir
-        guard let files = try? FileManager.default.contentsOfDirectory(
-            at: dir, includingPropertiesForKeys: [.contentModificationDateKey],
-            options: .skipsHiddenFiles
-        ) else { return [] }
-
-        let mdFiles = files.filter { $0.pathExtension == "md" }
-            .sorted { $0.lastPathComponent < $1.lastPathComponent }
-
-        return mdFiles.compactMap { parseSession(at: $0) }
+        // sessionFiles is newest-first; trends read oldest-first.
+        TranscriptSearch.sessionFiles().reversed().compactMap { parseSession(at: $0) }
     }
 
     /// Top patterns: which signal types fire most across all sessions.
@@ -155,23 +147,16 @@ enum SessionTrends {
 
     // MARK: - Parsing
 
-    /// Hoisted out of parseSession — DateFormatter construction and regex
-    /// compilation per file/line dominate the parse for large histories.
-    private static let fileDateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd_HH-mm"
-        return f
-    }()
+    /// Hoisted out of parseSession — regex compilation per file/line
+    /// dominates the parse for large histories.
     private static let signalKeyRegex = try! NSRegularExpression(pattern: #"\*\*[\w:]+\*\*"#)
 
     private static func parseSession(at url: URL) -> SessionSummary? {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
         let lines = text.components(separatedBy: .newlines)
 
-        // Parse date from filename: session_2026-06-30_11-55.md
-        let filename = url.deletingPathExtension().lastPathComponent
-        let dateStr = filename.replacingOccurrences(of: "session_", with: "")
-        guard let date = fileDateFormatter.date(from: dateStr) else { return nil }
+        // The filename carries the session date in both naming generations.
+        guard let date = TranscriptSearch.sessionDate(for: url) else { return nil }
 
         // Parse header fields
         var duration = ""

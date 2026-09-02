@@ -976,3 +976,35 @@ cancelled, model unloaded — memory back this call, not next session. This is
 safe under the 2026-08-11 one-lifecycle invariant, which forbids cold-*loading*
 mid-meeting, not unloading (recap already unloads mid-flow). "Keep it on" is
 quiet for the session; three declines across sessions mute the tip forever.
+
+## 2026-09-01 — AI-toolable transcripts folder (subfolder, new names, sidecars)
+
+The default transcript location moves from the ~/Documents/MeetingCoach root
+into its `transcripts/` subfolder, so the folder a user grants an AI tool
+(Claude, ChatGPT, Cursor) contains transcripts and nothing else — no rubric
+exports, no future app files. Migration COPIES (never moves) old session
+files in on the first launch after updating, one-shot flag
+`didMigrateTranscriptsSubfolder`; originals stay put because external tools
+may already point at them, and a copy can't lose data. The copy keeps its
+filename and a name already present in `transcripts/` is skipped, so the
+migration is idempotent on its own — the flag can't be the only guard, since
+a second Mac on the same iCloud-synced Documents (or a Documents-only
+restore) starts with the flag unset and both folders already populated, and
+suffixed re-copies would double every meeting in the list and the index. A
+custom Settings-chosen folder is never migrated — it's the user's own choice.
+
+New files are named `2026-08-31T14-30_partner-sync_chad-anna.md` (ISO
+date-time, slugified title, slugified participant first names) so a plain
+listing sorts chronologically and globs find meetings by name. Old
+`session_*.md` files are NEVER renamed — every parser
+(TranscriptSearch.sessionDate) reads both shapes forever, and sorting is by
+parsed date, not filename string, since the two shapes interleave. Collisions
+get a numeric suffix now (Granola's old bump-a-minute trick existed only
+because a suffix used to hide the file from the `session_` prefix filter;
+the new filter keys on the date stamp, so suffixes are safe).
+
+Each save also writes a `.json` sidecar and appends one line to
+`index.jsonl` (append-only by contract — deletes leave stale lines rather
+than rewriting history; readers resolve against files that exist).
+TranscriptStore.swift owns naming + sidecars + migration and is
+Foundation-only so test rigs compile it standalone.

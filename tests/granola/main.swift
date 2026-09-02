@@ -25,6 +25,14 @@ check("transcript imported as session lines",
 check("wrapped transcript line folds into its turn",
       content.contains("First item is the budget. and the hiring plan too."))
 check("utterance count matches turns", content.contains("**Utterances:** 4"))
+let sidecar = files.first.map {
+    $0.deletingPathExtension().appendingPathExtension("json")
+}
+let sidecarBody = sidecar.flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? ""
+check("metadata sidecar records the import source",
+      sidecarBody.contains("\"source\" : \"granola-import\""))
+check("index.jsonl appended in the transcripts folder",
+      FileManager.default.fileExists(atPath: dir.appendingPathComponent("index.jsonl").path))
 let again = try GranolaImporter.importCSV(fixture, into: dir)
 check("re-import dedupes", again.imported == 0 && again.skippedExisting == 1)
 

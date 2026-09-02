@@ -39,6 +39,26 @@ adds Xcode build tooling over MCP).
 
 Maintainers: see [`DISTRIBUTION.md`](./DISTRIBUTION.md) for cutting signed releases.
 
+## Use your transcripts with AI
+
+Every meeting is saved as plain Markdown in
+`~/Documents/MeetingCoach/transcripts/` (the path is shown — and changeable —
+in Settings → General). No integration needed: point Claude, ChatGPT, Cursor,
+or any other AI tool at that folder and it can read everything.
+
+- **Filenames sort and glob:** `2026-08-31T14-30_partner-sync_chad-anna.md`
+  — ISO date-time, then the meeting title and participants, slugified.
+- **Machine-readable metadata:** each transcript has a `.json` sidecar
+  (title, `started_at`, `duration_min`, `participants`, `source`, filename),
+  and `index.jsonl` in the folder lists every meeting, one JSON object per
+  line, append-only.
+- The folder deliberately lives in `~/Documents`, not `~/Library` — macOS
+  lets you grant AI tools access there. Transcripts recorded before this
+  layout were copied in automatically; the originals stay where they were.
+
+For deeper access (search across all sessions from an agent), the app also
+bundles an MCP server — see Settings → General → Agent access.
+
 ## Status
 
 - **Phase 0 (Recon): DONE** — see `findings.md`. Recommendation: build the coach **in-process (plugin / Tauri-event consumer), not a sidecar**, because the live transcript exists only as an in-process Tauri event stream.

@@ -32,6 +32,13 @@ struct MeetingCoachApp: App {
         mclog("[App] MeetingCoach v\(version) (build \(build))"
               + (commit.map { " @ \($0)" } ?? ""))
 
+        // One-time copy of pre-0.21 transcripts from ~/Documents/MeetingCoach
+        // into its transcripts/ subfolder (originals stay put).
+        let migrated = TranscriptStore.migrateLegacyDefaultIfNeeded()
+        if migrated > 0 {
+            mclog("[App] Copied \(migrated) transcript(s) into \(AppSupport.sessionsDir.path)")
+        }
+
         let badge = UpdateBadgeModel()
         _updateBadge = StateObject(wrappedValue: badge)
         updaterController = SPUStandardUpdaterController(

@@ -12,5 +12,6 @@ swiftc -O -o "$OUT/granolacheck" \
   tests/granola/main.swift \
   "$SRC/Engine/GranolaImporter.swift" \
   "$SRC/Models/TranscriptSearch.swift" \
+  "$SRC/Models/TranscriptStore.swift" \
   "$SRC/Models/AppSupport.swift"
 "$OUT/granolacheck" tests/granola/fixture.csv

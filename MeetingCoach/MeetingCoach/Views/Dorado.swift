@@ -50,13 +50,10 @@ enum Dorado {
     }
     static func mono(_ size: CGFloat) -> Font { .custom("Roboto Mono", size: size) }
 
-    /// Parse the canonical date out of "session_yyyy-MM-dd_HH-mm.md".
+    /// Parse the canonical date out of a session filename (either naming
+    /// generation — TranscriptSearch owns the formats).
     static func sessionDate(_ url: URL) -> Date? {
-        let name = url.deletingPathExtension().lastPathComponent
-        guard name.hasPrefix("session_") else { return nil }
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd_HH-mm"
-        return f.date(from: String(name.dropFirst("session_".count)))
+        TranscriptSearch.sessionDate(for: url)
     }
 }
 

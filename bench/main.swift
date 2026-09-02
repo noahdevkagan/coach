@@ -176,8 +176,14 @@ func score(_ session: BenchSession, matchWindow: TimeInterval = 90) -> SessionSc
 // MARK: - Main
 
 var label = "run"
-var sessionsDir = FileManager.default.homeDirectoryForCurrentUser
-    .appendingPathComponent("Documents/MeetingCoach")
+// Default to the transcripts subfolder (0.21 layout), falling back to the
+// old flat root for machines the app hasn't migrated yet.
+var sessionsDir: URL = {
+    let root = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Documents/MeetingCoach")
+    let transcripts = root.appendingPathComponent("transcripts")
+    return FileManager.default.fileExists(atPath: transcripts.path) ? transcripts : root
+}()
 
 var args = Array(CommandLine.arguments.dropFirst())
 while !args.isEmpty {
@@ -189,7 +195,12 @@ while !args.isEmpty {
 }
 
 let files = ((try? FileManager.default.contentsOfDirectory(at: sessionsDir, includingPropertiesForKeys: nil)) ?? [])
-    .filter { $0.lastPathComponent.hasPrefix("session_") && $0.pathExtension == "md" }
+    .filter {
+        $0.pathExtension == "md"
+            && ($0.lastPathComponent.hasPrefix("session_")
+                || $0.lastPathComponent.range(of: #"^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}"#,
+                                              options: .regularExpression) != nil)
+    }
     .sorted { $0.lastPathComponent < $1.lastPathComponent }
 
 guard !files.isEmpty else {

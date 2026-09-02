@@ -46,6 +46,7 @@
 		5786720067BE8A950F4165ED /* SignalEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2E43CC253B7430EF30361 /* SignalEngine.swift */; };
 		602166D3A6873647DC911FDE /* bird_chirp.wav in Resources */ = {isa = PBXBuildFile; fileRef = 14D8000DD43FC31EDFC5A989 /* bird_chirp.wav */; };
 		643DA0464410998385AE5E60 /* PreCallFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25F544EB2BBE998E71984423 /* PreCallFormView.swift */; };
+		646D824B1FF7ECF4F27A8229 /* TranscriptStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F96FF8CF114AAA6D7FDFBDF /* TranscriptStore.swift */; };
 		6C768BCDCE0CDE33A7F70567 /* Mclog.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5560738095EF73A5816E554 /* Mclog.swift */; };
 		6DDB4B7AD7A30F488D641CD9 /* GeneralSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35350EAFCF72EF5D24FA7AA1 /* GeneralSettingsView.swift */; };
 		752E7C3A09F3FFE9824E2003 /* ParticipantStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 208023EBBD04229F5503508A /* ParticipantStore.swift */; };
@@ -145,6 +146,7 @@
 		35964E2F9634996C0ACEB39C /* MeetingReview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingReview.swift; sourceTree = "<group>"; };
 		35B1ADEF0B99BDEB25D36FE4 /* FeedbackFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackFormView.swift; sourceTree = "<group>"; };
 		38AF9EC84551A2A07E86DADF /* SearchResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultsView.swift; sourceTree = "<group>"; };
+		3F96FF8CF114AAA6D7FDFBDF /* TranscriptStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptStore.swift; sourceTree = "<group>"; };
 		41E79DEE155A7764611418A7 /* MeetingLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingLanguage.swift; sourceTree = "<group>"; };
 		48F9343259F30B3410C031F9 /* TranscriptSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptSearch.swift; sourceTree = "<group>"; };
 		59A325315611300C1A9E2C53 /* demo_nudges.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = demo_nudges.json; sourceTree = "<group>"; };
@@ -343,6 +345,7 @@
 				C383A162604A3D3AE197F2A2 /* SessionTrends.swift */,
 				5C9A04C9B391284F7BCDBD2E /* TrainingExample.swift */,
 				48F9343259F30B3410C031F9 /* TranscriptSearch.swift */,
+				3F96FF8CF114AAA6D7FDFBDF /* TranscriptStore.swift */,
 				826E23E63EE91A96C88BA0F1 /* Trigger.swift */,
 				81D33EEE89EF224DC87FCF6E /* Utterance.swift */,
 			);
@@ -666,6 +669,7 @@
 				D3610C9D3F85F755820E10C3 /* TranscriptCleanup.swift in Sources */,
 				FBBB2B4DB3372B0DD8A7CEE8 /* TranscriptParser.swift in Sources */,
 				97BBFAF4DAC944901C41F097 /* TranscriptSearch.swift in Sources */,
+				646D824B1FF7ECF4F27A8229 /* TranscriptStore.swift in Sources */,
 				B1EEF82CF42D4472D319BA92 /* Trigger.swift in Sources */,
 				41742BA1758E72F5F58444E1 /* TuningTypes.swift in Sources */,
 				16BE255C6A7E0741602AAD26 /* UnansweredQuestionSignal.swift in Sources */,
