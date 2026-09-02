@@ -931,6 +931,174 @@ func runTests() async {
         vm.deleteSession()
     }
 
+    // 10. Merge suggestion: two remote labels that are probably one person
+    //     surface a one-tap merge card; confirming merges the transcript
+    //     and brings the one-on-one alias back.
+    do {
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext())
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let capture = AudioCaptureManager.last else {
+            check(false, "capture manager wired (10)"); return
+        }
+        capture.onUtterance?(Utterance(t: 1, speaker: "Them",
+            text: "Let me walk you through the numbers first.", endT: 4))
+        capture.onUtterance?(Utterance(t: 6, speaker: "Them",
+            text: "And the second half is where it gets interesting.", endT: 9))
+        try? await Task.sleep(for: .milliseconds(50))
+        capture.onSpeakerSegments?(.system, [
+            SpeakerSegment(speaker: "anna", start: 0.9, end: 4.1),
+            SpeakerSegment(speaker: "Anna Notario", start: 5.8, end: 9.2),
+        ])
+        try? await Task.sleep(for: .milliseconds(50))
+        let merge = vm.speakerNameSuggestions.first { $0.kind == .samePerson }
+        check(merge?.label == "anna" && merge?.name == "Anna Notario",
+              "same-person labels surface a merge card (longer name survives)",
+              "got \(String(describing: merge))")
+
+        if let merge { vm.confirmNameSuggestion(merge) }
+        check(vm.utterances.map(\.speaker) == ["Anna Notario", "Anna Notario"],
+              "confirming the merge relabels the transcript",
+              "got \(vm.utterances.map(\.speaker))")
+        check(vm.displaySpeaker("Them") == "Anna Notario",
+              "one-on-one alias resumes after the merge",
+              "got \(vm.displaySpeaker("Them"))")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // 11. Merge card in an expected 1:1 — and the overlap veto: labels
+    //     whose speech overlaps in time are two real people, never merged.
+    do {
+        var ctx = PreCallContext()
+        ctx.participants = [.init(name: "Anna Notario", role: "")]
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: ctx, participantsConfirmed: true)
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let capture = AudioCaptureManager.last else {
+            check(false, "capture manager wired (11)"); return
+        }
+        check(capture.expectedParticipants == ["Anna Notario"],
+              "pre-call participants reach the capture manager (enrollment scoping)")
+        capture.onUtterance?(Utterance(t: 1, speaker: "Them",
+            text: "Thanks for making the time again today.", endT: 4))
+        capture.onUtterance?(Utterance(t: 6, speaker: "Them",
+            text: "Of course, happy to go over it together.", endT: 9))
+        try? await Task.sleep(for: .milliseconds(50))
+
+        // Overlapping speech: a real second guest talking over Anna.
+        capture.onSpeakerSegments?(.system, [
+            SpeakerSegment(speaker: "Anna Notario", start: 0.9, end: 4.1),
+            SpeakerSegment(speaker: "Anna Notario", start: 5.8, end: 6.5),
+            SpeakerSegment(speaker: "Them 2", start: 5.8, end: 9.2),
+        ])
+        try? await Task.sleep(for: .milliseconds(50))
+        check(!vm.speakerNameSuggestions.contains { $0.kind == .samePerson },
+              "overlapping voices are two people — no merge card",
+              "got \(vm.speakerNameSuggestions.map(\.key))")
+
+        // Refined publish: no overlap after all → phantom slot merges into
+        // the expected guest.
+        capture.onSpeakerSegments?(.system, [
+            SpeakerSegment(speaker: "Anna Notario", start: 0.9, end: 4.1),
+            SpeakerSegment(speaker: "Them 2", start: 5.8, end: 9.2),
+        ])
+        try? await Task.sleep(for: .milliseconds(50))
+        let merge = vm.speakerNameSuggestions.first { $0.kind == .samePerson }
+        check(merge?.label == "Them 2" && merge?.name == "Anna Notario",
+              "expected 1:1 pairs the stray slot with the named guest",
+              "got \(String(describing: merge))")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // 12. preCallContext survives a session ("last-used context") and the
+    //     formless start paths reuse it, so a stale guest list must NOT
+    //     scope enrollment — the people actually on the call would lose
+    //     their saved voices and come back as "Them 1".
+    do {
+        var ctx = PreCallContext()
+        ctx.participants = [.init(name: "Anna Notario", role: "")]
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: ctx)   // "Go live" / menu bar — no form
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let capture = AudioCaptureManager.last else {
+            check(false, "capture manager wired (12)"); return
+        }
+        check(capture.expectedParticipants.isEmpty,
+              "an unconfirmed (last-used) guest list never scopes enrollment",
+              "got \(capture.expectedParticipants)")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // 13. An expected 1:1 that turns out to have two real guests: once one
+    //     slot carries a name that ISN'T the expected guest, the other slot
+    //     must not be offered as a merge into it — confirming would save
+    //     the second guest's voice clip under the first one's profile.
+    do {
+        var ctx = PreCallContext()
+        ctx.participants = [.init(name: "Anna Notario", role: "")]
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: ctx, participantsConfirmed: true)
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let capture = AudioCaptureManager.last else {
+            check(false, "capture manager wired (13)"); return
+        }
+        capture.onUtterance?(Utterance(t: 1, speaker: "Them",
+            text: "Chad here, I pulled the latest numbers.", endT: 4))
+        capture.onUtterance?(Utterance(t: 6, speaker: "Them",
+            text: "Great, let us walk through them one by one.", endT: 9))
+        try? await Task.sleep(for: .milliseconds(50))
+        // Colleague named from transcript evidence; Anna is still a slot.
+        capture.onSpeakerSegments?(.system, [
+            SpeakerSegment(speaker: "Chad", start: 0.9, end: 4.1),
+            SpeakerSegment(speaker: "Them 2", start: 5.8, end: 9.2),
+        ])
+        try? await Task.sleep(for: .milliseconds(50))
+        check(!vm.speakerNameSuggestions.contains { $0.kind == .samePerson },
+              "a name that is not the expected guest never absorbs the other slot",
+              "got \(vm.speakerNameSuggestions.map(\.key))")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // One person saved under two names must enroll ONCE (2026-09-01 field
+    // report: "anna" + "Anna Notario" both enrolled → her turns flipped
+    // between the two names and short replies fell back to raw "Them").
+    do {
+        check(VoiceProfileStore.samePerson("anna", "Anna Notario")
+              && VoiceProfileStore.samePerson("Anna Notario", "anna")
+              && VoiceProfileStore.samePerson("Nick C", "nick")
+              && !VoiceProfileStore.samePerson("Anna Smith", "Anna Notario")
+              && !VoiceProfileStore.samePerson("anna", "Ayman"),
+              "same-person name matching")
+
+        func profile(_ name: String) -> VoiceProfile {
+            VoiceProfile(name: name, sampleRate: 16_000, audio: Data(),
+                         createdAt: Date(), lastUsedAt: Date())
+        }
+        let collapsed = VoiceProfileStore.collapseSamePerson(
+            [profile("anna"), profile("Ayman"), profile("Anna Notario")])
+        check(collapsed.map(\.name) == ["anna", "Ayman"],
+              "duplicate profiles collapse for enrollment, first in order wins",
+              "got \(collapsed.map(\.name))")
+
+        // Enrollment scoping: named pre-call participants enroll ONLY
+        // matching profiles; nobody named caps at the most recent few.
+        let scoped = VoiceProfileStore.selectForEnrollment(
+            [profile("Anna Notario"), profile("Ayman"), profile("Chad Boyda")],
+            expecting: ["anna"])
+        check(scoped.map(\.name) == ["Anna Notario"],
+              "pre-call participants scope enrollment to matching profiles",
+              "got \(scoped.map(\.name))")
+        let capped = VoiceProfileStore.selectForEnrollment(
+            (1...6).map { profile("Person \($0)") }, expecting: [])
+        check(capped.map(\.name) == (1...VoiceProfileStore.recentEnrollmentCap).map { "Person \($0)" },
+              "no participants named caps enrollment at the most recent",
+              "got \(capped.map(\.name))")
+    }
+
     resetSeams()
 }
 

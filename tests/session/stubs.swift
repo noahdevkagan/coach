@@ -32,6 +32,7 @@ final class AudioCaptureManager {
     static var last: AudioCaptureManager?
 
     var contextualHints: [String] = []
+    var expectedParticipants: [String] = []
     var vocabulary: VocabularyNormalizer?
     var isMicOnly = false
     var isAppleCall = false

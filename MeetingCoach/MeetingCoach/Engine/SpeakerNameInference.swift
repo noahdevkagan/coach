@@ -4,10 +4,21 @@ import Foundation
 /// a one-tap confirmation. Confirming routes through the full rename path
 /// (transcript, live timeline, saved voice profile).
 struct SpeakerNameSuggestion: Identifiable, Sendable {
+    /// Where the proposal came from — the UI words each differently.
+    enum Kind: Sendable, Equatable {
+        /// LLM-inferred from transcript evidence ("Them 1 sounds like Sarah").
+        case inferredName
+        /// Two labels that are probably one person — confirming merges the
+        /// label into the name ("anna and Anna Notario sound like the same
+        /// person").
+        case samePerson
+    }
+
     let id = UUID()
     let label: String       // "Them 1", "Speaker 2", "Them"
     let name: String        // "Sarah"
     let confidence: Double
+    var kind: Kind = .inferredName
     var key: String { "\(label)→\(name.lowercased())" }
 }
 
@@ -27,8 +38,10 @@ final class SpeakerNameInference {
     private static let maxNameLength = 30
 
     /// Labels eligible for naming: diarizer slot labels and the undiarized
-    /// far-side base label. Never "You".
-    private static let unnamedPattern = #/^(Them|Speaker|Meeting)( \d+)?$/#
+    /// far-side base label. Never "You". Shared with the merge-suggestion
+    /// path (a merge must never survive INTO a slot label — the rename
+    /// would save a voice profile named "Them 2").
+    static let unnamedPattern = #/^(Them|Speaker|Meeting)( \d+)?$/#
 
     private let client: OllamaClient
     private var lastRun: TimeInterval = -.infinity
@@ -69,10 +82,12 @@ final class SpeakerNameInference {
         lastRun = elapsed
 
         // Names already in use (renamed/enrolled speakers) must not be
-        // proposed again for someone else.
-        let takenNames = Set(utterances.map(\.speaker)
-            .filter { $0.wholeMatch(of: Self.unnamedPattern) == nil && $0 != "You" }
-            .map { $0.lowercased() })
+        // proposed again for someone else — including same-person variants:
+        // "anna" on the call blocks an "Anna Notario" suggestion, whose
+        // confirm would save a second profile of the same voice and split
+        // that person across two diarizer slots in every future session.
+        let takenNames = Array(Set(utterances.map(\.speaker)
+            .filter { $0.wholeMatch(of: Self.unnamedPattern) == nil && $0 != "You" }))
 
         let system = """
         You identify meeting participants' real names from a transcript. Speakers are labeled with placeholders (\(unnamedLabels.sorted().joined(separator: ", "))). "You" is the user being coached — never rename them.
@@ -105,7 +120,7 @@ final class SpeakerNameInference {
     }
 
     private func parse(_ raw: String, unnamedLabels: Set<String>,
-                       takenNames: Set<String>, rejected: Set<String>) -> [SpeakerNameSuggestion] {
+                       takenNames: [String], rejected: Set<String>) -> [SpeakerNameSuggestion] {
         guard let start = raw.firstIndex(of: "["),
               let end = raw.lastIndex(of: "]"), start < end,
               let data = String(raw[start...end]).data(using: .utf8),
@@ -124,11 +139,11 @@ final class SpeakerNameInference {
             guard confidence >= Self.confidenceThreshold,
                   unnamedLabels.contains(label),
                   looksLikeName(name),
-                  !seenNames.contains(name.lowercased())
+                  !seenNames.contains(where: { VoiceProfileStore.samePerson($0, name) })
             else { continue }
             let suggestion = SpeakerNameSuggestion(label: label, name: name, confidence: confidence)
             guard !rejected.contains(suggestion.key) else { continue }
-            seenNames.insert(name.lowercased())
+            seenNames.append(name)
             result.append(suggestion)
         }
         return result

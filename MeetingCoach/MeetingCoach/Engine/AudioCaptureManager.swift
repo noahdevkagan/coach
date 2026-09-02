@@ -57,6 +57,10 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     /// Vocabulary to bias recognition toward (participant names, deal terms).
     var contextualHints: [String] = []
 
+    /// Named pre-call participants — scopes voice-profile enrollment to who
+    /// is actually expected on the call (see VoiceProfileStore.selectForEnrollment).
+    var expectedParticipants: [String] = []
+
     /// Post-ASR repair of known-term garbles ("app sumo" → AppSumo), applied
     /// to every commit and partial as it leaves a pipeline — BEFORE the echo
     /// filter, so both channels' text is normalized identically and echo
@@ -266,9 +270,9 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         }
 
         // Saved voices enroll into whichever diarizer runs, so known people
-        // come back by name. Pre-call participant names float their
-        // profiles to the front of the enrollment order.
-        let profiles = VoiceProfileStore.loadAll(preferring: contextualHints)
+        // come back by name. Named pre-call participants scope the list;
+        // otherwise the most recently used profiles enroll (capped).
+        let profiles = VoiceProfileStore.loadForEnrollment(expecting: expectedParticipants)
         // The whole return path (saved voice → auto-label next session) was
         // undiagnosable from logs — enrollment lines only appear per
         // profile, so an empty store and a failed load looked identical.

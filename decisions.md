@@ -1008,3 +1008,93 @@ Each save also writes a `.json` sidecar and appends one line to
 than rewriting history; readers resolve against files that exist).
 TranscriptStore.swift owns naming + sidecars + migration and is
 Foundation-only so test rigs compile it standalone.
+
+## 2026-09-01 — One voice, one enrollment: same-person profile dedupe
+
+Field report (1:1 with Anna): her turns flipped between "anna" and
+"Anna Notario" all call, with short replies falling back to raw "Them".
+The store held BOTH profiles (saved in different sessions), and both
+enrolled. FluidAudio's `enrollSpeaker` deliberately prefers assigning an
+unnamed slot, so two clips of the same voice always pin two slots to that
+person — LS-EEND then oscillates between them, and the phantom second
+"distinct" remote speaker disables the one-on-one alias (evidence ≥ 2
+labels), leaking bare "Them" on undiarized fragments.
+
+Fix is non-destructive and name-based: `VoiceProfileStore.samePerson`
+(equal names, or a bare first name matching the other's first word —
+"anna" ~ "Anna Notario", but "Anna Smith" ≠ "Anna Notario") collapses
+duplicates at enrollment only (`loadForEnrollment`; first in
+hint-then-recency order wins). Files are never merged or deleted: the
+heuristic can be wrong (two people genuinely named just "anna"), and a
+wrong silent delete would violate the 2026-07-28 "never auto-apply names"
+principle. Worst case of a wrong collapse: the second Anna shows as
+"Them N" and can be renamed — strictly better than the split-identity
+failure. SpeakerNameInference applies the same matcher to taken names so
+a confirmed LLM suggestion can't mint the duplicate in the first place
+(that's the likely origin: "anna" enrolled + unnamed ghost slot → model
+suggests "Anna Notario" from intro evidence → confirm saved profile #2).
+Embedding-distance dedupe was considered and rejected: LS-EEND exposes no
+enrollment embeddings (attractors are internal).
+
+## 2026-09-02 — Scoped enrollment + one-tap merge card (speaker labeling)
+
+Follow-up to the 2026-09-01 dedupe, approved by Noah ("just do 1 + 2").
+
+**Scoped enrollment.** Every saved profile used to enroll into every call
+(8 people on a 1:1, including the user's own voice on the far-side
+channel) — each one a live attractor for misattribution. Now: named
+pre-call participants enroll ONLY same-person-matching profiles — an
+unmatched real guest shows as "Them N" and is renameable, strictly better
+than an absent person's name claiming their words. No participants named
+→ cap at the 4 most recently used (`recentEnrollmentCap`; recency is the
+only signal available, and `touch()` keeps it honest). Participant names
+ride a new `AudioCaptureManager.expectedParticipants`, NOT
+`contextualHints` — hints mix in vocabulary canonicals, which must never
+scope people.
+
+**Merge card.** When exactly two remote labels own transcript words and
+they're probably one person — same-person names anywhere, or ANY pair in
+a call the pre-call form said was 1:1 — the existing suggestion bar shows
+"X and Y sound like the same person" (`SpeakerNameSuggestion.kind ==
+.samePerson`). Confirm routes through `renameSpeaker`, so transcript,
+live timeline, voice profile, and the returning 1:1 alias all follow;
+dismiss lands in the rejected set like any suggestion. Never
+auto-applied (2026-07-28 principle). Two guards keep it honest: the
+surviving label must be a real name (merging INTO "Them 2" would save a
+profile named "Them 2"), and the pair is vetoed when the labels' diarized
+speech overlaps >0.5s in total — one voice cannot talk over itself, so
+overlap means a real second guest the form didn't mention. Two full
+names neither matching the expected guest stay untouched: no evidence
+which is right.
+
+## 2026-09-02 — Review fixes: enrollment scoping needs consent; merge card needs the named guest
+
+Two review findings on the change above, both about the pre-call form
+being trusted more than it earns.
+
+**Enrollment scopes only on a confirmed guest list.** `preCallContext`
+deliberately outlives a session — `endSession` clears `plannedQuestions`
+and explicitly leaves goal/participants as the "last-used context", and
+the "Go live" button plus the menu-bar/detection starts all reuse it
+without reopening the form. Scoping enrollment to that list therefore
+meant: fill the form in once, and every later formless call silently
+enrolls the *previous* meeting's guests, so the people actually on the
+call lose their saved voices and come back as "Them 1" — the exact
+failure this branch set out to fix. `startLive` now takes
+`participantsConfirmed`, passed true only from `PreCallFormView`'s start
+closure; otherwise `expectedParticipants` is empty and the recency cap
+applies. Clearing `participants` in `endSession` was the other option
+and was rejected — it would throw away the last-used context the form
+deliberately keeps for the goal/participants fields.
+
+**A mixed slot/name pair merges only into the expected guest.** In the
+one-slot-one-name case, `samePerson` can never be true (a slot label
+never reads as the same person as a name), so the ONLY thing letting
+that pair through is "the form said 1:1". The surviving name was not
+checked against the form, so a 1:1 that turned out to have two guests —
+form says Anna, colleague Chad gets named from transcript evidence,
+Anna is still "Them 2" — offered "Them 2 and Chad sound like the same
+person", and confirming would have saved Anna's voice clip under Chad's
+profile. Now the surviving name must `samePerson`-match
+`preCallRemoteName`, matching the guard the two-full-names branch
+already had.

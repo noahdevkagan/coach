@@ -82,6 +82,79 @@ enum VoiceProfileStore {
             }
     }
 
+    /// Whether two profile names plausibly refer to the same person: equal
+    /// names, or a bare first name matching the other name's first word
+    /// ("anna" ~ "Anna Notario"). Case-insensitive. Distinct full names
+    /// sharing a first name ("Anna Smith" / "Anna Notario") stay separate.
+    static func samePerson(_ a: String, _ b: String) -> Bool {
+        let aWords = a.lowercased().split(separator: " ")
+        let bWords = b.lowercased().split(separator: " ")
+        guard aWords.first != nil, aWords.first == bWords.first else { return false }
+        return aWords.count == 1 || bWords.count == 1 || aWords == bWords
+    }
+
+    /// How many profiles enroll when nothing narrows the guest list. Every
+    /// enrolled voice is a live attractor the diarizer can mis-assign
+    /// far-side speech to (a 1:1 on 2026-09-01 ran with 8 people enrolled,
+    /// 6 of them absent), and each clip also costs session startup time.
+    static let recentEnrollmentCap = 4
+
+    /// Enrollment candidates: `loadAll` with same-person duplicates
+    /// collapsed, scoped to who is expected on the call. One person saved
+    /// under two names ("anna" in one session, "Anna Notario" in another)
+    /// otherwise enrolls twice, and the diarizer pins BOTH slots to that
+    /// voice — their turns then flip between the two names for the whole
+    /// call, and the phantom second "distinct" remote speaker keeps the
+    /// one-on-one alias disabled (seen live 2026-09-01, 1:1 with Anna).
+    /// Files are never touched.
+    static func loadForEnrollment(expecting participants: [String]) -> [VoiceProfile] {
+        let expected = participants
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        return selectForEnrollment(collapseSamePerson(loadAll(preferring: expected)),
+                                   expecting: expected)
+    }
+
+    /// Selection policy, pure for the session gate: named pre-call
+    /// participants scope enrollment to matching profiles ONLY (an
+    /// unmatched guest just shows as "Them N", renameable — strictly
+    /// better than a phantom absent name claiming their words); with no
+    /// participants named, the most recently used profiles up to
+    /// `recentEnrollmentCap` enroll.
+    static func selectForEnrollment(_ profiles: [VoiceProfile],
+                                    expecting expected: [String]) -> [VoiceProfile] {
+        if !expected.isEmpty {
+            let matched = profiles.filter { p in
+                expected.contains { samePerson($0, p.name) }
+            }
+            let skipped = profiles.map(\.name).filter { n in
+                !matched.contains { $0.name == n }
+            }
+            if !skipped.isEmpty {
+                mclog("[Voices] Enrollment scoped to pre-call participants — "
+                      + "not enrolling: \(skipped.joined(separator: ", "))")
+            }
+            return matched
+        }
+        guard profiles.count > recentEnrollmentCap else { return profiles }
+        let dropped = profiles.dropFirst(recentEnrollmentCap).map(\.name)
+        mclog("[Voices] No pre-call participants — enrolling the "
+              + "\(recentEnrollmentCap) most recent, not: \(dropped.joined(separator: ", "))")
+        return Array(profiles.prefix(recentEnrollmentCap))
+    }
+
+    static func collapseSamePerson(_ profiles: [VoiceProfile]) -> [VoiceProfile] {
+        var kept: [VoiceProfile] = []
+        for p in profiles {
+            if let dup = kept.first(where: { samePerson($0.name, p.name) }) {
+                mclog("[Voices] Skipping '\(p.name)' for enrollment — same person as '\(dup.name)'")
+            } else {
+                kept.append(p)
+            }
+        }
+        return kept
+    }
+
     /// Mark a profile as used (successful enrollment at session start) so
     /// `loadAll`'s recency ordering reflects who actually shows up to
     /// meetings — not just who was named most recently. Matters because
