@@ -150,6 +150,79 @@ enum MeetingAsk {
         return (blocks.joined(separator: "\n\n"), sources)
     }
 
+    /// Excerpts for a question about ONE open session (the in-session ask
+    /// bar). Keyword-scored lines like the cross-session path; a question
+    /// with no keyword hits ("how did this go?") falls back to an even
+    /// sample so generic questions still see the whole meeting.
+    static func sessionExcerpts(question: String,
+                                transcriptLines: [String],
+                                review: String,
+                                budget: Int = 6_000) -> String {
+        let words = keywords(in: question)
+        var chosen: [String]
+        let scored = transcriptLines.enumerated().map { i, line in
+            (line: line,
+             hits: words.filter {
+                 line.range(of: $0, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+             }.count,
+             order: i)
+        }
+        let hitLines = scored.filter { $0.hits > 0 }
+        if hitLines.isEmpty {
+            let step = max(1, transcriptLines.count / 30)
+            chosen = transcriptLines.enumerated()
+                .filter { $0.offset % step == 0 }.map(\.element)
+        } else {
+            chosen = hitLines
+                .sorted { $0.hits != $1.hits ? $0.hits > $1.hits : $0.order < $1.order }
+                .prefix(24)
+                .sorted { $0.order < $1.order }
+                .map(\.line)
+        }
+        var parts: [String] = []
+        var used = 0
+        if !review.isEmpty {
+            let notes = "Notes:\n" + String(review.prefix(1_200))
+            parts.append(notes)
+            used += notes.count
+        }
+        var moments: [String] = []
+        for line in chosen {
+            guard used + line.count <= budget else { break }
+            used += line.count
+            moments.append(line)
+        }
+        if !moments.isEmpty {
+            parts.append("Transcript moments:\n" + moments.joined(separator: "\n"))
+        }
+        return parts.joined(separator: "\n\n")
+    }
+
+    /// Prompt for the in-session ask. Prior turns ride along so follow-ups
+    /// ("what about the second one?") resolve against earlier answers.
+    static func sessionPrompt(question: String, excerpts: String,
+                              history: [(q: String, a: String)] = [])
+        -> (system: String, user: String) {
+        let system = """
+        You answer questions about ONE meeting the user attended, using ONLY the meeting notes and transcript moments provided ("You" is the user).
+
+        Rules:
+        - Lead with the answer itself, not a preamble.
+        - Prefer specifics from the excerpts: numbers, names, dates, decisions.
+        - Lists go on "- " lines. Keep the whole reply under 150 words.
+        - If the excerpts don't answer the question, say so in one sentence and name the closest thing they do contain. Never invent.
+        - Plain text only: no markdown headers, bold, backticks, or tables.
+        """
+        var parts: [String] = []
+        for turn in history {
+            parts.append("Earlier question: \(turn.q)\nEarlier answer: \(turn.a)")
+        }
+        parts.append("Question: \(question)")
+        parts.append("Meeting excerpts:\n\(excerpts)")
+        parts.append("Answer the question now.")
+        return (system, parts.joined(separator: "\n\n"))
+    }
+
     /// The answer prompt. Excerpt-grounded on purpose: the model may only
     /// synthesize what retrieval found, and must say when that isn't enough.
     static func prompt(question: String, excerpts: String) -> (system: String, user: String) {

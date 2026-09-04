@@ -289,11 +289,11 @@ final class LiveSessionViewModel {
     nonisolated static func liveCompleteReview(_ model: String,
                                                _ system: String,
                                                _ user: String) async throws -> String {
-        // 10240/1200 (not the 8192/512 defaults): the topic-sectioned
-        // review is the one long reply, and a 1024 cap truncated the last
-        // section mid-sentence on a real 52-min transcript (2026-09-04).
+        // 12288/1500 (not the 8192/512 defaults): the topic-sectioned
+        // review is the one long reply — sized with PromptBuilder's 32K
+        // transcript cap so a 43-min meeting fits untrimmed (2026-09-04).
         // Post-call only — ASR and the in-call runner are already gone.
-        try await OllamaClient(model: model, numCtx: 10_240, numPredict: 1200)
+        try await OllamaClient(model: model, numCtx: 12_288, numPredict: 1500)
             .complete(system: system, user: user)
     }
 

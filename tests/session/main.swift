@@ -1032,6 +1032,28 @@ func runTests() async {
         let (sys, user) = MeetingAsk.prompt(question: "q", excerpts: "e")
         check(sys.contains("ONLY the meeting excerpts") && user.contains("Question: q"),
               "ask prompt grounds the model in the excerpts")
+
+        // In-session ask: keyword-scored lines win; a question with no
+        // content-word hits falls back to sampling the whole meeting.
+        let tLines = ["[00:05] Them: JR should launch one creative per day.",
+                      "[00:10] You: Sounds good.",
+                      "[00:20] You: Daily creative testing starts Monday."]
+        let scopedHit = MeetingAsk.sessionExcerpts(
+            question: "what about creative testing?", transcriptLines: tLines,
+            review: "### Team direction\n- JR owns one lane.")
+        check(scopedHit.contains("JR owns one lane")
+              && scopedHit.contains("[00:20]") && !scopedHit.contains("Sounds good"),
+              "session ask keeps notes + matching moments, drops filler")
+        let scopedGeneric = MeetingAsk.sessionExcerpts(
+            question: "how did it go?", transcriptLines: tLines, review: "")
+        check(scopedGeneric.contains("[00:05]"),
+              "generic question samples the meeting instead of going empty")
+        let (_, followUp) = MeetingAsk.sessionPrompt(
+            question: "and the second one?", excerpts: "e",
+            history: [(q: "first?", a: "answer one")])
+        check(followUp.contains("Earlier question: first?")
+              && followUp.contains("Question: and the second one?"),
+              "follow-ups carry the prior turn")
     }
 
     // 10. Merge suggestion: two remote labels that are probably one person

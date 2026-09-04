@@ -40,7 +40,7 @@ enum PromptBuilder {
         A TL;DR leading with the headline — the single most important thing decided, learned, or at stake. Then at most two more sentences on where things landed. Never mention meeting length, utterance counts, or talk percentages.
 
         NOTES:
-        The body of the meeting, grouped by topic. 2-5 topic sections. Each section is one line starting with "### " naming the topic in 2-5 words (a noun phrase like "Pricing and margin", never "Discussion" or "Updates"), then 2-6 lines each starting with "- ". Every bullet is a dense fact, not a vague gesture:
+        The body of the meeting, grouped by topic. 2-5 topic sections. Each section is one line starting with "### " naming the topic in 2-5 words (a noun phrase like "Pricing and margin", never "Discussion" or "Updates"), then 3-8 lines each starting with "- ". Be thorough: a reader who missed the meeting should get every decision, number, and named person from these bullets — more short factual bullets beat fewer vague ones. Every bullet is a dense fact, not a vague gesture:
         - Keep the specifics EXACTLY as said: numbers, dollar amounts, percentages, dates, names of people/products/companies. "~$6-7k/month, lowest Meta profit" beats "high cost, low return".
         - Record decisions with their reasoning, and open questions as open.
         - When people disagreed, say who pushed back on what and how it resolved (or that it didn't).
@@ -48,7 +48,7 @@ enum PromptBuilder {
         Skip small talk entirely. Order sections by importance, not chronology.
 
         NEXT STEPS:
-        1-6 lines, each starting with "- ", formatted "Action (owner) — one line of detail: the how or the success bar". Every line carries its parenthesized owner right after the action; write "(owner unclear)" when the transcript never said. Only commitments actually stated or clearly implied. Include a deadline ONLY when one was actually spoken — NEVER invent dates or deadlines. Mark anything called urgent with "[critical]".
+        1-6 lines, each starting with "- ", formatted "Action (owner) — one line of detail: the how or the success bar". Every line carries its parenthesized owner right after the action; write "(owner unclear)" when the transcript never said. Only commitments actually stated or clearly implied. Include a deadline ONLY when one was actually spoken — NEVER invent one: if the transcript has no date, the line has no date. Phrases like "by end of week", "within 48 hours", "by next sprint" are banned unless those exact commitments were said. Mark anything called urgent with "[critical]".
 
         NEXT MEETING FOCUS:
         One sentence on the most valuable thing to do differently next time — the ONLY place coaching signals may appear.
@@ -77,8 +77,10 @@ enum PromptBuilder {
         is merely mentioned ("I met with Chad") is NOT a speaker — when a
         speaker is never named, call them by their transcript label ("Them")
         rather than guessing. A NEXT STEPS owner must be a name from the
-        transcript, "You", "Them", or "(owner unclear)". Keep the whole
-        reply under 550 words. Plain text except for the structure shown:
+        transcript, "You", "Them", or "(owner unclear)". Final check before
+        replying: delete any deadline or timeframe in NEXT STEPS that is
+        not verbatim from the transcript. Keep the whole
+        reply under 700 words. Plain text except for the structure shown:
         the five header lines, "### " topic lines, and "- " bullets — no
         bold, backticks, emoji, tables, or numbered lists. Refer to
         coaching signals by plain names (say "talk time", never camelCase
@@ -106,11 +108,13 @@ enum PromptBuilder {
         // of the first N chars only.
         if !transcript.isEmpty {
             var t = transcript
-            // Catalog models all take 32K+ context; a 73-minute meeting is
-            // ~10-14K chars of turns, so most meetings now fit whole. The
-            // old 8K cap amputated exactly the middle where decisions live.
-            if t.count > 24_000 {
-                t = t.prefix(8_000) + "\n[… middle of the meeting trimmed …]\n" + t.suffix(16_000)
+            // Sized against the review call's 12288 num_ctx: 32K chars is
+            // ~8K tokens, leaving room for this system prompt and a 1500-
+            // token reply. Noah's real 43-min meeting was 35K chars and the
+            // old 24K cap amputated exactly the middle where the team
+            // review happened (2026-09-04) — most meetings now fit whole.
+            if t.count > 32_000 {
+                t = t.prefix(10_000) + "\n[… middle of the meeting trimmed …]\n" + t.suffix(22_000)
             }
             userLines.append("\nTranscript (You = the user, the person these notes are for):\n\(t)")
         }

@@ -39,6 +39,14 @@ struct SessionDetailView: View {
     @State private var durationMinutes = 0
     @State private var talkShareValue: Double?
     @State private var languageCode: String?
+    // In-session ask thread (Granola-style "chat with the meeting",
+    // Noah 2026-09-04). Lives here, not in the tab, so it survives
+    // switching between Transcript and Summary.
+    @State private var askThread: [(q: String, a: String)] = []
+    @State private var askInput = ""
+    @State private var askBusy: String?
+    @State private var pendingAsk: String?
+    @State private var askTick = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -49,7 +57,13 @@ struct SessionDetailView: View {
         .background(Dorado.surface)
         .task(id: url) {
             tab = .transcript   // resets per session (spec)
+            askThread = []; askInput = ""; askBusy = nil; pendingAsk = nil
             load()
+        }
+        .task(id: askTick) {
+            guard askTick > 0, let question = pendingAsk else { return }
+            pendingAsk = nil
+            await runSessionAsk(question)
         }
     }
 
@@ -168,6 +182,8 @@ struct SessionDetailView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 18) {
+                    askCard
+                        .padding(.bottom, 4)
                     ForEach(Array(lines.enumerated()), id: \.offset) { i, line in
                         HStack(alignment: .top, spacing: 16) {
                             Text(line.stamp)
@@ -214,6 +230,7 @@ struct SessionDetailView: View {
     private var summaryTab: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
+                askCard
                 if let review {
                     MeetingReviewView(review: review) { id in
                         toggleActionItem(id)
@@ -256,6 +273,115 @@ struct SessionDetailView: View {
         }
     }
 
+    // MARK: in-session ask
+
+    /// "Chat with the meeting": prior Q&A turns, a busy line, and the ask
+    /// field. Answers come from THIS session only (notes + best transcript
+    /// moments), with the last turns passed back so follow-ups work.
+    @ViewBuilder
+    private var askCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(Array(askThread.enumerated()), id: \.offset) { _, turn in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(turn.q)
+                        .font(Dorado.barlowBold(13))
+                        .foregroundStyle(Dorado.grey500)
+                    Text(turn.a)
+                        .font(Dorado.roboto(14))
+                        .foregroundStyle(Dorado.grey800)
+                        .lineSpacing(4)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            if let busy = askBusy {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text(busy)
+                        .font(Dorado.roboto(12)).foregroundStyle(Dorado.grey500)
+                }
+            }
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 12)).foregroundStyle(Dorado.grey500)
+                TextField("Ask about this meeting…", text: $askInput)
+                    .textFieldStyle(.plain)
+                    .font(Dorado.roboto(14))
+                    .onSubmit(submitAsk)
+                    .disabled(askBusy != nil)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 9)
+            .background(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(Color.white)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(Dorado.divider, lineWidth: 1)
+            )
+        }
+        .frame(maxWidth: 640, alignment: .leading)
+    }
+
+    private func submitAsk() {
+        let q = askInput.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty, askBusy == nil else { return }
+        askInput = ""
+        pendingAsk = q
+        askTick += 1
+    }
+
+    private func runSessionAsk(_ question: String) async {
+        guard let settings, let ollamaManager else {
+            askThread.append((q: question,
+                              a: "AI answers need a local model — install one in Settings → Model."))
+            return
+        }
+        askBusy = "Reading this meeting with the local model…"
+        defer { askBusy = nil }
+
+        if ollamaManager.status == .stopped { ollamaManager.start() }
+        if ollamaManager.status != .running {
+            for _ in 1...30 {
+                try? await Task.sleep(for: .milliseconds(500))
+                if ollamaManager.status == .running { break }
+                if case .error = ollamaManager.status { break }
+            }
+        }
+        await settings.refreshModels()
+        guard ollamaManager.status == .running, !settings.availableModels.isEmpty else {
+            askThread.append((q: question,
+                              a: "The local model isn't available right now — check Settings → Model."))
+            return
+        }
+
+        let transcriptLines = lines.map { "[\($0.stamp)] \($0.speaker): \($0.text)" }
+        let excerpts = MeetingAsk.sessionExcerpts(question: question,
+                                                  transcriptLines: transcriptLines,
+                                                  review: review?.recapMarkdown ?? "")
+        let (system, user) = MeetingAsk.sessionPrompt(question: question, excerpts: excerpts,
+                                                      history: Array(askThread.suffix(3)))
+        // Same fast-path sizing as the search-pane ask (4096 matches the
+        // in-call phase; 384 covers a 150-word answer).
+        let client = OllamaClient(model: settings.effectiveModel,
+                                  numCtx: 4096, numPredict: 384)
+        if await !client.runningModels().contains(settings.effectiveModel) {
+            askBusy = "Loading \(settings.effectiveModel) — the first question pays this once, repeats are much faster…"
+        }
+        do {
+            let text = try await client.complete(system: system, user: user)
+            let cleaned = text.components(separatedBy: .newlines)
+                .map(MeetingReview.clean)
+                .joined(separator: "\n")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            askThread.append((q: question,
+                              a: cleaned.isEmpty ? "The model returned nothing — try asking again." : cleaned))
+        } catch {
+            askThread.append((q: question,
+                              a: "The local model couldn't answer (\(error.localizedDescription))."))
+        }
+    }
+
     /// Re-run the LLM review over this saved session's transcript and
     /// persist it into the file's "## Review" section.
     private func regenerateReview() async {
@@ -282,7 +408,7 @@ struct SessionDetailView: View {
                 MeetingLanguageSelection.resolvedPersistedCode($0)?.englishName
             })
         guard let text = try? await OllamaClient(model: settings.effectiveModel,
-                                                 numCtx: 10_240, numPredict: 1200)
+                                                 numCtx: 12_288, numPredict: 1500)
             .complete(system: system, user: user) else { return }
         let parsed = MeetingReview.parse(llmText: text, talkShare: talkShareValue)
         review = parsed
