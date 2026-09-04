@@ -39,10 +39,13 @@ enum MeetingAsk {
     /// breaks ties), then build the excerpt block the LLM answers from —
     /// per selected session, its saved review (dense, already summarized)
     /// plus the matching transcript lines. Pure and deterministic.
+    /// Budget tuned for speed (Noah, 2026-09-04: "a bit slow"): the answer
+    /// only needs the best moments, and prompt length is what the user
+    /// waits on — every 1k chars is ~250 tokens of prefill.
     static func buildContext(question: String,
                              dir: URL = AppSupport.sessionsDir,
-                             maxSessions: Int = 4,
-                             budget: Int = 12_000)
+                             maxSessions: Int = 3,
+                             budget: Int = 7_000)
         -> (excerpts: String, sources: [MeetingAskSource]) {
         let words = keywords(in: question)
         guard !words.isEmpty else { return ("", []) }
@@ -94,7 +97,7 @@ enum MeetingAsk {
             // meeting order.
             let lines = scored
                 .sorted { $0.hits != $1.hits ? $0.hits > $1.hits : $0.order < $1.order }
-                .prefix(14)
+                .prefix(10)
                 .sorted { $0.order < $1.order }
                 .map(\.text)
             // The review text counts for coverage too — a topic can live
@@ -112,7 +115,7 @@ enum MeetingAsk {
             candidates.append(Candidate(
                 file: file, title: title,
                 date: TranscriptSearch.shortDate(for: file) ?? "",
-                review: String(review.prefix(1_500)),
+                review: String(review.prefix(1_000)),
                 matchedLines: lines,
                 distinct: matched.count))
         }

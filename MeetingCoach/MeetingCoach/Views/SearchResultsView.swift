@@ -17,7 +17,9 @@ struct SearchResultsView: View {
 
     private enum AskState: Equatable {
         case idle
-        case thinking
+        /// The message says what the wait actually is — "loading the
+        /// model" on a cold first ask vs "reading your meetings" when warm.
+        case thinking(String)
         case answered(String, [MeetingAskSource])
         /// One line on WHY there's no answer — degraded modes stay visible.
         case unavailable(String)
@@ -158,10 +160,10 @@ struct SearchResultsView: View {
                 }
                 .buttonStyle(.plain)
                 .help("The local model reads the matching meetings and answers — nothing leaves this Mac")
-            case .thinking:
+            case .thinking(let message):
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("Reading your meetings with the local model…")
+                    Text(message)
                         .font(.caption).foregroundStyle(.secondary)
                 }
             case .answered(let answer, let sources):
@@ -214,7 +216,7 @@ struct SearchResultsView: View {
     private func runAsk() async {
         guard let settings, let ollamaManager else { return }
         let question = query
-        askState = .thinking
+        askState = .thinking("Reading your meetings with the local model…")
 
         let (excerpts, sources) = MeetingAsk.buildContext(question: question)
         guard !sources.isEmpty else {
@@ -245,8 +247,18 @@ struct SearchResultsView: View {
 
         let (system, user) = MeetingAsk.prompt(question: question, excerpts: excerpts)
         do {
-            let text = try await OllamaClient(model: settings.effectiveModel)
-                .complete(system: system, user: user)
+            // 4096/384 (not the defaults): the ~7k-char excerpt budget plus
+            // a 180-word answer fits comfortably, a smaller context spawns
+            // the runner faster on a cold ask, and 4096 matches the in-call
+            // phase so a warm live-session runner is reused, not respawned.
+            let client = OllamaClient(model: settings.effectiveModel,
+                                      numCtx: 4096, numPredict: 384)
+            if await !client.runningModels().contains(settings.effectiveModel),
+               question == query {
+                askState = .thinking(
+                    "Loading \(settings.effectiveModel) — the first question pays this once, repeats are much faster…")
+            }
+            let text = try await client.complete(system: system, user: user)
             let cleaned = text.components(separatedBy: .newlines)
                 .map(MeetingReview.clean)
                 .joined(separator: "\n")
