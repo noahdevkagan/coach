@@ -289,7 +289,12 @@ final class LiveSessionViewModel {
     nonisolated static func liveCompleteReview(_ model: String,
                                                _ system: String,
                                                _ user: String) async throws -> String {
-        try await OllamaClient(model: model).complete(system: system, user: user)
+        // 12288/1500 (not the 8192/512 defaults): the topic-sectioned
+        // review is the one long reply — sized with PromptBuilder's 32K
+        // transcript cap so a 43-min meeting fits untrimmed (2026-09-04).
+        // Post-call only — ASR and the in-call runner are already gone.
+        try await OllamaClient(model: model, numCtx: 12_288, numPredict: 1500)
+            .complete(system: system, user: user)
     }
 
     /// The meeting currently in progress. Set at start, cleared at Stop —

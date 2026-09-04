@@ -26,6 +26,7 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Engine/Mclog.swift" \
   "$SRC/Engine/DemoScript.swift" \
   "$SRC/Engine/PromptBuilder.swift" \
+  "$SRC/Engine/MeetingAsk.swift" \
   "$SRC/Engine/DeterministicReview.swift" \
   "$SRC/Engine/TranscriptParser.swift" \
   "$SRC/Engine/PendingProfileSaves.swift" \

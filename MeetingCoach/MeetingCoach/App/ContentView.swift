@@ -76,7 +76,9 @@ struct ContentView: View {
                     }
                     .frame(minWidth: 400)
                 } else if !activeSearch.isEmpty {
-                    SearchResultsView(query: activeSearch) { url in
+                    SearchResultsView(query: activeSearch,
+                                      settings: settings,
+                                      ollamaManager: ollamaManager) { url in
                         selectedSessionURL = url
                     }
                     .frame(minWidth: 400)
@@ -1779,14 +1781,13 @@ struct ModelSection: View {
                 DisclosureGroup(isExpanded: $isExpanded) {
                     VStack(alignment: .leading, spacing: 8) {
                         Picker("", selection: $settings.selectedModel) {
+                            // One Text per row on purpose: the macOS menu
+                            // picker drops an HStack's trailing column, so
+                            // the size used to vanish from the dropdown
+                            // (Noah, 2026-09-04).
                             ForEach(settings.availableModels) { model in
-                                HStack {
-                                    Text(model.name)
-                                    Spacer()
-                                    Text(model.parameterSize.isEmpty ? model.sizeLabel : model.parameterSize)
-                                        .foregroundStyle(.secondary)
-                                }
-                                .tag(model.name)
+                                Text("\(model.name) (\(model.sizeLabel))")
+                                    .tag(model.name)
                             }
                         }
                         .labelsHidden()

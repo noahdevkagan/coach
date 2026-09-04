@@ -125,7 +125,9 @@ enum TranscriptSearch {
 
     /// Everyday conversation words that carry no topic. Aggressive on
     /// purpose — a wrong topic word in a title is worse than a shorter title.
-    private static let titleStopWords: Set<String> = [
+    /// Internal (not private): MeetingAsk reuses it to pick the content
+    /// words of a question for retrieval.
+    static let titleStopWords: Set<String> = [
         "that", "this", "with", "have", "just", "like", "know", "think",
         "going", "really", "actually", "right", "yeah", "okay", "want",
         "need", "well", "good", "great", "time", "meeting", "thing",
@@ -331,8 +333,26 @@ enum TranscriptSearch {
         }
     }
 
+    /// The words of a query, for all-words matching and highlighting.
+    /// Whitespace-split on purpose — no stemming, no stopword removal:
+    /// every word the user typed must count, or "no results" becomes a lie.
+    static func queryTokens(_ query: String) -> [String] {
+        query.split(whereSeparator: { $0.isWhitespace }).map(String.init)
+    }
+
+    /// All-words match: every query token appears somewhere in the text
+    /// (case/diacritic-insensitive, any order). One token behaves exactly
+    /// like the old substring search; "JR creative daily" now finds a line
+    /// no matter how the words were ordered when spoken.
+    static func matchesAllTokens(_ text: String, tokens: [String]) -> Bool {
+        !tokens.isEmpty && tokens.allSatisfy {
+            text.range(of: $0, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+        }
+    }
+
     /// Search the spoken lines of every saved session. Matches only against
     /// what was said — headers and stats would make every query noisy.
+    /// Multi-word queries match lines containing ALL words, in any order.
     /// Queries under 2 characters return nothing (too noisy to be useful).
     static func search(_ query: String,
                        in dir: URL = AppSupport.sessionsDir,
@@ -340,6 +360,7 @@ enum TranscriptSearch {
                        limit: Int = 60) -> [TranscriptHit] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard q.count >= 2 else { return [] }
+        let tokens = queryTokens(q)
 
         var hits: [TranscriptHit] = []
         for file in sessionFiles(in: dir) {
@@ -352,7 +373,7 @@ enum TranscriptSearch {
             // never spoken — meeting names ("Cal · tidy & affiliate",
             // "Weekly Sync") are how people remember sessions, and titles
             // aren't transcript lines so the loop below can't see them.
-            if sessionTitle.range(of: q, options: [.caseInsensitive, .diacriticInsensitive]) != nil {
+            if matchesAllTokens(sessionTitle, tokens: tokens) {
                 hits.append(TranscriptHit(file: file, sessionTitle: sessionTitle,
                                           timestamp: "", speaker: "",
                                           text: sessionTitle))
@@ -361,7 +382,7 @@ enum TranscriptSearch {
             for rawLine in content.split(separator: "\n") {
                 guard inSession < maxPerSession, hits.count < limit else { break }
                 guard let line = parseTranscriptLine(String(rawLine)),
-                      line.text.range(of: q, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+                      matchesAllTokens(line.text, tokens: tokens)
                 else { continue }
                 hits.append(TranscriptHit(file: file, sessionTitle: sessionTitle,
                                           timestamp: line.stamp, speaker: line.speaker,

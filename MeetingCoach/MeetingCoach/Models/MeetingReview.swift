@@ -8,6 +8,14 @@ struct ActionItem: Identifiable, Equatable {
     var isDone: Bool = false
 }
 
+/// One topic section of the meeting notes ("### Pricing and margin" plus
+/// its bullets) — the Granola-style body that replaced the flat
+/// KEY TAKEAWAYS list (Noah, 2026-09-04).
+struct ReviewSection: Equatable {
+    var heading: String
+    var bullets: [String] = []
+}
+
 /// Structured post-meeting review. Both review paths produce this — the
 /// deterministic (no-LLM) builder directly, the LLM path via `parse` — so
 /// the UI never renders a raw text blob and internal signal ids never leak.
@@ -17,6 +25,10 @@ struct MeetingReview: Equatable {
     /// the word-frequency heuristic. nil on the deterministic path.
     var title: String?
     var summary: String = ""
+    /// Topic-grouped meeting notes (the NOTES: body). Empty on the
+    /// deterministic path and for pre-0.22 saved reviews, which carry
+    /// the flat `takeaways` list instead.
+    var sections: [ReviewSection] = []
     var takeaways: [String] = []
     var actionItems: [ActionItem] = []
     var wins: [String] = []
@@ -28,7 +40,9 @@ struct MeetingReview: Equatable {
     /// shows a footnote instead of pretending it was the AI review.
     var isDeterministic = false
 
-    var isEmpty: Bool { summary.isEmpty && takeaways.isEmpty && actionItems.isEmpty }
+    var isEmpty: Bool {
+        summary.isEmpty && sections.isEmpty && takeaways.isEmpty && actionItems.isEmpty
+    }
 
     /// Shareable / persisted rendition. This goes into the session .md file
     /// and the copy/share recap, where markdown is the right format —
@@ -42,6 +56,11 @@ struct MeetingReview: Equatable {
         }
         if let share = talkShare {
             lines.append("Talk split (whole meeting): you \(Int(share * 100))% · them \(100 - Int(share * 100))%")
+            lines.append("")
+        }
+        for section in sections {
+            lines.append("### \(section.heading)")
+            lines.append(contentsOf: section.bullets.map { "- \($0)" })
             lines.append("")
         }
         if !takeaways.isEmpty {
@@ -83,11 +102,14 @@ struct MeetingReview: Equatable {
     }
 
     static func parse(llmText: String, talkShare: Double? = nil) -> MeetingReview {
-        enum Section { case title, summary, takeaways, nextSteps, wins, focus }
+        enum Section { case title, summary, notes, takeaways, nextSteps, wins, focus }
         var review = MeetingReview(talkShare: talkShare)
         var section = Section.summary
         var summaryLines: [String] = []
         var focusLines: [String] = []
+        /// True once a "### topic" line opened a section — content then
+        /// routes to `sections.last` until the next known header.
+        var inTopic = false
 
         func sectionFor(header line: String) -> Section? {
             var h = line.trimmingCharacters(in: .whitespaces).lowercased()
@@ -103,6 +125,7 @@ struct MeetingReview: Equatable {
             guard !h.isEmpty, h.count <= 40 else { return nil }
             if h == "title" || h == "meeting title" || h == "session title" { return .title }
             if h.hasPrefix("summary") { return .summary }
+            if h == "notes" || h == "meeting notes" || h == "discussion notes" { return .notes }
             if h.contains("takeaway") || h.contains("key point") || h.contains("highlight")
                 || h.contains("discussion point") || h.contains("key discussion")
                 || h.contains("quick update") { return .takeaways }
@@ -124,6 +147,8 @@ struct MeetingReview: Equatable {
             let labels: [(String, Section)] = [
                 ("title", .title),
                 ("summary", .summary),
+                ("notes", .notes),
+                ("meeting notes", .notes),
                 ("key takeaways", .takeaways),
                 ("takeaways", .takeaways),
                 ("key points", .takeaways),
@@ -133,6 +158,10 @@ struct MeetingReview: Equatable {
                 ("next steps", .nextSteps),
                 ("action items", .nextSteps),
                 ("next meeting focus", .focus),
+                // After "next meeting focus" on purpose (first prefix hit
+                // wins) — this one round-trips recapMarkdown's own
+                // "**Next meeting:** …" line back into `nextFocus`.
+                ("next meeting", .focus),
                 ("wins", .wins),
             ]
             for (label, sec) in labels where lower.hasPrefix(label) {
@@ -186,13 +215,17 @@ struct MeetingReview: Equatable {
         for rawLine in allLines[startIndex...] {
             var line = rawLine.trimmingCharacters(in: .whitespaces)
             if line.isEmpty { continue }
+            // recapMarkdown's own talk-split line — carried by `talkShare`,
+            // never by text (re-parsing used to glue it onto the summary).
+            if line.hasPrefix("Talk split (") { continue }
             if let (s, rest) = inlineHeader(line) {
                 section = s
+                inTopic = false
                 if !rest.isEmpty {
                     switch s {
                     case .title: if review.title == nil { review.title = clipTitle(rest) }
                     case .summary: summaryLines.append(rest)
-                    case .takeaways: review.takeaways.append(rest)
+                    case .notes, .takeaways: review.takeaways.append(rest)
                     case .nextSteps: review.actionItems.append(ActionItem(text: rest))
                     case .wins: review.wins.append(rest)
                     case .focus: focusLines.append(rest)
@@ -200,7 +233,34 @@ struct MeetingReview: Equatable {
                 }
                 continue
             }
-            if let s = sectionFor(header: line) { section = s; continue }
+            // "### Pricing and margin" — a topic heading inside the NOTES
+            // body (any # depth; recapMarkdown always writes "### ").
+            // Checked BEFORE sectionFor: its fuzzy matching would hijack a
+            // topic that merely contains a section word ("Role and focus"
+            // is a topic, not the NEXT MEETING FOCUS header) — only the
+            // canonical section names may switch sections from a # line.
+            // Bold-wrapped headings ("**Pricing**") count too, but only
+            // inside notes — elsewhere a bold line is emphasized content.
+            let isTopicLine = line.hasPrefix("#")
+                || (section == .notes && line.hasPrefix("**") && line.hasSuffix("**")
+                    && line.count > 4)
+            if isTopicLine {
+                let heading = clean(line).trimmingCharacters(in: CharacterSet(charactersIn: ": "))
+                let canonical: Set<String> = [
+                    "title", "summary", "notes", "meeting notes",
+                    "key takeaways", "takeaways", "wins",
+                    "next steps", "suggested next steps", "action items",
+                    "next meeting focus", "next meeting",
+                ]
+                if !heading.isEmpty, heading.count <= 60,
+                   !canonical.contains(heading.lowercased()) {
+                    review.sections.append(ReviewSection(heading: heading))
+                    section = .notes
+                    inTopic = true
+                    continue
+                }
+            }
+            if let s = sectionFor(header: line) { section = s; inTopic = false; continue }
             // Table rows ("| decision | owner |") → joined cells; separator
             // rows ("|---|---|") are skipped.
             if line.hasPrefix("|") {
@@ -220,6 +280,16 @@ struct MeetingReview: Equatable {
                 if review.title == nil { review.title = clipTitle(bullet ?? clean(line)) }
             case .summary:
                 summaryLines.append(bullet ?? clean(line))
+            case .notes:
+                // Bullets under an opened "### topic" belong to it; notes
+                // content before any topic degrades to the flat takeaways
+                // list so nothing is dropped.
+                if inTopic, !review.sections.isEmpty {
+                    appendOrContinue(bullet, line,
+                                     to: &review.sections[review.sections.count - 1].bullets)
+                } else {
+                    appendOrContinue(bullet, line, to: &review.takeaways)
+                }
             case .takeaways:
                 appendOrContinue(bullet, line, to: &review.takeaways)
             case .nextSteps:
@@ -244,6 +314,8 @@ struct MeetingReview: Equatable {
         review.summary = summaryLines.joined(separator: " ")
         if !focusLines.isEmpty { review.nextFocus = focusLines.joined(separator: " ") }
         if review.actionItems.count > 8 { review.actionItems.removeLast(review.actionItems.count - 8) }
+        review.sections.removeAll { $0.bullets.isEmpty }
+        if review.sections.count > 8 { review.sections.removeLast(review.sections.count - 8) }
 
         if review.isEmpty {
             // Unparseable response — degrade to readable text, never blank.

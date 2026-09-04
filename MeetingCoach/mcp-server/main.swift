@@ -70,7 +70,7 @@ enum Server {
              "description": "Full-text search over every saved meeting transcript. Returns matching spoken lines with session file, timestamp, and speaker.",
              "inputSchema": ["type": "object",
                              "properties": ["query": ["type": "string",
-                                                      "description": "Text to find (case-insensitive)"]],
+                                                      "description": "Words to find (case-insensitive; a line matches when it contains every word, in any order)"]],
                              "required": ["query"]]],
             ["name": "get_transcript",
              "description": "Return the full saved markdown for one session — file name as returned by list_sessions or search_transcripts.",
