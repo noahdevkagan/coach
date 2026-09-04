@@ -7,6 +7,15 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## 0.22.0 — 2026-09-04
+
+- Meeting reviews are now organized by topic: a NOTES section with a heading per subject discussed and dense factual bullets under each, plus NEXT STEPS with an owner on every item — instead of one flat list of takeaways. Long meetings fit whole: a 43-minute call is reviewed untrimmed
+- Reviews stick closer to what was actually said: someone who was mentioned is no longer written up as if they spoke, and no deadlines are invented that nobody committed to. Reviews saved by earlier versions still open as before
+- Search matches every word you type, in any order, and highlights each match — "pricing anna" finds the meeting where Anna raised pricing, however the words fell
+- New "Ask AI" card in search results: ask a question across your saved meetings ("what did we decide about the launch date?") and get an answer that cites which meeting each point came from. Runs on your local model; if none is installed, or no meeting matches, it says so
+- Open any saved meeting and ask it questions in the new ask bar at the bottom — answers come from that meeting's transcript and review only
+- The AI model picker now shows each model's download size next to its name
+
 ## 0.21.0 — 2026-09-02
 
 - New "AI coaching" toggle in Settings → Model: turn it off and MeetingCoach runs transcript-first — live transcript, speaker names, and built-in nudges keep working, but no AI model is loaded. Flip it off mid-call and the memory (~7 GB for the default model) comes back right away, not next session. "Generate AI review" on saved sessions still works on demand
