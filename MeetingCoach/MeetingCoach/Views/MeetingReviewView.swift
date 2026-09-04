@@ -30,6 +30,16 @@ struct MeetingReviewView: View {
                 }
             }
 
+            // Topic-grouped notes (the Granola-style body). The flat Key
+            // Takeaways list only renders for deterministic and pre-0.22
+            // reviews — an LLM review carries sections instead.
+            ForEach(Array(review.sections.enumerated()), id: \.offset) { _, topic in
+                Divider()
+                section(icon: "number", tint: .blue, title: topic.heading) {
+                    bulletList(topic.bullets)
+                }
+            }
+
             if !review.takeaways.isEmpty {
                 Divider()
                 section(icon: "star.fill", tint: .blue, title: "Key Takeaways") {

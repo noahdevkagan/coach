@@ -931,6 +931,109 @@ func runTests() async {
         vm.deleteSession()
     }
 
+    // 9b. Granola-class review (2026-09-04): NOTES topic sections parse,
+    //     round-trip through recapMarkdown, and pre-0.22 persisted
+    //     reviews stay readable.
+    do {
+        let parsed = MeetingReview.parse(llmText: """
+            TITLE:
+            Nick · performance comp
+            SUMMARY:
+            Nick will own one number — contribution profit from performance.
+            NOTES:
+            ### Role and focus
+            - Nick acting as head of marketing since Alona left; prefers performance work.
+            - Noah's concern: hard to tell what Nick is winning while the company declines.
+            ### Agency review
+            - 565 would be fired first: ~$6-7k/month, lowest last-click Meta profit.
+            Nick would step in and run Meta directly.
+            NEXT STEPS:
+            - Propose revised comp for Erica (Nick) — lower base, remove the $2k cap
+            NEXT MEETING FOCUS:
+            Let Nick finish his pushback before responding.
+            """, talkShare: 0.4)
+        check(parsed.sections.count == 2
+              && parsed.sections[0].heading == "Role and focus"
+              && parsed.sections[0].bullets.count == 2
+              && parsed.sections[1].bullets.count == 1
+              && parsed.sections[1].bullets[0].hasSuffix("run Meta directly."),
+              "NOTES topic sections parse (headings, bullets, prose continuation)",
+              "sections: \(parsed.sections)")
+        check(parsed.takeaways.isEmpty && parsed.actionItems.count == 1
+              && parsed.actionItems[0].text.contains("(Nick)"),
+              "owner-tagged next steps survive, no takeaways leak")
+
+        let reparsed = MeetingReview.parse(llmText: parsed.recapMarkdown, talkShare: 0.4)
+        check(reparsed.sections == parsed.sections
+              && reparsed.summary == parsed.summary
+              && reparsed.nextFocus == parsed.nextFocus
+              && reparsed.actionItems.map(\.text) == parsed.actionItems.map(\.text),
+              "review round-trips through recapMarkdown (sections, focus, steps)",
+              "got \(reparsed)")
+        check(!reparsed.summary.contains("Talk split"),
+              "talk split line never re-enters summary text")
+
+        let legacy = MeetingReview.parse(llmText: """
+            **Summary**
+            Old review body.
+            **Key Takeaways**
+            - Existing point
+            **Suggested Next Steps**
+            - [x] Done thing
+            **Next meeting:** Keep it shorter.
+            """)
+        check(legacy.takeaways == ["Existing point"] && legacy.sections.isEmpty
+              && legacy.actionItems.first?.isDone == true
+              && legacy.nextFocus == "Keep it shorter.",
+              "pre-0.22 persisted reviews still parse (takeaways, checked step, focus)",
+              "got \(legacy)")
+    }
+
+    // 9c. Smarter search (2026-09-04): multi-word queries need every word
+    //     on one line; MeetingAsk retrieval picks the covering session.
+    do {
+        let dir = scratch.appendingPathComponent("ask-tests", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let older = """
+        # Meeting Coach Session
+        **Title:** Chad · budget
+        ## Transcript
+        - [00:10] You: The budget for ads is fine.
+        """
+        let newer = """
+        # Meeting Coach Session
+        **Title:** Nick · creative testing
+        ## Transcript
+        - [00:05] Them: JR should launch one creative per day in September.
+        - [00:20] You: Daily creative testing starts Monday.
+        ## Review
+        ### Team direction
+        - JR owns one lane: one AI-assisted creative per day.
+        """
+        try? older.write(to: dir.appendingPathComponent("2026-09-01T09-00_budget.md"),
+                         atomically: true, encoding: .utf8)
+        try? newer.write(to: dir.appendingPathComponent("2026-09-03T10-00_creative.md"),
+                         atomically: true, encoding: .utf8)
+
+        let hits = TranscriptSearch.search("creative daily", in: dir)
+        check(hits.count == 1 && hits[0].text == "Daily creative testing starts Monday.",
+              "multi-word search matches all words in any order",
+              "hits: \(hits.map(\.text))")
+        check(TranscriptSearch.search("creative budget", in: dir).isEmpty,
+              "words split across sessions don't fake a line match")
+
+        let (excerpts, sources) = MeetingAsk.buildContext(
+            question: "what did we decide about JR's creative testing?", dir: dir)
+        check(sources.count == 1 && sources[0].title == "Nick · creative testing"
+              && excerpts.contains("JR owns one lane")
+              && excerpts.contains("[00:05] Them:"),
+              "ask retrieval picks the covering session with review + moments",
+              "sources: \(sources.map(\.title))")
+        let (sys, user) = MeetingAsk.prompt(question: "q", excerpts: "e")
+        check(sys.contains("ONLY the meeting excerpts") && user.contains("Question: q"),
+              "ask prompt grounds the model in the excerpts")
+    }
+
     // 10. Merge suggestion: two remote labels that are probably one person
     //     surface a one-tap merge card; confirming merges the transcript
     //     and brings the one-on-one alias back.

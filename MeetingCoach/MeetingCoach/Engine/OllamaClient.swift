@@ -289,14 +289,19 @@ actor OllamaClient {
     let timeout: TimeInterval
     /// Context window requested per call. KV-cache memory scales linearly
     /// with this, so in-call callers (heartbeat, name inference) pass 4096 —
-    /// their prompt is a 180s window — while the post-call review keeps the
-    /// 8192 default for long transcripts. NB: changing num_ctx between
-    /// requests makes Ollama respawn the runner, so keep it stable within
-    /// a phase (all in-call = 4096; the one review reload is post-call).
+    /// their prompt is a 180s window — while the post-call review passes
+    /// 10240 for long transcripts plus its long sectioned reply. NB:
+    /// changing num_ctx between requests makes Ollama respawn the runner,
+    /// so keep it stable within a phase (all in-call = 4096; the one
+    /// review reload is post-call).
     let numCtx: Int
     /// Sent on every generation request. Without it Ollama resets the
     /// runner's expiry to the server default (5m) on each call.
     let keepAlive: String
+    /// Output-token cap. In-call callers keep the 512 default (their
+    /// replies are a JSON array or one short section); the post-call
+    /// review passes 1024 — topic-sectioned notes are the one long reply.
+    let numPredict: Int
 
     private static let loopbackHosts: Set<String> = ["127.0.0.1", "localhost", "::1"]
 
@@ -304,7 +309,8 @@ actor OllamaClient {
          baseURL: URL = URL(string: "http://127.0.0.1:11434")!,
          timeout: TimeInterval = 120,
          numCtx: Int = 8192,
-         keepAlive: String = "10m") {
+         keepAlive: String = "10m",
+         numPredict: Int = 512) {
         let host = baseURL.host() ?? baseURL.host ?? ""
         guard Self.loopbackHosts.contains(host) else {
             fatalError("LLM base URL host '\(host)' is not loopback. Refusing — inference must stay local.")
@@ -314,6 +320,7 @@ actor OllamaClient {
         self.timeout = timeout
         self.numCtx = numCtx
         self.keepAlive = keepAlive
+        self.numPredict = numPredict
     }
 
     /// POST /api/chat — Ollama native endpoint (faster than OpenAI-compat, supports num_ctx)
@@ -333,7 +340,7 @@ actor OllamaClient {
             "options": [
                 "temperature": 0.3,
                 "num_ctx": numCtx,
-                "num_predict": 512,
+                "num_predict": numPredict,
             ],
             "keep_alive": keepAlive,
             "stream": false,

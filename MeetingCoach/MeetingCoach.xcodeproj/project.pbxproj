@@ -39,6 +39,7 @@
 		42613F60A3CB14497FC859C2 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 52193459BBD760AF1CA7B7F7 /* FluidAudio */; };
 		46BB0140FA3D0C6D5953EA48 /* NextStepsSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C6B8636393601795161557 /* NextStepsSignal.swift */; };
 		47D5418F46BB2B90178F534E /* CoachingOverlayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E80054B1508EFBBFD8D840F3 /* CoachingOverlayPanel.swift */; };
+		486F7585BE90347738E948CE /* MeetingAsk.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9C7A3BC0456A49035438F8E /* MeetingAsk.swift */; };
 		48DFEC114082BF96EBEF74C8 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D25D2CC8CBD4346DBFB9924 /* main.swift */; };
 		4A4FF91E00B9AFD2E0944107 /* PlatformSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BB9F3C621505E5F9C1C74CF /* PlatformSupport.swift */; };
 		4C4CE6FBC1FF6641932BEC3B /* TrainingExample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C9A04C9B391284F7BCDBD2E /* TrainingExample.swift */; };
@@ -199,6 +200,7 @@
 		C383A162604A3D3AE197F2A2 /* SessionTrends.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTrends.swift; sourceTree = "<group>"; };
 		C6D95FE03A7025FB8F8EE69D /* MissingDiscoverySignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MissingDiscoverySignal.swift; sourceTree = "<group>"; };
 		C8F05A5F9043EE4F2C14B8D5 /* AppSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSupport.swift; sourceTree = "<group>"; };
+		C9C7A3BC0456A49035438F8E /* MeetingAsk.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingAsk.swift; sourceTree = "<group>"; };
 		CA1F99166785B46F89B17133 /* TranscriptParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptParser.swift; sourceTree = "<group>"; };
 		CDAB5DD9D8D87802B15EAF68 /* ParakeetDownloadState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParakeetDownloadState.swift; sourceTree = "<group>"; };
 		D2B794F3FFF35F998081042B /* TalkCharts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkCharts.swift; sourceTree = "<group>"; };
@@ -298,6 +300,7 @@
 				85881F8DA1B5854DE7BA9F7A /* EchoFilter.swift */,
 				679CAE424170B3184298CF5C /* GranolaImporter.swift */,
 				D5560738095EF73A5816E554 /* Mclog.swift */,
+				C9C7A3BC0456A49035438F8E /* MeetingAsk.swift */,
 				A1A12E30BEB51DFB2F939AE4 /* MeetingDetectionService.swift */,
 				BB6CA4D089C636FF9E653ACF /* MeetingDetector.swift */,
 				0039986CEDE49DF43FF2342E /* MeetingWindowHeuristics.swift */,
@@ -613,6 +616,7 @@
 				E64A1CF9A596EDF1578EA6E0 /* InterruptionSignal.swift in Sources */,
 				B2AC75147E4394FD58C99445 /* LiveSessionViewModel.swift in Sources */,
 				6C768BCDCE0CDE33A7F70567 /* Mclog.swift in Sources */,
+				486F7585BE90347738E948CE /* MeetingAsk.swift in Sources */,
 				1FD450DC57AD4C53698800D3 /* MeetingCoachApp.swift in Sources */,
 				A36D1448B1484E7ACF6E53D5 /* MeetingDetectionService.swift in Sources */,
 				417ACEAF577CB9DB73C67193 /* MeetingDetector.swift in Sources */,

@@ -281,7 +281,8 @@ struct SessionDetailView: View {
             languageName: languageCode.flatMap {
                 MeetingLanguageSelection.resolvedPersistedCode($0)?.englishName
             })
-        guard let text = try? await OllamaClient(model: settings.effectiveModel)
+        guard let text = try? await OllamaClient(model: settings.effectiveModel,
+                                                 numCtx: 10_240, numPredict: 1200)
             .complete(system: system, user: user) else { return }
         let parsed = MeetingReview.parse(llmText: text, talkShare: talkShareValue)
         review = parsed
@@ -332,21 +333,25 @@ struct SessionDetailView: View {
     private func highlightedText(_ text: String) -> Text {
         guard !highlightQuery.isEmpty else { return Text(text) }
         var attributed = AttributedString(text)
-        var searchStart = attributed.startIndex
-        while let range = attributed[searchStart...].range(
-            of: highlightQuery, options: [.caseInsensitive, .diacriticInsensitive]) {
-            attributed[range].backgroundColor = Dorado.dorado100
-            attributed[range].foregroundColor = Dorado.midnight
-            searchStart = range.upperBound
+        // Per-word, matching the search's all-words semantics.
+        for token in TranscriptSearch.queryTokens(highlightQuery) {
+            var searchStart = attributed.startIndex
+            while let range = attributed[searchStart...].range(
+                of: token, options: [.caseInsensitive, .diacriticInsensitive]) {
+                attributed[range].backgroundColor = Dorado.dorado100
+                attributed[range].foregroundColor = Dorado.midnight
+                searchStart = range.upperBound
+            }
         }
         return Text(attributed)
     }
 
     private func scrollToFirstHit(_ proxy: ScrollViewProxy) {
-        guard !highlightQuery.isEmpty,
-              let i = lines.firstIndex(where: {
-                  $0.text.range(of: highlightQuery, options: [.caseInsensitive, .diacriticInsensitive]) != nil
-              }) else { return }
+        guard !highlightQuery.isEmpty else { return }
+        let tokens = TranscriptSearch.queryTokens(highlightQuery)
+        guard let i = lines.firstIndex(where: {
+            TranscriptSearch.matchesAllTokens($0.text, tokens: tokens)
+        }) else { return }
         withAnimation { proxy.scrollTo(i, anchor: .center) }
     }
 

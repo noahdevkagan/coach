@@ -1098,3 +1098,39 @@ person", and confirming would have saved Anna's voice clip under Chad's
 profile. Now the surviving name must `samePerson`-match
 `preCallRemoteName`, matching the guard the two-full-names branch
 already had.
+
+## 2026-09-04 — Granola-class reviews + ask-your-meetings search
+
+Noah benchmarked our output against Granola (attachments in the shanghai
+workspace). Three decisions:
+
+**Review body is topic sections, not a flat takeaway list.** The header
+contract stays five labels (parser survival on small models), but
+KEY TAKEAWAYS became `NOTES:` containing `### topic` lines with dense
+factual bullets. Parse rule that matters: a `#`-prefixed line becomes a
+topic heading UNLESS its cleaned text is a canonical section name —
+checked BEFORE the fuzzy sectionFor, because "Role and focus" is a topic,
+not the NEXT MEETING FOCUS header (found by a real test failure). Legacy
+persisted reviews (flat **Key Takeaways**) still parse; `takeaways` stays
+as the deterministic/legacy bucket. Review call budget is 10240 ctx /
+1200 predict — 1024 truncated a real 52-min transcript's last section.
+
+**Hallucination guards earned by real runs, not theory.** Tested the
+prompt against the real Noah/Nick transcript on qwen3.5:9b and :4b:
+models invented a name ("Chad", who was merely *mentioned*) and
+deadlines ("by Friday" — copied from the example's own next step). Fixes
+that worked: an explicit mentioned≠speaker rule, owners restricted to
+transcript names/You/Them/(owner unclear), and stripping the deadline
+from the in-prompt example. Residual: models still occasionally glue on
+soft deadlines; accepted for now.
+
+**Search = all-words matching + an opt-in local Ask card, not embeddings.**
+Multi-word queries now require every token on a line (any order) —
+Foundation-only so the MCP server rig keeps compiling TranscriptSearch
+standalone. "Ask AI" lives in SearchResultsView and is deliberately
+retrieval-then-LLM with no index: score sessions by distinct question
+words (coverage beats volume), take the 14 best-matching lines per
+session (best, not first — "team" filled the cap before multi-word lines)
+plus the saved ## Review, cap 4 sessions/12k chars, answer grounded
+"ONLY the excerpts" with meeting citations. Degraded modes are visible
+(no model / no matching meetings say why), per the standing rule.

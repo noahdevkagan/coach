@@ -76,7 +76,9 @@ struct ContentView: View {
                     }
                     .frame(minWidth: 400)
                 } else if !activeSearch.isEmpty {
-                    SearchResultsView(query: activeSearch) { url in
+                    SearchResultsView(query: activeSearch,
+                                      settings: settings,
+                                      ollamaManager: ollamaManager) { url in
                         selectedSessionURL = url
                     }
                     .frame(minWidth: 400)
